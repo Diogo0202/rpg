@@ -1,0 +1,162 @@
+.panel {
+  min-width: 0;
+  padding: clamp(1.1rem, 3vw, 1.65rem);
+  border: 1px solid rgba(181, 91, 50, 0.48);
+  background: #171a18;
+  color: #eae3d5;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+}
+
+.header,
+.toolbar,
+.markerHeading,
+.markerItem,
+.actions,
+.markerActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.header { align-items: flex-end; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.eyebrow { margin: 0 0 0.4rem; color: #a9c7bb; font-size: 0.65rem; font-weight: 750; letter-spacing: 0.16em; }
+.header h2 { margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: clamp(1.5rem, 4vw, 2.2rem); }
+.intro { margin: 0.55rem 0 0; color: #b8b3a8; font-size: 0.88rem; line-height: 1.55; }
+.message { min-height: 1.3em; margin: 0.6rem 0; color: #ffb08e; font-size: 0.82rem; }
+.empty { margin: 0; border: 1px dashed rgba(255, 255, 255, 0.16); padding: 1.1rem; color: #b8b3a8; font-size: 0.88rem; line-height: 1.6; }
+.error { margin: 0; border: 1px solid rgba(255, 112, 112, 0.48); padding: 0.85rem; color: #ffaaaa; font-size: 0.86rem; }
+
+.mapSelectLabel,
+.toolbar label,
+.markerForm label {
+  display: grid;
+  min-width: 0;
+  gap: 0.35rem;
+  color: #a9c7bb;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mapSelectLabel { width: min(100%, 22rem); }
+.mapSelectLabel select,
+.toolbar input:not([type="checkbox"]),
+.markerForm input,
+.markerForm select,
+.markerForm textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0;
+  background: #101211;
+  color: #eae3d5;
+  font: inherit;
+  font-size: 0.85rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.mapSelectLabel select:focus-visible,
+.toolbar input:focus-visible,
+.gridToggle input:focus-visible,
+.markerForm input:focus-visible,
+.markerForm select:focus-visible,
+.markerForm textarea:focus-visible,
+.colorChoices button:focus-visible,
+.mapStage:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.dangerButton:focus-visible,
+.textButton:focus-visible {
+  outline: 3px solid #d27648;
+  outline-offset: 2px;
+}
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem); gap: 1rem; align-items: start; }
+.mapColumn { min-width: 0; }
+.toolbar { justify-content: flex-start; align-items: flex-end; flex-wrap: wrap; margin-bottom: 0.7rem; padding: 0.75rem; border: 1px solid rgba(255, 255, 255, 0.1); background: #101211; }
+.toolbar label { flex: 1 1 13rem; }
+.gridToggle { display: flex !important; min-height: 2.65rem; flex: 0 0 auto !important; grid-template-columns: auto auto; align-items: center; gap: 0.5rem !important; cursor: pointer; }
+.gridToggle input { width: 1.05rem; height: 1.05rem; accent-color: #b55b32; }
+
+.primaryButton,
+.secondaryButton,
+.dangerButton,
+.textButton {
+  display: inline-flex;
+  min-height: 2.45rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 0;
+  font: inherit;
+  font-size: 0.73rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.primaryButton { background: #b55b32; color: #101211; }
+.primaryButton:hover:not(:disabled) { background: #d27648; }
+.secondaryButton { border-color: rgba(255, 255, 255, 0.18); background: #171a18; color: #eae3d5; }
+.secondaryButton:hover:not(:disabled) { border-color: #83a89a; color: #d8efe2; }
+.dangerButton { border-color: rgba(255, 128, 112, 0.34); background: transparent; color: #ffad98; }
+.dangerButton:hover:not(:disabled) { background: rgba(181, 91, 50, 0.16); }
+.textButton { min-height: 2rem; padding-inline: 0.25rem; background: transparent; color: #c7e1d7; }
+.textButton:hover:not(:disabled) { color: #fff; text-decoration: underline; }
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.dangerButton:disabled,
+.textButton:disabled { opacity: 0.56; cursor: not-allowed; }
+
+.mapStage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(131, 168, 154, 0.42);
+  background: #111714;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.canvas { display: block; width: 100%; height: 100%; object-fit: fill; }
+.markerPin,
+.pendingPin { position: absolute; z-index: 1; width: clamp(0.6rem, 1.6vw, 1rem); height: clamp(0.6rem, 1.6vw, 1rem); transform: translate(-50%, -50%); border: 2px solid #111714; border-radius: 50%; box-shadow: 0 0 0 1px rgba(244, 238, 228, 0.75); pointer-events: none; }
+.pendingPin { background: #f4eee4; border-color: #b55b32; outline: 2px solid #b55b32; }
+.noTerrain { display: grid; min-height: 12rem; place-items: center; border: 1px dashed rgba(255, 255, 255, 0.2); padding: 1.2rem; background: #101211; color: #b8b3a8; font-size: 0.86rem; line-height: 1.6; text-align: center; }
+.mapMeta { margin: 0.45rem 0 0; color: #8f958c; font-size: 0.7rem; }
+
+.markerPanel { min-width: 0; padding: 0.85rem; border: 1px solid rgba(131, 168, 154, 0.36); background: #101211; }
+.markerHeading { align-items: flex-start; }
+.markerHeading h3 { margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: 1.35rem; }
+.count { flex: 0 0 auto; color: #a9c7bb; font-size: 0.75rem; font-variant-numeric: tabular-nums; }
+.hint { margin: 0.55rem 0; color: #8f958c; font-size: 0.73rem; line-height: 1.5; }
+.markerForm { display: grid; gap: 0.6rem; margin: 0.65rem 0; padding: 0.7rem; border: 1px solid rgba(181, 91, 50, 0.4); background: #171a18; }
+.markerForm textarea { min-height: 4.3rem; resize: vertical; }
+.colorChoices { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0; padding: 0; border: 0; }
+.colorChoices legend { margin-bottom: 0.4rem; color: #a9c7bb; font-size: 0.68rem; font-weight: 750; }
+.colorChoices button { width: 1.65rem; height: 1.65rem; border: 2px solid transparent; border-radius: 50%; cursor: pointer; }
+.colorChoices button[aria-pressed="true"] { border-color: #f4eee4; box-shadow: 0 0 0 1px #101211; }
+.actions { justify-content: flex-start; flex-wrap: wrap; }
+.markerList { display: grid; gap: 0.55rem; max-height: 28rem; overflow: auto; margin: 0.7rem 0 0; padding: 0; list-style: none; }
+.markerItem { align-items: flex-start; justify-content: flex-start; gap: 0.55rem; padding-top: 0.6rem; border-top: 1px solid rgba(255, 255, 255, 0.09); }
+.swatch { width: 0.65rem; height: 0.65rem; flex: 0 0 auto; margin-top: 0.27rem; border-radius: 50%; }
+.markerInfo { display: grid; min-width: 0; flex: 1; gap: 0.18rem; }
+.markerInfo strong { overflow-wrap: anywhere; color: #eae3d5; font-size: 0.82rem; }
+.markerInfo small { color: #8f958c; font-size: 0.66rem; }
+.markerInfo p { margin: 0.15rem 0; color: #b8b3a8; font-size: 0.73rem; line-height: 1.45; white-space: pre-wrap; }
+.markerActions { flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 0.15rem; }
+
+@media (max-width: 900px) { .workspace { grid-template-columns: minmax(0, 1fr); } .markerPanel { display: grid; grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) {
+  .header { align-items: flex-start; }
+  .toolbar { align-items: stretch; }
+  .toolbar label { flex-basis: 100%; }
+  .gridToggle { min-height: 2.6rem; }
+  .markerItem { flex-wrap: wrap; }
+  .markerActions { flex-direction: row; margin-left: auto; }
+}

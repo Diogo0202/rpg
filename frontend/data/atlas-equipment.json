@@ -1,0 +1,880 @@
+[
+  {
+    "id": "faca",
+    "name": "Faca robusta",
+    "category": "weapon",
+    "resource_cost": 1,
+    "damage_bonus": 1,
+    "protection": 0,
+    "notes": "Arma branca discreta, fácil de ocultar.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "taco",
+    "name": "Taco ou bastão",
+    "category": "weapon",
+    "resource_cost": 1,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Arma contundente comum, pouco discreta.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "espada",
+    "name": "Espada cerimonial",
+    "category": "weapon",
+    "resource_cost": 3,
+    "damage_bonus": 3,
+    "protection": 0,
+    "notes": "Lâmina longa, exige porte e manutenção.",
+    "eras": [
+      "antiga",
+      "medieval"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "pistola",
+    "name": "Pistola compacta",
+    "category": "weapon",
+    "resource_cost": 2,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Arma de fogo curta, ocultável com preparo.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "espingarda",
+    "name": "Espingarda",
+    "category": "weapon",
+    "resource_cost": 3,
+    "damage_bonus": 4,
+    "protection": 0,
+    "notes": "Alto impacto em curta distância, difícil de dissimular.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "colete",
+    "name": "Colete balístico leve",
+    "category": "armor",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 2,
+    "notes": "Proteção portátil contra impactos balísticos e contundentes.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "tatico",
+    "name": "Proteção tática reforçada",
+    "category": "armor",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 3,
+    "notes": "Cobertura ampla; compromete discrição e mobilidade.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "kit",
+    "name": "Kit de arrombamento",
+    "category": "equipment",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Ferramentas compactas para fechaduras e acesso físico.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "forense",
+    "name": "Kit forense portátil",
+    "category": "equipment",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Coleta de vestígios, luzes e recipientes seguros.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "formal",
+    "name": "Traje formal sob medida",
+    "category": "clothing",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Apoia presença em eventos de elite e etiqueta social.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "tatico-look",
+    "name": "Vestuário tático discreto",
+    "category": "clothing",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Peças resistentes pensadas para mobilidade e ocultação.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "apartamento",
+    "name": "Apartamento discreto",
+    "category": "dwelling",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Moradia urbana com espaço para uma rotina segura.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "refugio",
+    "name": "Refúgio fortificado",
+    "category": "dwelling",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Acesso controlado, camadas de segurança e isolamento diurno.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "sedan",
+    "name": "Sedã executivo",
+    "category": "vehicle",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Veículo confortável com discrição em áreas urbanas.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "moto",
+    "name": "Motocicleta de fuga",
+    "category": "vehicle",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Mobilidade alta e perfil baixo em tráfego denso.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cavalo",
+    "name": "Cavalo treinado",
+    "category": "mount",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria para deslocamento rural, histórico ou de domínio próprio.",
+    "eras": [
+      "medieval",
+      "revolucao-industrial"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "machado",
+    "name": "Machado de mão",
+    "category": "weapon",
+    "resource_cost": 2,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Ferramenta de impacto cortante, barulhenta e de difícil ocultação.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "machete",
+    "name": "Facão",
+    "category": "weapon",
+    "resource_cost": 2,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Lâmina longa para trabalho pesado ou combate de proximidade.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "revolver",
+    "name": "Revólver",
+    "category": "weapon",
+    "resource_cost": 2,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Arma curta robusta; exige atenção a ruído e rastreabilidade.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "submetralhadora",
+    "name": "Submetralhadora",
+    "category": "weapon",
+    "resource_cost": 4,
+    "damage_bonus": 3,
+    "protection": 0,
+    "notes": "Alto volume de fogo; inadequada para operações discretas.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "rifle",
+    "name": "Rifle de caça",
+    "category": "weapon",
+    "resource_cost": 4,
+    "damage_bonus": 4,
+    "protection": 0,
+    "notes": "Precisão e alcance; transporte conspícuo e controlado.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "couro",
+    "name": "Jaqueta de couro reforçada",
+    "category": "armor",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 1,
+    "notes": "Proteção leve contra impacto e corte superficial.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "capacete",
+    "name": "Capacete balístico",
+    "category": "armor",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 1,
+    "notes": "Cobertura de cabeça para cenários de confronto armado.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "escudo",
+    "name": "Escudo balístico",
+    "category": "armor",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 3,
+    "notes": "Proteção móvel; ocupa uma das mãos e limita mobilidade.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "medico",
+    "name": "Kit médico de trauma",
+    "category": "equipment",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Material de estabilização para ferimentos imediatos.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "telefones",
+    "name": "Telefones descartáveis",
+    "category": "equipment",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Comunicação de baixo rastreamento para uma operação curta.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "noturna",
+    "name": "Óptica noturna",
+    "category": "equipment",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Amplia observação em baixa luz sem revelar a presença.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "identidade",
+    "name": "Documentos de cobertura",
+    "category": "equipment",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Conjunto de identidade e trilha de papel para uma Máscara alternativa.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "luxo",
+    "name": "Guarda-roupa de luxo",
+    "category": "clothing",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Peças de alta-costura para eventos de Status elevado.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "uniforme",
+    "name": "Uniforme de serviço",
+    "category": "clothing",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Permite circular em contextos profissionais específicos com pouca atenção.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cobertura",
+    "name": "Cobertura urbana",
+    "category": "dwelling",
+    "resource_cost": 5,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Moradia de status, adequada a encontros sociais e observação urbana.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "deposito",
+    "name": "Galpão convertido",
+    "category": "dwelling",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Espaço amplo para coterie, armazenagem e trabalho discreto.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "carro-esportivo",
+    "name": "Carro esportivo",
+    "category": "vehicle",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Mobilidade veloz e símbolo evidente de Recursos.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "utilitario",
+    "name": "Utilitário blindado",
+    "category": "vehicle",
+    "resource_cost": 5,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Transporte robusto para equipamento, aliados e viagens arriscadas.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cavalo-raca",
+    "name": "Cavalo de raça",
+    "category": "mount",
+    "resource_cost": 5,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria de prestígio, treinamento elevado e manutenção contínua.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "soco-ingles",
+    "name": "Soco-inglês",
+    "category": "weapon",
+    "resource_cost": 1,
+    "damage_bonus": 1,
+    "protection": 0,
+    "notes": "Impacto curto e discreto, associado a confronto de rua.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "arco",
+    "name": "Arco composto",
+    "category": "weapon",
+    "resource_cost": 3,
+    "damage_bonus": 3,
+    "protection": 0,
+    "notes": "Arma de distância silenciosa que requer prática e espaço.",
+    "eras": [
+      "medieval",
+      "moderna"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "gas",
+    "name": "Agente incapacitante",
+    "category": "weapon",
+    "resource_cost": 2,
+    "damage_bonus": 0,
+    "protection": 0,
+    "notes": "Ferramenta de controle de cena; seus efeitos dependem da proteção do alvo.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "traje-antimotim",
+    "name": "Traje antimotim",
+    "category": "armor",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 3,
+    "notes": "Proteção ampla contra impacto; impossível de confundir com vestimenta comum.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "casaco-fogo",
+    "name": "Casaco resistente ao fogo",
+    "category": "armor",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 1,
+    "notes": "Camada especializada para mitigar risco ambiental e faíscas.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "drone",
+    "name": "Drone de observação",
+    "category": "equipment",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Reconhecimento remoto; sujeito a ruído, alcance e vigilância eletrônica.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "vigilancia",
+    "name": "Maleta de vigilância",
+    "category": "equipment",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Câmeras, captação e armazenamento para monitorar uma cena.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "laboratorio",
+    "name": "Laboratório portátil",
+    "category": "equipment",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Análise rápida de vestígios, reagentes e material ritualístico.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "traje-luto",
+    "name": "Traje de luto",
+    "category": "clothing",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Vestimenta social apropriada para funerais, velórios e ambientes solenes.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "vestido-baile",
+    "name": "Traje de gala",
+    "category": "clothing",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Peça de presença para Elysium, recepções e círculos de Status.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "fazenda",
+    "name": "Propriedade rural",
+    "category": "dwelling",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Terreno isolado com potencial para refúgio, rebanho ou criação de animais.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "hotel",
+    "name": "Suíte de hotel de longa estadia",
+    "category": "dwelling",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Cobertura urbana temporária com serviço, anonimato relativo e custo recorrente.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "furgoneta",
+    "name": "Furgoneta de carga",
+    "category": "vehicle",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Transporte de pessoas, equipamento ou cobertura de trabalho logístico.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "classico",
+    "name": "Automóvel clássico",
+    "category": "vehicle",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Veículo de prestígio, memorável e menos adequado a passar despercebido.",
+    "eras": [],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "mula",
+    "name": "Mula de carga",
+    "category": "mount",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria resistente para trilhas, viagem e transporte de suprimentos.",
+    "eras": [
+      "medieval",
+      "revolucao-industrial"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "carruagem",
+    "name": "Carruagem restaurada",
+    "category": "mount",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Veículo histórico para domínios tradicionais, eventos ou cenários rurais.",
+    "eras": [
+      "revolucao-industrial"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "gladio-cerimonial",
+    "name": "Gládio cerimonial",
+    "category": "weapon",
+    "resource_cost": 3,
+    "damage_bonus": 2,
+    "protection": 0,
+    "notes": "Lâmina curta para uma corte antiga, procissão ou vigília de domínio.",
+    "eras": [
+      "antiga"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "litiga-antiga",
+    "name": "Litiga de viagem",
+    "category": "vehicle",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Transporte de status para deslocamento urbano ou rotas antigas, conduzido por servos ou animais.",
+    "eras": [
+      "antiga"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cavalo-sela-antigo",
+    "name": "Cavalo de sela antigo",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria de viagem para estradas, patrulhas e jornadas por territórios clássicos.",
+    "eras": [
+      "antiga"
+    ],
+    "animal_profile": {
+      "species": "Equino",
+      "strength": 3,
+      "dexterity": 2,
+      "stamina": 3,
+      "health": 5,
+      "speed": "Trote sustentado",
+      "attack": "Coice +1 superficial",
+      "traits": [
+        "Dócil",
+        "Resistente"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "destrier",
+    "name": "Destrier",
+    "category": "animal",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Cavalo de guerra treinado para carga e combate montado.",
+    "eras": [
+      "medieval"
+    ],
+    "animal_profile": {
+      "species": "Equino",
+      "strength": 4,
+      "dexterity": 2,
+      "stamina": 4,
+      "health": 6,
+      "speed": "30 km/h em galope",
+      "attack": "Coice +2 superficial",
+      "traits": [
+        "Intimidador",
+        "Treinado para guerra"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "corcel",
+    "name": "Corcel",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria ágil para mensageiros, caçadores e perseguições.",
+    "eras": [
+      "medieval"
+    ],
+    "animal_profile": {
+      "species": "Equino",
+      "strength": 3,
+      "dexterity": 3,
+      "stamina": 3,
+      "health": 5,
+      "speed": "45 km/h em galope",
+      "attack": "Coice +1 superficial",
+      "traits": [
+        "Ágil",
+        "Resistente"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "mastim-molosso",
+    "name": "Mastim Molosso",
+    "category": "animal",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Cão de guarda e combate, leal sob orientação firme.",
+    "eras": [
+      "medieval"
+    ],
+    "animal_profile": {
+      "species": "Canino",
+      "strength": 4,
+      "dexterity": 2,
+      "stamina": 4,
+      "health": 6,
+      "speed": "Corrida curta",
+      "attack": "Mordida +2 agravado",
+      "traits": [
+        "Guarda",
+        "Combate"
+      ],
+      "price_label": "5 moedas de ouro"
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "lobo-cinzento",
+    "name": "Lobo Cinzento treinado",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Caçador silencioso para reconhecimento, emboscada e rastreamento.",
+    "eras": [
+      "medieval"
+    ],
+    "animal_profile": {
+      "species": "Canino",
+      "strength": 3,
+      "dexterity": 3,
+      "stamina": 3,
+      "health": 5,
+      "speed": "Corrida e trilha",
+      "attack": "Mordida +1 agravado",
+      "traits": [
+        "Matilha",
+        "Rastreamento"
+      ],
+      "price_label": "10 moedas de ouro"
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "aguia-guerra",
+    "name": "Águia de guerra",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Ave de rapina para reconhecimento e distrações rápidas.",
+    "eras": [
+      "medieval"
+    ],
+    "animal_profile": {
+      "species": "Ave de rapina",
+      "strength": 1,
+      "dexterity": 4,
+      "stamina": 2,
+      "health": 3,
+      "speed": "Voo de reconhecimento",
+      "attack": "Garras +1 superficial",
+      "traits": [
+        "Visão aguçada",
+        "Mensageira"
+      ],
+      "price_label": "15 moedas de ouro"
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cavalo-tracao",
+    "name": "Cavalo de tração",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Animal de carga para carroças, campos e logística urbana vitoriana.",
+    "eras": [
+      "revolucao-industrial"
+    ],
+    "animal_profile": {
+      "species": "Equino",
+      "strength": 5,
+      "dexterity": 1,
+      "stamina": 4,
+      "health": 7,
+      "speed": "15 km/h em trote",
+      "attack": "Coice +2 superficial",
+      "traits": [
+        "Forte",
+        "Resistente ao trabalho"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cavalo-patrulha",
+    "name": "Cavalo de patrulha",
+    "category": "animal",
+    "resource_cost": 3,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Montaria treinada para ruído, multidões e rondas noturnas.",
+    "eras": [
+      "revolucao-industrial"
+    ],
+    "animal_profile": {
+      "species": "Equino",
+      "strength": 3,
+      "dexterity": 2,
+      "stamina": 4,
+      "health": 6,
+      "speed": "25 km/h em trote",
+      "attack": "Coice +1 superficial",
+      "traits": [
+        "Treinado",
+        "Leal"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "carruagem-passageiros",
+    "name": "Carruagem de passageiros",
+    "category": "vehicle",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Veículo urbano para deslocamento de grupo em uma cidade industrial; requer animal de tração ou contratado.",
+    "eras": [
+      "revolucao-industrial"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "bicicleta-utilitaria",
+    "name": "Bicicleta utilitária",
+    "category": "vehicle",
+    "resource_cost": 1,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Transporte discreto, silencioso e prático para ruas modernas ou industriais tardias.",
+    "eras": [
+      "revolucao-industrial",
+      "moderna"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "van-operacional",
+    "name": "Van operacional",
+    "category": "vehicle",
+    "resource_cost": 4,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Transporte de equipe, equipamento e animais em operações contemporâneas.",
+    "eras": [
+      "moderna"
+    ],
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  },
+  {
+    "id": "cao-rastreio",
+    "name": "Cão de rastreio",
+    "category": "animal",
+    "resource_cost": 2,
+    "damage_bonus": null,
+    "protection": 0,
+    "notes": "Companheiro treinado para seguir cheiros, vigiar perímetros e acompanhar uma investigação moderna.",
+    "eras": [
+      "moderna"
+    ],
+    "animal_profile": {
+      "species": "Canino",
+      "strength": 2,
+      "dexterity": 3,
+      "stamina": 3,
+      "health": 5,
+      "speed": "Corrida curta",
+      "attack": "Mordida +1 superficial",
+      "traits": [
+        "Faro",
+        "Leal"
+      ]
+    },
+    "source": "RPG Atlas fb34a5b, shared/vampire-v5.ts"
+  }
+]

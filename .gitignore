@@ -1,0 +1,14 @@
+# Ambientes e artefatos locais nunca entram no repositório.
+.env
+.env.*
+!.env.example
+node_modules/
+.next/
+*.tsbuildinfo
+coverage/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+dist/
+supabase/.temp/

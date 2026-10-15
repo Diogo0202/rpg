@@ -1,0 +1,220 @@
+.panel {
+  min-width: 0;
+  padding: clamp(1.1rem, 3vw, 1.65rem);
+  border: 1px solid rgba(206, 178, 132, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(36, 32, 35, 0.98), rgba(24, 24, 29, 0.98));
+  color: #f2eee8;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+}
+
+.heading,
+.toolbar,
+.characterHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.heading { align-items: flex-start; }
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: #cba36e;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  line-height: 1.2;
+}
+
+.connection {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.connected { color: #8ed5a5; }
+.offline { color: #d4c3a5; }
+.error { color: #ff9696; }
+
+.connectionDot {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.toolbar { margin: 0.75rem 0 0.35rem; }
+
+.filter {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0.35rem 0 0.65rem;
+}
+
+.filterLabel {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: #ece5db;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filterLabel input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: #cda66f;
+}
+
+.filterLabel input:focus-visible {
+  outline: 3px solid #e1b878;
+  outline-offset: 3px;
+}
+
+.filterHelp {
+  max-width: 75ch;
+  margin: 0;
+  color: #a9a19a;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.description,
+.empty {
+  margin: 0;
+  color: #bcb7b0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.refreshButton {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(203, 163, 110, 0.45);
+  border-radius: 10px;
+  background: #cda66f;
+  color: #211b17;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.refreshButton:hover:not(:disabled) { background: #e0bc89; }
+.refreshButton:disabled { opacity: 0.65; cursor: wait; }
+
+.refreshButton:focus-visible {
+  outline: 3px solid #e1b878;
+  outline-offset: 3px;
+}
+
+.message {
+  min-height: 1.25em;
+  margin: 0.45rem 0 0.7rem;
+  color: #ffaaaa;
+  font-size: 0.82rem;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 13px;
+  background: rgba(10, 10, 13, 0.38);
+}
+
+.characterHeading h3 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 1rem;
+  text-overflow: ellipsis;
+}
+
+.version,
+.range {
+  color: #a9a19a;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0.85rem 0 0;
+}
+
+.metric {
+  min-width: 0;
+  padding: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.metric dt {
+  color: #bcb7b0;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.metric dd {
+  margin: 0.25rem 0 0;
+  color: #f2eee8;
+  font-size: 1rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.hungerHigh {
+  border-color: rgba(255, 112, 112, 0.62);
+  background: rgba(128, 30, 35, 0.22);
+}
+
+.hungerHigh dd { color: #ff8989; }
+
+.updated {
+  margin: 0.75rem 0 0;
+  color: #938c85;
+  font-size: 0.72rem;
+}
+
+.empty { padding: 1rem 0; }
+
+@media (max-width: 480px) {
+  .toolbar { align-items: flex-start; }
+  .refreshButton { min-height: 2.7rem; }
+  .metrics { gap: 0.4rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refreshButton { scroll-behavior: auto; }
+}

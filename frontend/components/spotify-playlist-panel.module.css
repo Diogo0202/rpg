@@ -1,0 +1,262 @@
+.panel {
+  min-width: 0;
+  padding: clamp(1.1rem, 3vw, 1.65rem);
+  border: 1px solid rgba(206, 178, 132, 0.22);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(36, 32, 35, 0.98), rgba(24, 24, 29, 0.98));
+  color: #f2eee8;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.18);
+}
+
+.heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.4rem;
+  color: #cba36e;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.65rem);
+  line-height: 1.2;
+}
+
+.count {
+  display: grid;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  place-items: center;
+  border: 1px solid rgba(203, 163, 110, 0.35);
+  border-radius: 999px;
+  color: #e6c99f;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.description,
+.help,
+.scope,
+.empty {
+  color: #bcb7b0;
+  line-height: 1.55;
+}
+
+.description {
+  max-width: 68ch;
+  margin: 0.8rem 0 1.25rem;
+  font-size: 0.92rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.inputRow {
+  display: flex;
+  gap: 0.65rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.9rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #514b4b;
+  border-radius: 10px;
+  outline: none;
+  background: #17171b;
+  color: #f6f0e8;
+  font: inherit;
+}
+
+.input::placeholder {
+  color: #817b78;
+}
+
+.input:focus-visible,
+.addButton:focus-visible,
+.openLink:focus-visible,
+.removeButton:focus-visible {
+  outline: 3px solid #e1b878;
+  outline-offset: 3px;
+}
+
+.addButton,
+.openLink {
+  display: inline-flex;
+  min-height: 2.8rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 0.95rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #cda66f;
+  color: #211b17;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 750;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.addButton:hover,
+.openLink:hover {
+  transform: translateY(-1px);
+  background: #e0bc89;
+}
+
+.addButton:disabled,
+.removeButton:disabled {
+  transform: none;
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.help {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.status {
+  min-height: 1.3em;
+  margin: 0.8rem 0 0;
+  color: #e4c18f;
+  font-size: 0.82rem;
+}
+
+.list {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(10, 10, 13, 0.38);
+}
+
+.playlistInfo {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.playlistNumber {
+  color: #ece5db;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.playlistId {
+  overflow: hidden;
+  color: #a9a19a;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.openLink {
+  min-height: 2.3rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+}
+
+.removeButton {
+  min-height: 2.3rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid #5e5350;
+  border-radius: 9px;
+  background: transparent;
+  color: #d2c8be;
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.removeButton:hover {
+  border-color: #d19785;
+  color: #ffc5b1;
+}
+
+.empty {
+  margin: 0;
+  padding: 0.85rem 0;
+  font-size: 0.85rem;
+}
+
+.scope {
+  margin: 1rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.74rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+@media (max-width: 560px) {
+  .inputRow,
+  .item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .addButton {
+    width: 100%;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .openLink,
+  .removeButton {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .addButton,
+  .openLink {
+    transition: none;
+  }
+}

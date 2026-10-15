@@ -1,0 +1,32 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends
+
+from app.routes.generators import require_signed_in_user
+from app.services.system_rolls import (
+    HunterRollRequest,
+    HunterRollResponse,
+    OneRingRollRequest,
+    OneRingRollResponse,
+    roll_hunter,
+    roll_one_ring,
+)
+
+
+router = APIRouter(prefix="/api/v1/system-rolls", tags=["system-rolls"])
+
+
+@router.post("/hunter", response_model=HunterRollResponse)
+def roll_hunter_action(
+    payload: HunterRollRequest,
+    _: None = Depends(require_signed_in_user),
+) -> HunterRollResponse:
+    return roll_hunter(payload)
+
+
+@router.post("/one-ring", response_model=OneRingRollResponse)
+def roll_one_ring_action(
+    payload: OneRingRollRequest,
+    _: None = Depends(require_signed_in_user),
+) -> OneRingRollResponse:
+    return roll_one_ring(payload)

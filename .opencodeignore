@@ -1,0 +1,9 @@
+# Generated dependencies and build output do not carry product context and can
+# exceed the context windows of local/free OpenCode models.
+frontend/node_modules/
+frontend/.next/
+backend/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+.mece/cells/**/opencode.*.log

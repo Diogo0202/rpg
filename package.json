@@ -1,0 +1,14 @@
+{
+  "name": "rpg-nexus-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "dev:web": "npm --prefix frontend run dev",
+    "dev:api": "backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
+    "lint": "npm --prefix frontend run lint",
+    "build": "npm --prefix frontend run build",
+    "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\test-api.ps1",
+    "test:web": "npm --prefix frontend run test:domain"
+  }
+}

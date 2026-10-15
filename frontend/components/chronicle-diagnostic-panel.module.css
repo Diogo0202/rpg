@@ -1,0 +1,56 @@
+.panel {
+  display: grid;
+  gap: 1rem;
+  color: var(--foreground, #eae3d5);
+}
+
+.header, .twoColumns, .summaryGrid, .reportGrid, .workspace {
+  display: grid;
+  gap: .85rem;
+}
+
+.header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+  padding-bottom: 1rem;
+}
+
+.header h2 { margin: .2rem 0; font: 600 1.8rem/1.1 Georgia, serif; }
+.header p { margin: .3rem 0 0; color: #b8b3a8; font-size: .88rem; }
+.eyebrow { color: #d27648 !important; font-size: .65rem !important; font-weight: 800; letter-spacing: .14em; }
+.scope, .notice { margin: 0; border: 1px solid rgb(131 168 154 / 30%); background: rgb(131 168 154 / 7%); padding: .7rem .85rem; color: #c9d4cd; font-size: .82rem; line-height: 1.5; }
+.summaryGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.summaryGrid article, .reportCard, .formCard { border: 1px solid rgb(255 255 255 / 12%); background: rgb(23 26 24 / 84%); padding: 1rem; }
+.summaryGrid article { display: flex; justify-content: space-between; gap: .8rem; align-items: center; }
+.summaryGrid span { color: #b8b3a8; font-size: .82rem; }
+.summaryGrid strong { color: #ffb08e; font-size: 1.5rem; }
+.reportGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.reportCard h3, .formCard h3 { margin: 0 0 .75rem; font: 600 1.15rem Georgia, serif; }
+.reportCard p { color: #c8c2b7; font-size: .8rem; line-height: 1.5; }
+.evidence { border: 1px solid rgb(255 255 255 / 12%); padding: .75rem; color: #b8b3a8; font-size: .82rem; }
+.evidence summary { cursor: pointer; color: #eae3d5; }
+.workspace { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.formCard { display: grid; gap: .8rem; }
+.formCard form { display: grid; gap: .65rem; border-top: 1px solid rgb(255 255 255 / 10%); padding-top: .75rem; }
+.formCard label { display: grid; gap: .3rem; color: #c8c2b7; font-size: .8rem; }
+.formCard input:not([type="checkbox"]), .formCard select { min-width: 0; min-height: 2.45rem; border: 1px solid rgb(255 255 255 / 17%); border-radius: .35rem; background: #101211; padding: .45rem .6rem; color: #f4eee4; }
+.twoColumns { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.button { min-height: 2.45rem; border: 1px solid rgb(210 118 72 / 70%); border-radius: .35rem; background: rgb(181 91 50 / 16%); padding: .5rem .8rem; color: #ffb08e; font-weight: 700; cursor: pointer; }
+.button:disabled { cursor: wait; opacity: .55; }
+.formCard fieldset { display: grid; gap: .35rem; max-height: 14rem; overflow: auto; border: 1px solid rgb(255 255 255 / 12%); padding: .6rem; }
+.formCard legend { padding: 0 .25rem; color: #a9c7bb; font-size: .75rem; font-weight: 700; }
+.formCard .check { display: flex; grid-template-columns: auto 1fr; align-items: baseline; gap: .45rem; padding: .2rem 0; }
+.check input { accent-color: #d27648; }
+.check small { color: #828980; font-size: .67rem; }
+
+@media (max-width: 900px) {
+  .reportGrid { grid-template-columns: 1fr; }
+  .workspace { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .header { grid-template-columns: 1fr; }
+  .summaryGrid { grid-template-columns: 1fr; }
+  .twoColumns { grid-template-columns: 1fr; }
+}

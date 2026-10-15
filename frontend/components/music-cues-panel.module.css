@@ -1,0 +1,39 @@
+﻿.panel { min-width: 0; padding: clamp(1.1rem, 3vw, 1.65rem); border: 1px solid rgba(181, 91, 50, .48); background: #171a18; color: #eae3d5; box-shadow: 0 18px 42px rgba(0, 0, 0, .18); }
+.header, .headerActions, .toolbar, .cueHeader, .formHeading, .actions { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.header { align-items: flex-end; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+.header h2 { margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: clamp(1.5rem, 4vw, 2.2rem); }
+.eyebrow { margin: 0 0 .4rem; color: #a9c7bb; font-size: .65rem; font-weight: 750; letter-spacing: .16em; }
+.intro { margin: .55rem 0 0; color: #b8b3a8; font-size: .88rem; line-height: 1.55; }
+.headerActions, .toolbar, .actions { justify-content: flex-start; flex-wrap: wrap; }
+.message { min-height: 1.3em; margin: .6rem 0; color: #ffb08e; font-size: .82rem; }
+.toolbar { align-items: end; margin: .8rem 0; padding: .7rem; border: 1px solid rgba(255, 255, 255, .1); background: #101211; }
+.toolbar label, .fields label { display: grid; min-width: 0; flex: 1 1 12rem; gap: .35rem; color: #a9c7bb; font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.count { margin-right: auto; color: #a9c7bb; font-size: .76rem; font-variant-numeric: tabular-nums; }
+.form { display: grid; gap: .8rem; margin: .8rem 0 1rem; padding: .85rem; border: 1px solid rgba(181, 91, 50, .4); background: #101211; }
+.formHeading { align-items: flex-start; }
+.formHeading h3 { margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: 1.35rem; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
+.wideField { grid-column: 1 / -1; }
+.fields input, .fields select, .fields textarea, .toolbar select { width: 100%; min-width: 0; min-height: 2.65rem; padding: .55rem .7rem; border: 1px solid rgba(255, 255, 255, .18); border-radius: 0; background: #171a18; color: #eae3d5; font: inherit; font-size: .85rem; letter-spacing: normal; text-transform: none; }
+.fields textarea { resize: vertical; line-height: 1.5; }
+.fields small { color: #8f958c; font-size: .68rem; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.fields input:focus-visible, .fields select:focus-visible, .fields textarea:focus-visible, .toolbar select:focus-visible, .primaryButton:focus-visible, .secondaryButton:focus-visible, .dangerButton:focus-visible, .textButton:focus-visible { outline: 3px solid #d27648; outline-offset: 2px; }
+.list { display: grid; gap: .7rem; margin: .8rem 0 0; padding: 0; list-style: none; }
+.cue { min-width: 0; padding: .9rem; border: 1px solid rgba(131, 168, 154, .36); background: #101211; }
+.cueHeader { align-items: flex-start; }
+.cueHeader h3 { margin: 0; color: #f4eee4; font-family: Georgia, serif; font-size: 1.35rem; overflow-wrap: anywhere; }
+.duration { flex: 0 0 auto; color: #d27648; font-size: .76rem; font-variant-numeric: tabular-nums; }
+.brief, .notes { margin: .7rem 0; color: #d2cdc1; font-size: .86rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.notes { color: #a9c7bb; }
+.audio { display: block; width: min(100%, 34rem); margin: .8rem 0; accent-color: #b55b32; }
+.noAudio, .empty { color: #8f958c; font-size: .82rem; line-height: 1.5; }
+.empty { margin: .7rem 0; border: 1px dashed rgba(255, 255, 255, .16); padding: 1rem; }
+.primaryButton, .secondaryButton, .dangerButton, .textButton { display: inline-flex; min-height: 2.45rem; align-items: center; justify-content: center; padding: .5rem .72rem; border: 1px solid transparent; border-radius: 0; font: inherit; font-size: .73rem; font-weight: 750; cursor: pointer; }
+.primaryButton { background: #b55b32; color: #101211; }
+.primaryButton:hover:not(:disabled) { background: #d27648; }
+.secondaryButton { border-color: rgba(255, 255, 255, .18); background: #171a18; color: #eae3d5; }
+.secondaryButton:hover:not(:disabled) { border-color: #83a89a; color: #d8efe2; }
+.dangerButton { border-color: rgba(255, 128, 112, .34); background: transparent; color: #ffad98; }
+.textButton { min-height: 2rem; padding-inline: .25rem; background: transparent; color: #c7e1d7; }
+.primaryButton:disabled, .secondaryButton:disabled, .dangerButton:disabled, .textButton:disabled { opacity: .56; cursor: not-allowed; }
+@media (max-width: 640px) { .fields { grid-template-columns: minmax(0, 1fr); } .wideField { grid-column: auto; } .header { align-items: flex-start; } }

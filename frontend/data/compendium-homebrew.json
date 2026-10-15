@@ -1,0 +1,50 @@
+[
+  {
+    "id": "homebrew-limiar-de-cinza",
+    "title": "Limiar de Cinza",
+    "type": "discipline",
+    "level": 1,
+    "tags": ["homebrew", "mascara-preservada", "observação"],
+    "cost": "1 ponto de foco (ficcional)",
+    "pool": "[falta detalhe real]",
+    "duration": "Uma cena ficcional",
+    "description": "Exemplo demonstrativo original: a personagem percebe vestígios de passagem em uma superfície coberta de poeira. Este texto não define uma regra de Vampiro: A Máscara.",
+    "source": { "title": "Homebrew demonstrativo", "kind": "homebrew" }
+  },
+  {
+    "id": "homebrew-rosto-de-domingo",
+    "title": "Rosto de Domingo",
+    "type": "discipline",
+    "level": 2,
+    "tags": ["homebrew", "mascara-preservada", "disfarce"],
+    "cost": "Sem custo mecânico definido",
+    "pool": "[falta detalhe real]",
+    "duration": "Até o fim da conversa ficcional",
+    "description": "Exemplo demonstrativo original: um detalhe familiar ajuda a personagem a passar despercebida em um encontro social. Efeito e resolução dependem da mesa; nenhuma regra oficial é afirmada.",
+    "source": { "title": "Homebrew demonstrativo", "kind": "homebrew" }
+  },
+  {
+    "id": "homebrew-contato-da-ultima-mesa",
+    "title": "Contato da Última Mesa",
+    "type": "advantage",
+    "level": 1,
+    "tags": ["homebrew", "mascara-preservada", "contato"],
+    "cost": "Sem custo mecânico definido",
+    "pool": "[falta detalhe real]",
+    "duration": "Não se aplica",
+    "description": "Exemplo demonstrativo original: a personagem conhece alguém que trabalha em um café noturno e pode pedir uma conversa. Alcance e consequência ficam para a mesa; não é uma regra oficial.",
+    "source": { "title": "Homebrew demonstrativo", "kind": "homebrew" }
+  },
+  {
+    "id": "homebrew-refugio-de-passagem",
+    "title": "Refúgio de Passagem",
+    "type": "advantage",
+    "level": 2,
+    "tags": ["homebrew", "mascara-preservada", "refúgio"],
+    "cost": "Sem custo mecânico definido",
+    "pool": "[falta detalhe real]",
+    "duration": "Enquanto a ficção justificar",
+    "description": "Exemplo demonstrativo original: uma chave esquecida permite passar algumas horas em um quarto vazio. Proteções, disponibilidade e qualquer efeito mecânico não estão definidos.",
+    "source": { "title": "Homebrew demonstrativo", "kind": "homebrew" }
+  }
+]
