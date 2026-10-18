@@ -2,6 +2,8 @@
 
 Atualizado em **15/10/2026**, com base no código de `D:\rpg-github`, na [comparação com o RPG Atlas](COMPARACAO_RPG_ATLAS.md) e nas verificações locais desta sessão.
 
+**Nota de 17/10/2026:** o [patch de segurança](SEGURANCA.md) acrescenta limites de valores, autenticação e cotas da API por processo, sinais mínimos de Realtime e CSP na impressão. As suítes locais passaram, sem aplicação de migrations remotas. A criação guiada e suas evidências estão no [checklist da entrega](CHECKLIST_CRIACAO_GUIADA.md). Apenas GUI-01 foi reavaliado neste ciclo; os demais percentuais mantêm a avaliação anterior e não certificam operação em produção.
+
 ## Critério dos percentuais
 
 - **100% | Implementada:** entrega delimitada presente e validada localmente. Esse percentual não comprova operação em produção.
@@ -16,9 +18,9 @@ Os percentuais são estimativas de conclusão do escopo descrito em cada item. E
 
 - **142 funcionalidades avaliadas.**
 - **8 implementadas:** 5,6% dos itens.
-- **96 em processo:** 67,6% dos itens.
-- **38 não implementadas:** 26,8% dos itens.
-- **52,1% de avanço médio neste checklist**, atribuindo o mesmo peso a cada item. Esse número depende desta divisão de funcionalidades e não mede o esforço necessário para lançar o produto.
+- **97 em processo:** 68,3% dos itens.
+- **37 não implementadas:** 26,1% dos itens.
+- **52,6% de avanço médio neste checklist**, atribuindo o mesmo peso a cada item. Esse número depende desta divisão de funcionalidades e não mede o esforço necessário para lançar o produto.
 - A contagem inclui os IDs com números, como `V5`, e as novas entregas do inventário Atlas. A divisão do escopo mudou; a média não deve ser comparada diretamente à versão anterior.
 
 ## Aplicação web e acesso em diferentes dispositivos
@@ -203,7 +205,7 @@ Evidências: [compêndio](frontend/components/compendium-panel.tsx), [índice de
 
 ## Criação guiada e rastreadores de sangue
 
-- **GUI-01 | 0% | Não implementada:** assistente de criação por etapas com máquina de estados e bloqueios por regras do sistema. Está previsto após a validação da ficha base.
+- **GUI-01 | 75% | Em processo:** assistente por etapas para modelos aprovados, validação por campo, identidade em destaque, nome único, fórmulas, revisão e criação autenticada com seleção na sessão. Testes locais e Chromium em 390/1440 px passaram com serviços simulados. Regras completas dos sistemas, persistência real e execução da migração de compatibilidade ainda pendentes.
 - **GUI-02 | 0% | Não implementada:** efeitos encadeados das escolhas de criação, como Tipo de Predador alterando especializações, Disciplinas, Vantagens e Defeitos.
 - **SAN-01 | 50% | Em processo:** Ressonância pode ser cadastrada como efeito, com bônus, tags de Disciplinas, origem e duração em cenas definidos pela mesa. O cadastro específico de caçadas e intensidades ainda não existe.
 - **SAN-02 | 0% | Não implementada:** registro de ingestões por doador e data, cálculo do grau e evolução do Vínculo de Sangue.

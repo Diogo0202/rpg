@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "test:domain": "node --experimental-strip-types --test tests/domain.test.mjs tests/vault-metadata.test.mjs"
+    "test:domain": "node --experimental-strip-types --test tests/domain.test.mjs tests/vault-metadata.test.mjs tests/content-safety.test.mjs tests/sheet-creation.test.mjs tests/sheet-backup-metadata.test.mjs tests/sheet-api.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

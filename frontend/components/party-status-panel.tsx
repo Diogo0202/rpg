@@ -120,7 +120,12 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
       .channel(`party-status-${campaignId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "character_sheets", filter: `campaign_id=eq.${campaignId}` },
+        { event: "INSERT", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` },
+        () => void refresh(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` },
         () => void refresh(),
       )
       .subscribe((channelStatus) => {

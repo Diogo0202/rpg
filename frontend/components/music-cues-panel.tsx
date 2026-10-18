@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { checkedAudioUrl } from "../lib/audio-url";
 import { downloadText } from "../lib/download";
 import styles from "./music-cues-panel.module.css";
 
@@ -14,16 +15,6 @@ type CueDraft = { title: string; sessionId: string; sceneType: SceneType; durati
 const SCENE_TYPES: Record<SceneType, string> = { arrival: "Chegada", exploration: "Exploração", intrigue: "Intriga", tension: "Tensão", combat: "Combate", aftermath: "Consequência", rest: "Descanso" };
 const EMPTY_DRAFT: CueDraft = { title: "", sessionId: "", sceneType: "exploration", durationSeconds: "120", brief: "", notes: "", audioUrl: "" };
 function cueSlug(value: string) { return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "referencia-musical"; }
-function checkedAudioUrl(value: string): string | null | false {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (trimmed.length > 2048 || /\s/.test(trimmed)) return false;
-  try {
-    const parsed = new URL(trimmed);
-    if (parsed.protocol !== "https:" || !parsed.hostname || parsed.username || parsed.password) return false;
-    return trimmed;
-  } catch { return false; }
-}
 function emptyDraft(): CueDraft { return { ...EMPTY_DRAFT }; }
 
 export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; canManage: boolean }) {
@@ -90,7 +81,7 @@ export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; 
     if (title.length < 3 || title.length > 160) { setMessage("O título precisa ter de 3 a 160 caracteres."); return; }
     if (!Number.isInteger(duration) || duration < 30 || duration > 3600) { setMessage("A duração precisa ficar entre 30 e 3600 segundos."); return; }
     if (brief.length > 8000 || notes.length > 2000) { setMessage("Confira o limite de 8000 caracteres no brief e 2000 nas notas."); return; }
-    if (audioUrl === false) { setMessage("Informe uma URL HTTPS válida, sem usuário ou senha, com até 2048 caracteres."); return; }
+    if (draft.audioUrl.trim() && audioUrl === null) { setMessage("Informe uma URL HTTPS válida, sem usuário ou senha, com até 2048 caracteres."); return; }
     const requestCampaign = campaignId;
     const snapshot = editing;
     const values = { session_id: draft.sessionId || null, title, scene_type: draft.sceneType, duration_seconds: duration, brief, notes, audio_url: audioUrl };
@@ -143,7 +134,7 @@ export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; 
     {loading ? <p className={styles.empty}>Carregando referências…</p> : filteredCues.length ? <ul className={styles.list}>{filteredCues.map((cue) => <li className={styles.cue} key={cue.id}>
       <div className={styles.cueHeader}><div><p className={styles.eyebrow}>{SCENE_TYPES[cue.scene_type]}{cue.session_id && sessions.find((session) => session.id === cue.session_id) ? ` · Sessão ${sessions.find((session) => session.id === cue.session_id)?.sequence}` : ""}</p><h3>{cue.title}</h3></div><span className={styles.duration}>{Math.floor(cue.duration_seconds / 60)}m {cue.duration_seconds % 60}s</span></div>
       {cue.brief && <p className={styles.brief}>{cue.brief}</p>}{cue.notes && <p className={styles.notes}><strong>Notas</strong> {cue.notes}</p>}
-      {cue.audio_url ? <audio className={styles.audio} controls preload="none" src={cue.audio_url}>Seu navegador não reproduz este áudio.</audio> : <p className={styles.noAudio}>Nenhuma faixa vinculada.</p>}
+      {checkedAudioUrl(cue.audio_url ?? "") ? <audio className={styles.audio} controls preload="none" src={checkedAudioUrl(cue.audio_url ?? "") ?? undefined}>Seu navegador não reproduz este áudio.</audio> : <p className={styles.noAudio}>Nenhuma faixa vinculada.</p>}
       {canManage && <div className={styles.actions}><button type="button" className={styles.textButton} disabled={busy} onClick={() => beginEdit(cue)}>Editar</button><button type="button" className={styles.dangerButton} disabled={busy} onClick={() => void deleteCue(cue)}>Excluir</button></div>}
     </li>)}</ul> : <p className={styles.empty}>{sessionFilter === "all" ? "Nenhuma referência musical salva nesta campanha." : "Nenhuma referência vinculada a esta sessão."}</p>}
   </section>;

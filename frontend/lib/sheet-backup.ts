@@ -13,6 +13,25 @@ export type BackupField = {
   expression: string | null;
 };
 
+const presentationOnlyFieldKeys = new Set(["creation_step", "identity_kind", "character_name"]);
+
+/** Compare field mechanics while ignoring only approved-template presentation metadata. */
+export function mechanicallyEquivalentFields(left: unknown, right: unknown): boolean {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+  const normalize = (fields: unknown[]) => fields.map((field) => {
+    if (field === null || typeof field !== "object" || Array.isArray(field)) return field;
+    return Object.fromEntries(Object.entries(field).filter(([key]) => !presentationOnlyFieldKeys.has(key)));
+  });
+  const stable = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value !== null && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, child]) => [key, stable(child)]));
+    }
+    return value;
+  };
+  return JSON.stringify(stable(normalize(left))) === JSON.stringify(stable(normalize(right)));
+}
+
 export type SheetBackup = {
   format: typeof SHEET_BACKUP_FORMAT;
   format_version: typeof SHEET_BACKUP_VERSION;

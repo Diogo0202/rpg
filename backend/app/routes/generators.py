@@ -5,7 +5,7 @@ import os
 from typing import Any, Literal
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
 
 from app.services.content_generator import generate_content
@@ -15,7 +15,9 @@ from app.services.tactical_maps import generate_tactical_map
 router = APIRouter(prefix="/api/v1", tags=["generation"])
 
 
-async def require_signed_in_user(authorization: str | None = Header(default=None)) -> None:
+async def require_signed_in_user(request: Request, authorization: str | None = Header(default=None)) -> None:
+    if getattr(request.state, "supabase_user", None) is not None:
+        return
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
     if not supabase_url or not supabase_key:

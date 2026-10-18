@@ -1,15 +1,18 @@
 from uuid import UUID
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.main import app
+from app.routes import sheets
 from app.routes.sheets import SheetCreate, SheetUpdate, _template_fields, _validate_values
 from fastapi import HTTPException
 
 
-client = TestClient(app)
+sheets_app = FastAPI()
+sheets_app.include_router(sheets.router)
+client = TestClient(sheets_app)
 TEMPLATE_SCHEMA = {
     "fields": [
         {"id": "character_name", "kind": "text"},

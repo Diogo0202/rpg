@@ -24,6 +24,10 @@ export async function authenticatedPost(path: string, payload: unknown, signal?:
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
     body: JSON.stringify(payload),
   });
+  if (response.status === 429) {
+    const seconds = Number(response.headers.get("Retry-After"));
+    throw new Error(Number.isFinite(seconds) && seconds > 0 ? `Limite de solicitações atingido. Tente em ${seconds} segundos.` : "Limite de solicitações atingido. Aguarde antes de tentar novamente.");
+  }
   if (!response.ok) throw new Error("A API recusou os dados. Confira a sessão, a parada e os efeitos.");
   return response.json();
 }

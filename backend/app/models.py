@@ -29,6 +29,9 @@ class TemplateField(BaseModel):
     required: bool = False
     options: list[str] = Field(default_factory=list, max_length=100)
     expression: str | None = Field(default=None, max_length=120)
+    creation_step: Literal["identity", "attributes", "skills", "traits", "resources", "story", "other"] | None = None
+    identity_kind: Literal["race", "subrace", "clan", "predator", "creed", "lineage", "origin", "archetype"] | None = None
+    character_name: bool = False
 
     @field_validator("id")
     @classmethod
@@ -50,12 +53,19 @@ class TemplateDraft(BaseModel):
     name: Annotated[str, Field(min_length=3, max_length=120)]
     version: Annotated[int, Field(ge=1)] = 1
     fields: list[TemplateField] = Field(min_length=1, max_length=200)
+    system_key: str | None = Field(default=None, max_length=80)
+    rules_profile_version: Annotated[int, Field(ge=1)] | None = None
 
     @model_validator(mode="after")
     def unique_field_ids(self) -> "TemplateDraft":
         ids = [field.id for field in self.fields]
         if len(ids) != len(set(ids)):
             raise ValueError("cada campo precisa de um id único")
+        marked_names = [field for field in self.fields if field.character_name]
+        if len(marked_names) > 1:
+            raise ValueError("template pode marcar apenas um campo como nome do personagem")
+        if any(field.kind != FieldKind.text for field in marked_names):
+            raise ValueError("campo de nome do personagem precisa ser do tipo texto")
         return self
 
 

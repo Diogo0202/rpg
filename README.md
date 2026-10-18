@@ -4,6 +4,8 @@ RPG Nexus é uma aplicação web responsiva para organizar mesas de RPG em celul
 
 Consulte a [lista de funcionalidades e percentuais de conclusão](STATUS_FUNCIONALIDADES.md) para acompanhar as entregas implementadas, parciais e pendentes.
 
+O [checklist de criação guiada](CHECKLIST_CRIACAO_GUIADA.md) registra as entregas deste ciclo, os testes locais e as dependências restantes. O assistente funciona com os modelos aprovados da campanha e salva novos personagens pela API autenticada.
+
 A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registra o que foi incorporado e as diferenças que ainda faltam. O código de referência foi clonado em `D:\rpg-atlas-reference`, no commit `fb34a5b`; o inventário descreve `1206601`. O aplicativo em desenvolvimento permanece neste repositório, com Next.js, FastAPI e Supabase.
 
 ## O que já existe
@@ -14,7 +16,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Probabilidades de sucesso, crítico sujo e falha bestial para Vampire: The Masquerade 5ª edição, com comparação de rerrolagem de Vontade.
 - Geração procedural de mapas táticos e conteúdo original para personagens, inimigos e itens.
 - Painel da Segunda Inquisição com eventos confirmados pelo narrador, alerta reconstruído e respostas por nível. O diagnóstico da crônica lê fichas aprovadas e atividade estruturada, com acesso reservado ao narrador.
-- Editor de fichas modulares com base V5, fórmulas automáticas, modelos aprovados e fichas gravadas por campanha com controle de versão.
+- Editor de fichas modulares com base V5, fórmulas automáticas, modelos aprovados e fichas gravadas por campanha com controle de versão. A criação guiada acrescenta etapas, identidades em destaque, revisão e seleção do personagem após salvar.
 - Modelos iniciais editáveis de Vampiro V5, Caçador e O Um Anel. O V5 reúne 9 atributos e 27 habilidades; os demais seguem os recortes de campos do Atlas.
 - Rolador de Caçador com Desespero adicional opcional, dificuldade e resultados separados. O Um Anel tem um rolador inicial de d12/d6 e cansaço, ainda em revisão; Miserável, Sombra e eventos de jornada não são automatizados. Esses modelos e roladores não cobrem todas as regras dos sistemas.
 - Rolador V5 com atributos e habilidades, dados individuais de Fome e classificação do resultado. Trilhas de dano superficial e agravado aplicam penalidades ao contexto físico ou mental, também na previsão de risco.
@@ -35,7 +37,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 
 O estado atual é um protótipo em desenvolvimento. Os fluxos de gravação têm código e migrations locais; as migrations desta entrega ainda não foram aplicadas ao Supabase de destino. A persistência e o isolamento precisam de testes com contas reais. Os links do Spotify abrem playlists; não há OAuth, controle de reprodução nem sincronização do player. A busca de regras ainda não gera resposta por IA e não há fluxo público de envio de PDFs.
 
-Os efeitos dependem da migration `20261014141000_character_effects.sql`; o painel do grupo depende da publicação Realtime definida em `20261014140000_party_realtime.sql`. Aplique a sequência completa de migrations em um banco de teste antes de conferir os painéis novos. O compêndio contém quatro exemplos originais, sem poderes oficiais V5. O assistente de criação guiada e o rastreador específico de Vínculo de Sangue seguem pendentes; Ressonância pode ser registrada como efeito configurável, com origem e duração definidas pela mesa. JSON Atlas bruto ainda exige um adaptador; o cofre aceita o contrato Nexus, sem importar permissões.
+Os efeitos dependem da migration `20261014141000_character_effects.sql`; o painel do grupo depende da publicação Realtime definida em `20261014140000_party_realtime.sql`. Aplique a sequência completa de migrations em um banco de teste antes de conferir os painéis novos. A compatibilidade dos backups com os metadados do assistente depende de `20261017100000_sheet_creation_backup_metadata.sql`, ainda sem execução em banco. O compêndio contém quatro exemplos originais, sem poderes oficiais V5. As regras completas de criação aguardam material autorizado; o rastreador específico de Vínculo de Sangue também segue pendente. Ressonância pode ser registrada como efeito configurável, com origem e duração definidas pela mesa. JSON Atlas bruto ainda exige um adaptador; o cofre aceita o contrato Nexus, sem importar permissões.
 
 ## Tecnologias
 
@@ -114,6 +116,8 @@ backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --hos
 
 ## Supabase
 
+A [revisão de segurança de 17/10/2026](SEGURANCA.md) descreve os limites das fichas, a autenticação e as cotas da API, os sinais mínimos de Realtime e a proteção da impressão. As alterações têm testes preparados, ainda sem execução; as novas migrations também estão pendentes. O frontend e a migration de notificações Realtime devem ser lançados juntos.
+
 As migrações estão em `supabase/migrations/`. Elas ainda precisam ser avaliadas e aplicadas ao projeto Supabase de destino. O acesso privado deve continuar protegido por convites e políticas RLS. O bucket da biblioteca deve ser privado antes de receber arquivos.
 
 O endpoint de extração de material exige `EXTRACTION_WORKER_TOKEN` no ambiente do backend. Não envie esse valor ao navegador. PDFs e regras de terceiros só devem entrar na biblioteca quando a campanha tiver autorização para armazená-los.
@@ -126,7 +130,7 @@ O Dockerfile em `frontend/` cria a versão de produção da interface. O Compose
 
 1. Aplicar as migrações em um projeto Supabase de teste e verificar as políticas com contas de papéis diferentes; concluir convites.
 2. Conferir criação de modelo, ficha, inventário, restauração de backup, mapas e cenas no banco de teste.
-3. Concluir mecânicas específicas de Caçador e O Um Anel, criação guiada e dados de criação revisados pelo narrador.
+3. Concluir mecânicas específicas de Caçador e O Um Anel e regras de criação a partir de material autorizado, com revisão do narrador.
 4. Preparar a ingestão segura de PDFs autorizados e testar a busca com fontes reais. Adicionar resposta por IA apenas com referências verificáveis.
 5. Solicitar acesso à API do Spotify se a mesa precisar de controle de reprodução, respeitando as condições atuais da plataforma.
 

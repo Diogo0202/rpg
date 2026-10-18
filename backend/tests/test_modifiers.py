@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 from pydantic import ValidationError
 
 from app.routes.generators import require_signed_in_user
-from app.main import app
+from app.routes.modifiers import router as modifiers_router
 from app.services.modifiers import ModifierRequest, preview_modifiers
 
 
+app = FastAPI()
+app.include_router(modifiers_router)
 client = TestClient(app)
 
 

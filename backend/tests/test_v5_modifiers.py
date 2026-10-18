@@ -1,16 +1,21 @@
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routes.generators import require_signed_in_user
+from app.routes.v5 import router as v5_router
+from app.routes.v5_actions import router as v5_actions_router
 
 
 @pytest.fixture
 def client():
-    app.dependency_overrides[require_signed_in_user] = lambda: None
-    with TestClient(app) as test_client:
+    test_app = FastAPI()
+    test_app.include_router(v5_router)
+    test_app.include_router(v5_actions_router)
+    test_app.dependency_overrides[require_signed_in_user] = lambda: None
+    with TestClient(test_app) as test_client:
         yield test_client
-    app.dependency_overrides.pop(require_signed_in_user, None)
+    test_app.dependency_overrides.pop(require_signed_in_user, None)
 
 
 def test_probability_uses_adjusted_pool_and_caps_hunger_dice(client):

@@ -3,13 +3,15 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.routes import rules
 
 
-client = TestClient(app)
+rules_app = FastAPI()
+rules_app.include_router(rules.router)
+client = TestClient(rules_app)
 CAMPAIGN = "00000000-0000-0000-0000-000000000001"
 SOURCE = "00000000-0000-0000-0000-000000000002"
 

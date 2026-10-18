@@ -47,13 +47,15 @@ test("backup do cofre preserva documentos e rejeita versão desconhecida",()=>{
   const packed=createVaultBackup([validateBackup(backup())]);assert.equal(parseBackupText(JSON.stringify(packed)).length,1);
   packed.format_version=99;assert.throws(()=>parseBackupText(JSON.stringify(packed)));
 });
-test("três modelos do Atlas respeitam o contrato de backup",()=>{
+test("três modelos do Atlas exportam o contrato de backup v1 sem metadados de apresentação",()=>{
   assert.equal(SYSTEM_STARTERS.length,3);
   for(const starter of SYSTEM_STARTERS){
-    const value={format:"rpg-nexus-sheet",format_version:1,name:"Lia",template:starter.template,values:{...starter.values,nome:"Lia"},effects:[]};
+    const template={name:starter.template.name,version:starter.template.version,fields:starter.template.fields.map(({id,label,kind,required,options,expression})=>({id,label,kind,required,options,expression}))};
+    const value={format:"rpg-nexus-sheet",format_version:1,name:"Lia",template,values:{...starter.values,nome:"Lia"},effects:[]};
     // Campos opcionais vazios não são gravados pela oficina.
     for(const field of starter.template.fields)if(field.kind==="select"&&value.values[field.id]==="")delete value.values[field.id];
     assert.equal(validateBackup(value).name,"Lia");
+    assert.equal(JSON.stringify(value.template).includes("creation_step"),false);
     assert.equal(value.values.ativo_na_sessao,true);
     assert.equal(new Set(starter.template.fields.map(field=>field.id)).size,starter.template.fields.length);
   }

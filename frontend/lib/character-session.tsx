@@ -102,7 +102,8 @@ export function CharacterSessionBar({ campaignId }: { campaignId: string }) {
       }
     }
     const channel = client.channel(`selected-character-${campaignId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "character_sheets", filter: `campaign_id=eq.${campaignId}` }, () => void load())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` }, () => void load())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` }, () => void load())
       .subscribe((status) => { if (active && status === "SUBSCRIBED") void load(); });
     void load();
     return () => { active = false; void client.removeChannel(channel); };

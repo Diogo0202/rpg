@@ -6,12 +6,29 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_health_and_safe_dice_endpoint() -> None:
+def test_health_and_safe_dice_endpoint(monkeypatch) -> None:
     assert client.get("/health").json() == {"status": "ok"}
 
-    response = client.post("/api/v1/dice/roll", json={"expression": "2d6+1"})
+    denied = client.post("/api/v1/dice/roll", json={"expression": "2d6+1"})
+    assert denied.status_code == 401
+
+    async def mock_verify(authorization: str):
+        assert authorization == "Bearer dummy-jwt"
+        return {"id": "30000000-0000-4000-8000-000000000001"}
+
+    monkeypatch.setattr("app.security.verify_supabase_user", mock_verify)
+    response = client.post("/api/v1/dice/roll", json={"expression": "2d6+1"}, headers={"Authorization": "Bearer dummy-jwt"})
     assert response.status_code == 200
     assert 3 <= response.json()["total"] <= 13
+
+
+def test_cors_headers_wrap_authentication_responses() -> None:
+    response = client.get(
+        "/api/v1/campaigns/00000000-0000-0000-0000-000000000001/chronicle",
+        headers={"Origin": "http://localhost:3000"},
+    )
+    assert response.status_code == 401
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
 
 
 def test_private_narrator_routes_are_mounted_and_require_a_session(monkeypatch) -> None:

@@ -1,3 +1,5 @@
+import type { SheetField, SheetTemplate } from "./sheet-template.ts";
+
 /**
  * Proveniência: contratos estruturados no RPG Atlas, checkout local
  * D:\rpg-atlas-reference, HEAD fb34a5bb6d4d1177c45f2cf64d63533fc8b21b5c.
@@ -13,18 +15,11 @@
  */
 
 export type StarterValue = string | number | boolean | string[];
-export type StarterField = {
-  id: string;
-  label: string;
-  kind: "text" | "number" | "select" | "checkbox" | "collection" | "formula" | "roll";
-  required: boolean;
-  options: string[];
-  expression: string | null;
-};
+export type StarterField = SheetField;
 export type SystemStarter = {
   id: "vampire-v5" | "hunter" | "one-ring";
   label: string;
-  template: { name: string; version: number; fields: StarterField[] };
+  template: SheetTemplate;
   values: Record<string, StarterValue>;
 };
 
@@ -169,3 +164,63 @@ const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel modular", [
 ]);
 
 export const SYSTEM_STARTERS: SystemStarter[] = [vampire, hunter, oneRing];
+
+type StarterMetadata = {
+  identity: string[];
+  attributes: string[];
+  skills: string[];
+  traits: string[];
+  resources: string[];
+  story: string[];
+  identities: Record<string, "clan" | "predator" | "creed" | "lineage">;
+};
+
+const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
+  "vampire-v5": {
+    identity: ["nome", "conceito", "cronica", "cla", "predador"],
+    attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
+    skills: ["atletismo", "briga", "conducao", "furtividade", "ladroagem", "oficios", "sobrevivencia", "armas_brancas", "armas_de_fogo", "etiqueta", "empatia", "intimidacao", "lideranca", "manha", "performance", "persuasao", "subterfugio", "trato_com_animais", "academicos", "ciencia", "consciencia", "financas", "investigacao", "medicina", "ocultismo", "percepcao", "tecnologia"],
+    traits: ["disciplinas", "especialidades", "vantagens", "defeitos"],
+    resources: ["fome", "humanidade", "manchas", "geracao", "potencia_sangue", "recursos", "saude_max", "vontade_max", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada"],
+    story: ["ambicao", "desejo", "apoiadores"],
+    identities: { cla: "clan", predador: "predator" },
+  },
+  hunter: {
+    identity: ["nome", "conceito", "credo", "impulso", "celula", "arquetipos"],
+    attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
+    skills: ["atletismo", "briga", "furtividade", "persuasao", "subterfugio", "empatia", "investigacao", "ocultismo", "tecnologia"],
+    traits: ["vantagens", "especialidades"],
+    resources: ["saude_max", "vontade_max", "desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada"],
+    story: ["ambicao", "notas"],
+    identities: { credo: "creed" },
+  },
+  "one-ring": {
+    identity: ["nome", "conceito", "linhagem"],
+    attributes: ["forca", "coracao", "espirito"],
+    skills: ["awe", "athletics", "awareness", "hunting", "song", "travel"],
+    traits: ["rituais"],
+    resources: ["vigor_marcha", "esperanca", "sombra", "carga"],
+    story: ["ambicao", "desejo", "notas"],
+    identities: { linhagem: "lineage" },
+  },
+};
+
+for (const starter of SYSTEM_STARTERS) {
+  const metadata = starterMetadata[starter.id];
+  starter.template.system_key = starter.id;
+  starter.template.fields = starter.template.fields.map((item) => {
+    const creation_step = metadata.identity.includes(item.id) ? "identity"
+      : metadata.attributes.includes(item.id) ? "attributes"
+        : metadata.skills.includes(item.id) ? "skills"
+          : metadata.traits.includes(item.id) ? "traits"
+            : metadata.resources.includes(item.id) ? "resources"
+              : metadata.story.includes(item.id) ? "story"
+                : "other";
+    return {
+      ...item,
+      creation_step,
+      ...(item.id === "nome" ? { character_name: true } : {}),
+      ...(metadata.identities[item.id] ? { identity_kind: metadata.identities[item.id] } : {}),
+    };
+  });
+}

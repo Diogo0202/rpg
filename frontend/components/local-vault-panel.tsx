@@ -3,9 +3,11 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { printableSheetHtml } from "../lib/printable-sheet";
 import {
   createSheetBackup,
   createVaultBackup,
+  mechanicallyEquivalentFields,
   MAX_VAULT_DOCUMENTS,
   parseBackupText,
   validateBackup,
@@ -34,10 +36,6 @@ function vaultKey(viewerId: string): string {
 }
 function filtersKey(viewerId: string): string { return `rpg-nexus:vault-filters:v1:${encodeURIComponent(viewerId)}`; }
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]!);
-}
-
 function downloadJson(name: string, value: unknown): void {
   const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -47,17 +45,6 @@ function downloadJson(name: string, value: unknown): void {
   anchor.rel = "noopener";
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-}
-
-function printableHtml(backup: SheetBackup): string {
-  const rows = backup.template.fields.map((field) => {
-    const value = backup.values[field.id];
-    const shown = Array.isArray(value) ? value.join(", ") : value === undefined ? "" : String(value);
-    return `<tr><th>${escapeHtml(field.label)}</th><td>${escapeHtml(shown)}</td></tr>`;
-  }).join("");
-  const effects = backup.effects.map((effect) => `<li>${escapeHtml(effect.label)} (${effect.delta >= 0 ? "+" : ""}${effect.delta})${effect.enabled ? "" : " [inativo]"}</li>`).join("");
-  const inventory = (backup.inventory ?? []).map((item) => `<tr><th>${escapeHtml(item.name)}</th><td>${escapeHtml(item.category)} · quantidade ${item.quantity} · custo ${item.resource_cost} · dano +${item.damage_bonus} · proteção ${item.protection}<br>${escapeHtml(item.notes)}</td></tr>`).join("");
-  return `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(backup.name)}</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;color:#181818}h1{margin-bottom:.2rem}p{color:#444}table{width:100%;border-collapse:collapse;margin:1rem 0}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #bbb;padding:.55rem}th{width:30%}@media print{body{margin:0 auto}}</style><h1>${escapeHtml(backup.name)}</h1><p>${escapeHtml(backup.template.name)} · versão ${backup.template.version}</p><table>${rows}</table><h2>Equipamento</h2><table>${inventory || "<tr><td>Nenhum item</td></tr>"}</table><h2>Efeitos</h2><ul>${effects || "<li>Nenhum efeito</li>"}</ul></html>`;
 }
 
 function makeRemoteBackup(sheet: RemoteSheet, template: RemoteTemplate, inventory: RemoteInventory[]): SheetBackup {
@@ -281,12 +268,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
     return templates.find(template=>{
       const schema=template.schema as {fields?:unknown}|null;
       if(!Array.isArray(schema?.fields))return false;
-      const fields=schema.fields.map((value:unknown)=>{
-        if(!value||typeof value!=="object")return null;
-        const row=value as Record<string,unknown>;
-        return {id:row.id,label:row.label,kind:row.kind,required:row.required,options:row.options??[],expression:row.expression??null};
-      });
-      return JSON.stringify(fields)===JSON.stringify(backup.template.fields);
+      return mechanicallyEquivalentFields(schema.fields, backup.template.fields);
     });
   }
 
@@ -330,7 +312,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
   }
 
   function openPrintable(backup: SheetBackup) {
-    const url = URL.createObjectURL(new Blob([printableHtml(backup)], { type: "text/html;charset=utf-8" }));
+    const url = URL.createObjectURL(new Blob([printableSheetHtml(backup)], { type: "text/html;charset=utf-8" }));
     window.open(url, "_blank", "noopener,noreferrer");
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     setNotice("Solicitei a abertura da versão de impressão em uma nova aba. Use a opção Imprimir do navegador e escolha salvar como PDF; se a aba não aparecer, confira o bloqueio de pop-ups.");

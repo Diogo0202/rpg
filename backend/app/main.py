@@ -19,6 +19,7 @@ from app.services.dice import roll
 from app.services.extraction import create_review_draft
 from app.services.sheet_calculations import calculate_sheet
 from app.services.templates import validate_template
+from app.security import ApiSecurityMiddleware
 from app.routes.generators import router as generation_router
 from app.routes.v5 import router as v5_router
 from app.routes.sheets import router as sheets_router
@@ -48,19 +49,21 @@ origins = [
 ]
 if "*" in origins:
     raise RuntimeError("CORS_ORIGINS não pode conter * quando credenciais estão liberadas")
+app.add_middleware(ApiSecurityMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
+    expose_headers=["Retry-After"],
 )
 
 
 def require_extraction_worker(
     x_worker_token: Annotated[str | None, Header()] = None,
 ) -> None:
-    """Keep draft creation on the trusted worker until Supabase JWT is wired."""
+    """Restrict draft creation to the separately authenticated extraction worker."""
     worker_token = os.getenv("EXTRACTION_WORKER_TOKEN")
     if not worker_token:
         raise HTTPException(status_code=503, detail="extração ainda não está configurada")

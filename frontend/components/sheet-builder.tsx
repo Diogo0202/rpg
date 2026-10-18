@@ -8,24 +8,13 @@ import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
 import { findCompendiumEntry } from "../lib/compendium";
 import { authenticatedPost, type ModifierPreview } from "./character-effects-panel";
 import { SYSTEM_STARTERS } from "../lib/system-starters";
-
-const fieldKinds = ["text", "number", "select", "checkbox", "collection", "formula", "roll"] as const;
-type FieldKind = (typeof fieldKinds)[number];
-
-type SheetField = {
-  id: string;
-  label: string;
-  kind: FieldKind;
-  required: boolean;
-  options: string[];
-  expression: string | null;
-};
-
-type SheetTemplate = { name: string; version: number; fields: SheetField[] };
-type FieldValue = string | number | boolean | string[];
+import { characterNameField, fieldKinds, creationSteps, identityKinds, type FieldKind, type SheetField, type SheetTemplate, type FieldValue, type StoredTemplate } from "../lib/sheet-template";
+import { createCampaignSheet } from "../lib/sheet-api";
+import { SheetCreationWizard } from "./sheet-creation-wizard";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
-type StoredTemplate = { id: string; name: string; version: number; schema: SheetTemplate };
 type StoredSheet = { id: string; name: string; template_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[] };
+const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
+const identityLabels = { race: "Raça", subrace: "Sub-raça", clan: "Clã", predator: "Predador", creed: "Credo", lineage: "Linhagem", origin: "Origem", archetype: "Arquétipo" };
 
 const initialTemplate: SheetTemplate = {
   name: "Investigador do Outro Lado",
@@ -43,23 +32,6 @@ const initialTemplate: SheetTemplate = {
   ],
 };
 
-
-function errorMessage(payload: unknown): string {
-  if (payload && typeof payload === "object" && "detail" in payload) {
-    const detail = payload.detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) {
-      return detail.map((item) => item && typeof item === "object" && "msg" in item ? String(item.msg) : "Entrada inválida").join(" · ");
-    }
-  }
-  return "A API recusou a solicitação.";
-}
-
-async function checkedJson(response: Response): Promise<Record<string, unknown>> {
-  const payload = await response.json() as unknown;
-  if (!response.ok) throw new Error(errorMessage(payload));
-  return payload as Record<string, unknown>;
-}
 
 export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEditSheets }: { campaignId: string; viewerId: string; canManageTemplates: boolean; canEditSheets: boolean }) {
   const { character, selectCharacter, contextTags } = useCharacterSession();
@@ -80,24 +52,37 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   const [rollResults, setRollResults] = useState<Record<string, RollResult>>({});
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<"guided" | "editor">("guided");
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [calculationError, setCalculationError] = useState("");
 
   useEffect(() => {
     let active = true;
     const supabase = createClient();
     async function load() {
+      setLoading(true);
+      setLoadError("");
       const [templateResult, sheetResult] = await Promise.all([
         supabase.from("system_templates").select("id, name, version, schema").eq("campaign_id", campaignId).eq("status", "approved").order("name"),
         supabase.from("character_sheets").select("id, name, template_id, values, version, effects").eq("campaign_id", campaignId).order("name"),
       ]);
       if (!active) return;
       if (templateResult.error || sheetResult.error) {
-        setFeedback("Não foi possível carregar as fichas. Confira a conexão e as migrações do Supabase.");
+        setLoadError("Não foi possível carregar os modelos e fichas. Confira a conexão e reabra esta campanha.");
+        setLoading(false);
         return;
       }
       setTemplates((templateResult.data ?? []) as StoredTemplate[]);
       setSheets((sheetResult.data ?? []) as StoredSheet[]);
+      setLoading(false);
     }
-    void load();
+    void load().catch(() => {
+      if (active) {
+        setLoadError("Não foi possível carregar as fichas. Reabra esta campanha para tentar novamente.");
+        setLoading(false);
+      }
+    });
     return () => { active = false; };
   }, [campaignId]);
 
@@ -107,6 +92,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }, [character?.id, sheets, templates]);
 
   function chooseTemplate(id: string) {
+    if (busy) return;
     editorRevision.current += 1;
     selectCharacter(null);
     const stored = templates.find((item) => item.id === id);
@@ -122,6 +108,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   function chooseSheet(id: string) {
+    if (busy) return;
     editorRevision.current += 1;
     const stored = sheets.find((item) => item.id === id);
     if (!stored) { selectCharacter(null); setSheetId(""); setSheetName(""); setSheetVersion(0); setValues({}); return; }
@@ -132,14 +119,17 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setSheetId(stored.id);
     setSheetName(stored.name);
     setSheetVersion(stored.version);
-    setValues(stored.values);
+    const nameField = characterNameField(source.schema);
+    setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
     setCalculated({});
     setRollResults({});
     setFeedback("");
     selectCharacter(stored);
+    setMode("editor");
   }
 
   function loadStarter(id:string) {
+    if (busy) return;
     const starter=SYSTEM_STARTERS.find(item=>item.id===id);
     if(!starter)return;
     editorRevision.current += 1;
@@ -164,10 +154,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     const selection = selectedCharacterId.current;
     const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection;
     try {
-      const response = await fetch(`${api}/api/v1/templates/validate`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(template),
-      });
-      await checkedJson(response);
+      await authenticatedPost("/api/v1/templates/validate", template);
       if (!isCurrent()) return;
       const supabase = createClient();
       const { data, error } = await supabase.from("system_templates").insert({
@@ -190,6 +177,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   async function saveSheet() {
+    if (busy) return;
     if (!canEditSheets) { setFeedback("Seu papel nesta campanha permite apenas leitura das fichas."); return; }
     if (!templateId) { setFeedback("Selecione um modelo salvo antes de gravar a ficha."); return; }
     const name = sheetName.trim();
@@ -212,17 +200,22 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         setSheetVersion(data.version);
         selectCharacter(data as StoredSheet);
       } else {
-        const { data, error } = await supabase.from("character_sheets").insert({
-          campaign_id: campaignId, template_id: templateId, owner_id: viewerId, name, values: payloadValues,
-        }).select("id, name, template_id, values, version, effects").single();
-        if (error || !data) throw new Error(error?.message ?? "Não foi possível criar a ficha.");
-        setSheets((current) => [...current, data as StoredSheet]);
+        const api = process.env.NEXT_PUBLIC_API_URL;
+        if (!api) throw new Error("A API de fichas não está configurada. O preenchimento continua nesta tela.");
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData.session) throw new Error("Entre na campanha para salvar esta ficha.");
+        const data = await createCampaignSheet(api, sessionData.session.access_token, campaignId, {
+          template_id: templateId, name, values: payloadValues,
+        }) as StoredSheet;
+        data.effects ??= [];
+        setSheets((current) => [...current, data]);
         if (!isCurrent()) return;
         setSheetId(data.id);
         setSheetVersion(data.version);
-        selectCharacter(data as StoredSheet);
+        selectCharacter(data);
+        setMode("editor");
       }
-      setFeedback("Ficha salva na campanha.");
+      setFeedback("Ficha salva e selecionada para a sessão.");
     } catch (error) {
       if (isCurrent()) setFeedback(error instanceof Error ? error.message : "Não foi possível salvar a ficha.");
     } finally { setBusy(false); }
@@ -275,6 +268,8 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   function changeKind(field: SheetField, kind: FieldKind) {
     updateField(field.id, {
       kind,
+      character_name: kind === "text" && field.character_name === true,
+      identity_kind: kind === "select" ? field.identity_kind : null,
       options: kind === "select" ? (field.options.length ? field.options : ["Opção 1"]) : [],
       expression: kind === "formula" ? (field.expression ?? "") : kind === "roll" ? (field.expression ?? "2d6") : null,
     });
@@ -308,24 +303,41 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   function setValue(fieldId: string, value: FieldValue) {
+    if (busy) return;
     editorRevision.current += 1;
     setValues((current) => ({ ...current, [fieldId]: value }));
+    if (characterNameField(template)?.id === fieldId && typeof value === "string") setSheetName(value);
     setCalculated({});
     setRollResults({});
     setFeedback("");
   }
 
-  function collectValues(): Record<string, unknown> {
+  function changeCharacterName(name: string) {
+    if (busy) return;
+    editorRevision.current += 1;
+    setSheetName(name);
+    const field = characterNameField(template);
+    if (field) setValues((current) => ({ ...current, [field.id]: name }));
+    setFeedback("");
+  }
+
+  function startCreation() {
+    if (sheetId) chooseTemplate(templateId);
+    setMode("guided");
+  }
+
+  function collectValues(partial = false): Record<string, unknown> {
     const output: Record<string, unknown> = {};
     for (const field of template.fields) {
       if (field.kind === "formula" || field.kind === "roll") continue;
-      const value = values[field.id];
+      const value = characterNameField(template)?.id === field.id ? sheetName : values[field.id];
 
       if (field.kind === "number") {
         if (value === undefined || value === "") {
-          if (field.required) throw new Error(`${field.label}: informe um número.`);
+          if (field.required && !partial) throw new Error(`${field.label}: informe um número.`);
           continue;
         }
+        if (typeof value !== "number" && typeof value !== "string") throw new Error(`${field.label}: informe um número válido.`);
         const numberValue = Number(value);
         if (!Number.isFinite(numberValue)) throw new Error(`${field.label}: informe um número válido.`);
         output[field.id] = numberValue;
@@ -334,20 +346,21 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
       if (field.kind === "checkbox") {
         const checked = value === true;
-        if (field.required && !checked) throw new Error(`${field.label}: marque esta opção.`);
+        if (field.required && !checked && !partial) throw new Error(`${field.label}: marque esta opção.`);
         output[field.id] = checked;
         continue;
       }
 
       if (field.kind === "collection") {
         const items = Array.isArray(value) ? value : [];
-        if (field.required && items.length === 0) throw new Error(`${field.label}: adicione ao menos um item.`);
+        if (field.required && items.length === 0 && !partial) throw new Error(`${field.label}: adicione ao menos um item.`);
         output[field.id] = items;
         continue;
       }
 
       const text = typeof value === "string" ? value.trim() : "";
-      if (field.required && !text) throw new Error(`${field.label}: preencha este campo.`);
+      if (field.required && !text && !partial) throw new Error(`${field.label}: preencha este campo.`);
+      if (field.kind === "select" && text && !field.options.includes(text)) throw new Error(`${field.label}: escolha uma opção do modelo.`);
       if (text) output[field.id] = text;
     }
 
@@ -361,31 +374,39 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
   useEffect(() => {
     const api = process.env.NEXT_PUBLIC_API_URL;
-    if (!api) return;
+    if (!api) {
+      setCalculationError(template.fields.some((field) => field.kind === "formula") ? "A API de cálculos não está configurada." : "");
+      return;
+    }
     let payloadValues: Record<string, unknown>;
     try {
-      payloadValues = collectValues();
+      payloadValues = collectValues(true);
     } catch {
       setCalculated({});
+      return;
+    }
+    if (!template.fields.some((field) => field.kind === "formula")) {
+      setCalculated(payloadValues);
+      setCalculationError("");
       return;
     }
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`${api}/api/v1/sheets/calculate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template, values: payloadValues }),
-          signal: controller.signal,
-        });
-        const result = await checkedJson(response);
-        if (!controller.signal.aborted) setCalculated(result.values as Record<string, unknown>);
+        const result = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }, controller.signal);
+        if (!controller.signal.aborted) {
+          setCalculated(result.values as Record<string, unknown>);
+          setCalculationError("");
+        }
       } catch {
-        if (!controller.signal.aborted) setCalculated({});
+        if (!controller.signal.aborted) {
+          setCalculated({});
+          setCalculationError("A prévia ainda não pôde ser calculada. Confira os campos numéricos e a conexão.");
+        }
       }
     }, 400);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [template, values]);
+  }, [template, values, sheetName]);
 
   async function validateAndCalculate() {
     const api = process.env.NEXT_PUBLIC_API_URL;
@@ -402,20 +423,10 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setFeedback("");
     try {
       const payloadValues = collectValues();
-      const validation = await fetch(`${api}/api/v1/templates/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(template),
-      });
-      await checkedJson(validation);
+      await authenticatedPost("/api/v1/templates/validate", template);
       if (!isCurrent()) return;
 
-      const calculation = await fetch(`${api}/api/v1/sheets/calculate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ template, values: payloadValues }),
-      });
-      const calculationPayload = await checkedJson(calculation);
+      const calculationPayload = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues });
       if (!isCurrent()) return;
       const nextValues = calculationPayload.values as Record<string, unknown>;
       setCalculated(nextValues);
@@ -443,7 +454,19 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   return (
-    <section className="content sheet-layout">
+    <section className="content">
+      <nav className="actions" aria-label="Modo das fichas">
+        <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={startCreation}>Criar personagem</button>
+        <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => setMode("editor")}>Fichas e modelos</button>
+      </nav>
+      {mode === "guided" && !sheetId ? <SheetCreationWizard
+        key={templateId || "no-template"}
+        templates={templates} templateId={templateId} template={template} values={values}
+        name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets}
+        loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
+        onChooseTemplate={chooseTemplate} onNameChange={changeCharacterName} onValueChange={setValue}
+        onSave={saveSheet} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
+      /> : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
       <div className="sheet-builder-column">
         <article className="sheet-template-card">
           <p className="eyebrow">FICHAS DA CAMPANHA</p>
@@ -464,11 +487,11 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           </div>
           {templates.length === 0 && !canManageTemplates ? <p className="sheet-feedback">O mestre ainda não publicou um modelo nesta campanha.</p> : null}
           <label className="sheet-name">Nome do personagem
-            <input value={sheetName} maxLength={120} onChange={(event) => { editorRevision.current += 1; setSheetName(event.target.value); }} placeholder="Nome da ficha" />
+            <input value={sheetName} maxLength={120} onChange={(event) => changeCharacterName(event.target.value)} placeholder="Nome da ficha" />
           </label>
           <div className="actions">
             <button className="primary" type="button" onClick={saveSheet} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
-            <button className="quiet" type="button" onClick={() => { editorRevision.current += 1; selectCharacter(null); setSheetId(""); setSheetName(""); setSheetVersion(0); setValues({}); setCalculated({}); }}>Nova ficha</button>
+            <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>
           </div>
         </article>
         <article className="sheet-intro">
@@ -489,6 +512,13 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
               <input type="number" min={1} value={template.version} onChange={(event) => { editorRevision.current += 1; setTemplateId(""); setTemplate((current) => ({ ...current, version: Math.max(1, Number(event.target.value) || 1) })); }} />
             </label>
           </div>
+          <label className="sheet-preview-input" style={{ marginTop: 16 }}>Identificador do sistema (opcional)
+            <input value={template.system_key ?? ""} maxLength={64} placeholder="Ex.: vampire-v5 ou sistema-da-mesa" onChange={(event) => {
+              editorRevision.current += 1;
+              setTemplateId("");
+              setTemplate((current) => ({ ...current, system_key: event.target.value || null }));
+            }} />
+          </label>
 
           <div className="sheet-fields-heading"><div><p className="eyebrow">ESTRUTURA</p><h3>Campos da ficha <span>{template.fields.length}</span></h3></div>
             <button className="quiet" type="button" onClick={addField}>Adicionar campo</button>
@@ -511,6 +541,21 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
                     </select>
                   </label>
                   <label className="sheet-required"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Obrigatório</label>
+                  <label>Etapa da criação
+                    <select value={field.creation_step ?? "other"} onChange={(event) => updateField(field.id, { creation_step: event.target.value as SheetField["creation_step"] })}>
+                      {creationSteps.map((step) => <option key={step} value={step}>{stepLabels[step]}</option>)}
+                    </select>
+                  </label>
+                  {field.kind === "select" && <label>Identidade em destaque
+                    <select value={field.identity_kind ?? ""} onChange={(event) => updateField(field.id, { identity_kind: event.target.value as SheetField["identity_kind"] || null })}>
+                      <option value="">Campo comum</option>{identityKinds.map((kind) => <option key={kind} value={kind}>{identityLabels[kind]}</option>)}
+                    </select>
+                  </label>}
+                  {field.kind === "text" && <label className="sheet-required"><input type="checkbox" checked={field.character_name === true} onChange={(event) => {
+                    editorRevision.current += 1;
+                    setTemplateId("");
+                    setTemplate((current) => ({ ...current, fields: current.fields.map((item) => ({ ...item, character_name: item.id === field.id ? event.target.checked : false })) }));
+                  }} /> Nome do personagem</label>}
 
                   {field.kind === "select" && <label className="sheet-wide">Opções, uma por linha
                     <textarea rows={3} value={field.options.join("\n")} onChange={(event) => updateField(field.id, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
@@ -537,6 +582,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
         <div className="sheet-preview-fields">
           {template.fields.map((field) => {
+            if (characterNameField(template)?.id === field.id) return null;
             if (field.kind === "formula") {
               const result = calculated[field.id];
               return <div className="sheet-preview-value sheet-computed" key={field.id}><span>{field.label}<small>calculado</small></span><strong>{result === undefined ? "—" : String(result)}</strong></div>;
@@ -581,6 +627,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         <p className={feedback.startsWith("Template validado") || feedback.startsWith("Ficha salva") || feedback.startsWith("Modelo salvo") ? "sheet-feedback success" : "sheet-feedback"} aria-live="polite">{feedback || "Os cálculos aparecem após preencher os campos. Dados só são rolados ao clicar no botão."}</p>
         <div className="sheet-api-note"><span>Σ</span><p>Fórmulas são calculadas no servidor. O editor não executa código do template.</p></div>
       </aside>
+      </div></fieldset>}
     </section>
   );
 }

@@ -9,6 +9,9 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 
+from app.services.sheet_creation import prepare_sheet_creation
+from app.services.sheet_values import validate_sheet_values
+
 
 router = APIRouter(prefix="/api/v1", tags=["sheets"])
 MAX_VALUES_BYTES = 32 * 1024
@@ -142,29 +145,10 @@ def _template_fields(template: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _validate_values(values: dict[str, Any], fields: dict[str, dict[str, Any]]) -> None:
-    unknown = set(values) - set(fields)
-    if unknown:
-        raise HTTPException(status_code=422, detail=f"campo desconhecido: {sorted(unknown)[0]}")
-    missing = sorted(
-        field_id
-        for field_id, field in fields.items()
-        if field.get("required") is True and field.get("kind") not in {"formula", "roll"} and field_id not in values
-    )
-    if missing:
-        raise HTTPException(status_code=422, detail=f"campo obrigatório ausente: {missing[0]}")
-    for field_id, value in values.items():
-        field = fields[field_id]
-        kind = field.get("kind")
-        valid = (
-            (kind == "text" and isinstance(value, str))
-            or (kind == "number" and isinstance(value, (int, float)) and not isinstance(value, bool))
-            or (kind == "select" and isinstance(value, str) and value in field.get("options", []))
-            or (kind == "checkbox" and isinstance(value, bool))
-            or (kind == "collection" and isinstance(value, list))
-            or (kind in {"formula", "roll"} and value is None)
-        )
-        if not valid:
-            raise HTTPException(status_code=422, detail=f"valor incompatível com o campo {field_id}")
+    try:
+        validate_sheet_values(values, fields)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 async def _get_template(campaign_id: UUID, template_id: UUID, authorization: str) -> dict[str, Any]:
@@ -230,7 +214,10 @@ async def create_campaign_sheet(
 ) -> dict[str, Any]:
     user_id = await _current_user_id(authorization)
     template = await _get_template(campaign_id, payload.template_id, authorization or "")
-    _validate_values(payload.values, _template_fields(template))
+    try:
+        _, sheet_name, sheet_values = prepare_sheet_creation(template, payload.name, payload.values)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     result = await _request(
         "POST",
         "character_sheets",
@@ -239,8 +226,8 @@ async def create_campaign_sheet(
             "campaign_id": str(campaign_id),
             "template_id": str(payload.template_id),
             "owner_id": user_id,
-            "name": payload.name,
-            "values": payload.values,
+            "name": sheet_name,
+            "values": sheet_values,
         },
     )
     if not result:
