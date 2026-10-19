@@ -133,7 +133,3 @@ O Dockerfile em `frontend/` cria a versão de produção da interface. O Compose
 3. Concluir mecânicas específicas de Caçador e O Um Anel e regras de criação a partir de material autorizado, com revisão do narrador.
 4. Preparar a ingestão segura de PDFs autorizados e testar a busca com fontes reais. Adicionar resposta por IA apenas com referências verificáveis.
 5. Solicitar acesso à API do Spotify se a mesa precisar de controle de reprodução, respeitando as condições atuais da plataforma.
-
-## Desenvolvimento e contribuições
-
-Mantenha segredos fora do Git e descreva mudanças funcionais junto com os passos usados para verificá-las. Antes de abrir uma alteração, rode `npm run lint`, `npm run build`, `npm run test:web` e `npm run test:api` quando o ambiente estiver configurado. Build local não comprova migrations aplicadas, integração externa, commit, push ou deploy.
