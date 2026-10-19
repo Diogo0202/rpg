@@ -1,6 +1,6 @@
 # RPG ATLAS
 
-RPG Nexus é uma aplicação web responsiva para organizar mesas de RPG em celular e computador. O projeto reúne uma interface Next.js, uma API FastAPI e migrações Supabase para campanhas privadas.
+RPG Atlas é uma aplicação web responsiva para organizar mesas de RPG em celular e computador. O projeto reúne uma interface Next.js, uma API FastAPI e migrações Supabase para campanhas privadas.
 
 Consulte a [lista de funcionalidades e percentuais de conclusão](STATUS_FUNCIONALIDADES.md) para acompanhar as entregas implementadas, parciais e pendentes.
 
