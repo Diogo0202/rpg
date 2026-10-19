@@ -1,4 +1,4 @@
-# RPG Nexus
+# RPG ATLAS
 
 RPG Nexus é uma aplicação web responsiva para organizar mesas de RPG em celular e computador. O projeto reúne uma interface Next.js, uma API FastAPI e migrações Supabase para campanhas privadas.
 
