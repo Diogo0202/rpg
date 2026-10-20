@@ -6,7 +6,7 @@ import { CreateCampaignForm } from "../../components/create-campaign-form";
 import { createClient, isSupabaseConfigured } from "../../lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Minhas campanhas | RPG Nexus",
+  title: "Minhas campanhas | RPG-Atlas",
   robots: { index: false, follow: false },
 };
 
@@ -15,7 +15,7 @@ export default async function CampaignPage() {
     return (
       <main className="auth-page">
         <section className="auth-card">
-          <p className="eyebrow">RPG NEXUS / CONFIGURAÇÃO</p>
+          <p className="eyebrow">RPG-ATLAS / CONFIGURAÇÃO</p>
           <h1>Conecte sua mesa.</h1>
           <p className="auth-copy">Configure o Supabase em frontend/.env.local para abrir a área privada.</p>
           <Link className="primary auth-link" href="/login">Ir para acesso</Link>
@@ -36,7 +36,7 @@ export default async function CampaignPage() {
   return (
     <main className="campaign-hub">
       <header className="hub-header">
-        <Link className="brand hub-brand" href="/"><span>R</span><strong>RPG<br />NEXUS</strong></Link>
+        <Link className="brand hub-brand" href="/"><span>R</span><strong>RPG<br />ATLAS</strong></Link>
         <form action="/auth/signout" method="post"><button className="quiet" type="submit">Sair</button></form>
       </header>
       <div className="hub-intro">

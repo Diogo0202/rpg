@@ -38,9 +38,63 @@ export function creationGroups(template: SheetTemplate): CreationGroup[] {
     .filter((group) => group.fields.length > 0);
 }
 
+export function isFieldActive(template: SheetTemplate, field: SheetField, values: Record<string, FieldValue>, visiting = new Set<string>()): boolean {
+  const dependency = field.depends_on;
+  if (!dependency) return true;
+  if (visiting.has(field.id)) return false;
+  const parent = template.fields.find((candidate) => candidate.id === dependency.field_id);
+  if (!parent || parent.kind !== "select") return false;
+  const path = new Set(visiting);
+  path.add(field.id);
+  if (!isFieldActive(template, parent, values, path)) return false;
+  const selected = values[parent.id];
+  if (typeof selected !== "string") return false;
+  const parentOptions = parent.depends_on ? fieldOptions(template, parent, values) : parent.options;
+  return parentOptions.includes(selected) && dependency.cases.some((item) => item.equals === selected);
+}
+
+export function fieldOptions(template: SheetTemplate, field: SheetField, values: Record<string, FieldValue>): string[] {
+  if (!field.depends_on) return field.options;
+  if (!isFieldActive(template, field, values)) return [];
+  const parentValue = values[field.depends_on.field_id];
+  if (typeof parentValue !== "string") return [];
+  return field.depends_on.cases.find((item) => item.equals === parentValue)?.options ?? [];
+}
+
+export function reconcileDependentValues(template: SheetTemplate, values: Record<string, FieldValue>): { values: Record<string, FieldValue>; removedIds: string[] } {
+  const next = { ...values };
+  const removed = new Set<string>();
+  for (let pass = 0; pass <= template.fields.length; pass += 1) {
+    let changed = false;
+    for (const field of template.fields) {
+      if (!field.depends_on) continue;
+      const active = isFieldActive(template, field, next);
+      if (!active) {
+        if (next[field.id] !== undefined) {
+          delete next[field.id];
+          changed = true;
+        }
+        removed.add(field.id);
+        continue;
+      }
+      if (next[field.id] === undefined) continue;
+      const value = next[field.id];
+      const options = fieldOptions(template, field, next);
+      const invalid = typeof value !== "string" || !options.includes(value);
+      if (invalid) {
+        delete next[field.id];
+        removed.add(field.id);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return { values: next, removedIds: [...removed] };
+}
+
 export type FieldValidation = { valid: true } | { valid: false; message: string };
 
-export function validateField(field: SheetField, value: FieldValue | undefined): FieldValidation {
+export function validateField(field: SheetField, value: FieldValue | undefined, options = field.options): FieldValidation {
   if (field.kind === "formula" || field.kind === "roll") return { valid: true };
   if (field.kind === "checkbox") {
     if (value !== undefined && typeof value !== "boolean") return { valid: false, message: "Marque ou desmarque esta opção." };
@@ -65,15 +119,16 @@ export function validateField(field: SheetField, value: FieldValue | undefined):
 
   const text = typeof value === "string" ? value.trim() : "";
   if (field.required && !text) return { valid: false, message: "Preencha este campo." };
-  if (field.kind === "select" && text && !field.options.includes(text)) return { valid: false, message: "Escolha uma das opções disponíveis." };
+  if (field.kind === "select" && text && !options.includes(text)) return { valid: false, message: "Escolha uma das opções disponíveis." };
   if (value !== undefined && typeof value !== "string") return { valid: false, message: "Informe um texto válido." };
   return { valid: true };
 }
 
-export function validateFields(fields: SheetField[], values: Record<string, FieldValue>): Record<string, string> {
+export function validateFields(fields: SheetField[], values: Record<string, FieldValue>, template?: SheetTemplate): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const field of fields) {
-    const result = validateField(field, values[field.id]);
+    if (template && !isFieldActive(template, field, values)) continue;
+    const result = validateField(field, values[field.id], template ? fieldOptions(template, field, values) : field.options);
     if (!result.valid) errors[field.id] = result.message;
   }
   return errors;

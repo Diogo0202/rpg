@@ -1,6 +1,6 @@
-# RPG Nexus
+# RPG-Atlas
 
-RPG Nexus é uma aplicação web responsiva para organizar mesas de RPG em celular e computador. O projeto reúne uma interface Next.js, uma API FastAPI e migrações Supabase para campanhas privadas.
+RPG-Atlas é uma aplicação web responsiva para organizar mesas de RPG em celular e computador. O projeto reúne uma interface Next.js, uma API FastAPI e migrações Supabase para campanhas privadas.
 
 Consulte a [lista de funcionalidades e percentuais de conclusão](STATUS_FUNCIONALIDADES.md) para acompanhar as entregas implementadas, parciais e pendentes.
 
@@ -20,7 +20,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Modelos iniciais editáveis de Vampiro V5, Caçador e O Um Anel. O V5 reúne 9 atributos e 27 habilidades; os demais seguem os recortes de campos do Atlas.
 - Rolador de Caçador com Desespero adicional opcional, dificuldade e resultados separados. O Um Anel tem um rolador inicial de d12/d6 e cansaço, ainda em revisão; Miserável, Sombra e eventos de jornada não são automatizados. Esses modelos e roladores não cobrem todas as regras dos sistemas.
 - Rolador V5 com atributos e habilidades, dados individuais de Fome e classificação do resultado. Trilhas de dano superficial e agravado aplicam penalidades ao contexto físico ou mental, também na previsão de risco.
-- Cofre local por conta, com cópias, busca, renomeação e duplicação. Importa e exporta JSON Nexus validado, inclui inventário e efeitos, oferece impressão pelo navegador e restaura uma nova ficha usando modelo idêntico já aprovado.
+- Cofre local por conta, com cópias, busca, renomeação e duplicação. Importa e exporta JSON de backup validado, inclui inventário e efeitos, oferece impressão pelo navegador e restaura uma nova ficha usando modelo idêntico já aprovado.
 - Inventário por personagem, aquisições pendentes e equipamento exclusivo de arma ou armadura. O arsenal reúne 65 registros do Atlas, com filtros, comparação e preenchimento de aquisição.
 - Calculadora de XP e histórico local de estimativas. O cálculo não altera automaticamente os atributos nem o saldo da ficha.
 - Diário com sessões, eventos cronológicos e facções, incluindo relógio de tensão e exportação JSON ou Markdown.
@@ -37,7 +37,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 
 O estado atual é um protótipo em desenvolvimento. Os fluxos de gravação têm código e migrations locais; as migrations desta entrega ainda não foram aplicadas ao Supabase de destino. A persistência e o isolamento precisam de testes com contas reais. Os links do Spotify abrem playlists; não há OAuth, controle de reprodução nem sincronização do player. A busca de regras ainda não gera resposta por IA e não há fluxo público de envio de PDFs.
 
-Os efeitos dependem da migration `20261014141000_character_effects.sql`; o painel do grupo depende da publicação Realtime definida em `20261014140000_party_realtime.sql`. Aplique a sequência completa de migrations em um banco de teste antes de conferir os painéis novos. A compatibilidade dos backups com os metadados do assistente depende de `20261017100000_sheet_creation_backup_metadata.sql`, ainda sem execução em banco. O compêndio contém quatro exemplos originais, sem poderes oficiais V5. As regras completas de criação aguardam material autorizado; o rastreador específico de Vínculo de Sangue também segue pendente. Ressonância pode ser registrada como efeito configurável, com origem e duração definidas pela mesa. JSON Atlas bruto ainda exige um adaptador; o cofre aceita o contrato Nexus, sem importar permissões.
+Os efeitos dependem da migration `20261014141000_character_effects.sql`; o painel do grupo depende da publicação Realtime definida em `20261014140000_party_realtime.sql`. Aplique a sequência completa de migrations em um banco de teste antes de conferir os painéis novos. A compatibilidade dos backups com os metadados do assistente depende de `20261017100000_sheet_creation_backup_metadata.sql`, ainda sem execução em banco. O compêndio contém quatro exemplos originais, sem poderes oficiais V5. As regras completas de criação aguardam material autorizado; o rastreador específico de Vínculo de Sangue também segue pendente. Ressonância pode ser registrada como efeito configurável, com origem e duração definidas pela mesa. JSON do projeto Atlas de referência ainda exige um adaptador; o cofre aceita o contrato de backup atual, sem importar permissões.
 
 ## Tecnologias
 
@@ -114,13 +114,31 @@ npm --prefix frontend run dev
 backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
 ```
 
+## Assistente de IA
+
+Fichas podem receber sugestões baseadas em modelos aprovados. O narrador revisa cada proposta e mantém preparações de sessão e segredos de NPCs em área privada, publicando apenas campos selecionados. A integração OpenAI fica desativada por padrão e tem orçamento compartilhado de US$ 30 por mês. Consulte [fluxos, configuração e testes da IA](docs/AI_ASSISTANCE.md) antes de ativar.
+
 ## Supabase
 
-A [revisão de segurança de 17/10/2026](SEGURANCA.md) descreve os limites das fichas, a autenticação e as cotas da API, os sinais mínimos de Realtime e a proteção da impressão. As alterações têm testes preparados, ainda sem execução; as novas migrations também estão pendentes. O frontend e a migration de notificações Realtime devem ser lançados juntos.
+A [revisão de segurança de 17/10/2026](SEGURANCA.md) descreve os limites das fichas, a autenticação e as cotas da API, os sinais mínimos de Realtime e a proteção da impressão. Os testes locais de API e frontend foram executados em 18/10/2026; as migrations e os testes pgTAP ainda precisam de execução no banco. O frontend e a migration de notificações Realtime devem ser lançados juntos.
 
 As migrações estão em `supabase/migrations/`. Elas ainda precisam ser avaliadas e aplicadas ao projeto Supabase de destino. O acesso privado deve continuar protegido por convites e políticas RLS. O bucket da biblioteca deve ser privado antes de receber arquivos.
 
 O endpoint de extração de material exige `EXTRACTION_WORKER_TOKEN` no ambiente do backend. Não envie esse valor ao navegador. PDFs e regras de terceiros só devem entrar na biblioteca quando a campanha tiver autorização para armazená-los.
+
+## Concorrência e auditoria
+
+A API admite no máximo dez requisições simultâneas entre todas as ferramentas. A 11ª recebe HTTP 429 com `Retry-After`. Para um único processo local, o contador fica em memória; em múltiplas instâncias, configure `API_CONCURRENCY_BACKEND=supabase` e aplique a migration `20261018130000_api_concurrency.sql`. Vercel, Lambda, Cloud Run e `WEB_CONCURRENCY` acima de 1 exigem o modo compartilhado. Sem configuração válida, a API recusa chamadas com 503. As cotas por minuto continuam sendo locais ao processo.
+
+O backend registra acessos em JSON, com ator validado, status e identificador da requisição. O proxy Next.js registra verificações de sessão. Para gravar logs HTTP também no banco, aplique `20261018120000_access_audit.sql` e configure `SUPABASE_SERVICE_ROLE_KEY` somente no backend. A migration acrescenta triggers de auditoria para gravações diretas. Leituras REST diretas ao Supabase exigem os logs do provedor.
+
+Consulte o [checklist de entrega](CHECKLIST_SEGURANCA_E_METADADOS.md), o [controle de concorrência](docs/API_CONCURRENCY.md), a [auditoria](docs/ACCESS_AUDIT.md) e os [limites da proteção de conteúdo](docs/PROMPT_SECURITY.md). O backend ainda não conecta uma LLM; textos recuperados permanecem dados sem autoridade para executar ferramentas.
+
+## Metadados e Clarity
+
+Defina `SITE_URL` com a origem HTTPS pública antes do build do frontend. Sem um endereço público válido, o site recebe `noindex` e o sitemap fica vazio. A home inclui título, descrição, canonical, Open Graph, Twitter Card e schema `SoftwareApplication`; as imagens de compartilhamento têm 1200 × 630 pixels. `robots.txt` e `llms.txt` descrevem o acesso público. `robots.txt` não substitui autenticação e RLS.
+
+O Clarity fica desligado por padrão. Para ativá-lo na home, configure `NEXT_PUBLIC_CLARITY_ENABLED=true` e `NEXT_PUBLIC_CLARITY_PROJECT_ID` antes do build. O script só carrega após consentimento explícito para análise, com armazenamento de publicidade negado e conteúdo mascarado. A pessoa pode revogar a escolha; rotas privadas abrem em outro documento, sem carregar a tag. A integração segue a [Consent API V2](https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-consent-api-v2) e a [API de mascaramento](https://learn.microsoft.com/en-us/clarity/setup-and-installation/clarity-masking).
 
 ## Docker
 

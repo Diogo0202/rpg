@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 
-from app.services.sheet_creation import prepare_sheet_creation
+from app.services.sheet_creation import approved_template_draft, prepare_sheet_creation
 from app.services.sheet_values import validate_sheet_values
 
 
@@ -132,16 +132,11 @@ async def _current_user_id(authorization: str | None) -> str:
 
 
 def _template_fields(template: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    schema = template.get("schema")
-    if not isinstance(schema, dict) or not isinstance(schema.get("fields"), list):
-        raise HTTPException(status_code=422, detail="template não possui campos modulares válidos")
-    fields: dict[str, dict[str, Any]] = {}
-    for field in schema["fields"]:
-        if isinstance(field, dict) and isinstance(field.get("id"), str):
-            fields[field["id"]] = field
-    if len(fields) != len(schema["fields"]):
-        raise HTTPException(status_code=422, detail="template contém campos inválidos")
-    return fields
+    try:
+        draft = approved_template_draft(template)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {field.id: field.model_dump(mode="json") for field in draft.fields}
 
 
 def _validate_values(values: dict[str, Any], fields: dict[str, dict[str, Any]]) -> None:

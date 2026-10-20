@@ -9,6 +9,17 @@
     "lint": "npm --prefix frontend run lint",
     "build": "npm --prefix frontend run build",
     "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\test-api.ps1",
-    "test:web": "npm --prefix frontend run test:domain"
+    "test:web": "npm --prefix frontend run test:domain",
+    "test:db": "node scripts/test-db.mjs",
+    "test:mobile": "node --experimental-strip-types --test frontend/tests/mobile-sync.test.mjs frontend/tests/mobile-sync-indexeddb.test.mjs",
+    "dev:mobile": "npm --prefix mobile run dev",
+    "build:mobile": "npm --prefix mobile run build",
+    "test:mobile:ui": "npm --prefix mobile test",
+    "test:mobile:integration": "node --experimental-strip-types scripts/test-mobile-integration.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite-pgtap": "0.0.11",
+    "@electric-sql/pglite-pgvector": "0.0.11"
   }
 }

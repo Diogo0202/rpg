@@ -31,7 +31,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
       const client=createClient();
       const result=target==="map"&&map
         ?await client.from("maps").insert({campaign_id:campaignId,name:mapName.trim()||`Mapa ${map.seed}`,document:map,created_by:viewerId}).select("id").single()
-        :entry?await client.from("world_entities").insert({campaign_id:campaignId,kind:entry.kind==="item"?"item":"npc",name:entry.name,created_by:viewerId,body:{description:entry.summary,generated:entry,role:entry.kind==="enemy"?"antagonist":"neutral",source:"Gerador original RPG Nexus"}}).select("id").single():null;
+        :entry?await client.from("world_entities").insert({campaign_id:campaignId,kind:entry.kind==="item"?"item":"npc",name:entry.name,created_by:viewerId,body:{description:entry.summary,generated:entry,role:entry.kind==="enemy"?"antagonist":"neutral",source:"Gerador original RPG-Atlas"}}).select("id").single():null;
       if(!result||result.error||!result.data)throw new Error("Falha ao gravar. Confira suas permissões e as migrations.");
       setMessage(target==="map"?"Mapa salvo. Abra Mapas para editar seus marcadores.":"Conteúdo salvo na biblioteca do mundo.");
     } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gravar.");}

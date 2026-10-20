@@ -1,0 +1,166 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * RPG-Atlas Mobile design system: forest green ground, parchment surfaces, gold details.
+ * All colors are oklch tokens; components use only semantic utilities.
+ */
+
+@theme inline {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Source Sans 3", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-success: var(--success);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-parchment-deep: var(--parchment-deep);
+  --color-gold: var(--gold);
+  --color-forest-deep: var(--forest-deep);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+  --radius: 0.75rem;
+  --forest-deep: oklch(0.19 0.035 160);
+  --background: oklch(0.235 0.04 158);
+  --foreground: oklch(0.95 0.025 88);
+  --card: oklch(0.935 0.035 86);
+  --card-foreground: oklch(0.26 0.035 60);
+  --ink: oklch(0.26 0.035 60);
+  --ink-muted: oklch(0.45 0.035 65);
+  --parchment-deep: oklch(0.88 0.045 82);
+  --popover: oklch(0.935 0.035 86);
+  --popover-foreground: oklch(0.26 0.035 60);
+  --primary: oklch(0.78 0.125 82);
+  --primary-foreground: oklch(0.2 0.035 160);
+  --gold: oklch(0.78 0.125 82);
+  --secondary: oklch(0.31 0.045 158);
+  --secondary-foreground: oklch(0.95 0.025 88);
+  --muted: oklch(0.29 0.035 158);
+  --muted-foreground: oklch(0.8 0.03 90);
+  --accent: oklch(0.36 0.06 150);
+  --accent-foreground: oklch(0.96 0.025 88);
+  --destructive: oklch(0.52 0.17 28);
+  --destructive-foreground: oklch(0.97 0.01 88);
+  --warning: oklch(0.8 0.14 70);
+  --warning-foreground: oklch(0.22 0.04 60);
+  --success: oklch(0.72 0.12 150);
+  --border: oklch(0.42 0.045 150);
+  --input: oklch(0.72 0.05 80);
+  --ring: oklch(0.82 0.14 85);
+  --sidebar: oklch(0.19 0.035 160);
+  --sidebar-foreground: oklch(0.95 0.025 88);
+  --sidebar-primary: oklch(0.78 0.125 82);
+  --sidebar-primary-foreground: oklch(0.2 0.035 160);
+  --sidebar-accent: oklch(0.3 0.045 158);
+  --sidebar-accent-foreground: oklch(0.95 0.025 88);
+  --sidebar-border: oklch(0.36 0.04 155);
+  --sidebar-ring: oklch(0.82 0.14 85);
+  --shadow-parchment: 0 1px 0 oklch(1 0 0 / 40%) inset, 0 10px 24px -14px oklch(0.1 0.03 160 / 70%);
+  --gradient-forest: radial-gradient(120% 80% at 50% -10%, oklch(0.3 0.05 155), var(--background) 60%, var(--forest-deep));
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--gradient-forest);
+    background-attachment: fixed;
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@utility parchment {
+  background-color: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid oklch(0.78 0.06 80);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-parchment);
+}
+
+@utility parchment-inset {
+  background-color: var(--parchment-deep);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+}
+
+@utility field-input {
+  min-height: 44px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--input);
+  background-color: oklch(0.97 0.02 88);
+  color: var(--ink);
+  padding: 0.5rem 0.75rem;
+  font-size: 1rem;
+}
+
+@utility tap {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility gold-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+

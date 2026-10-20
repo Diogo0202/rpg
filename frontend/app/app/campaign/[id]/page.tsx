@@ -6,7 +6,7 @@ import { CampaignWorkbench } from "../../../../components/campaign-workbench";
 import { createClient, isSupabaseConfigured } from "../../../../lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Mesa | RPG Nexus",
+  title: "Mesa | RPG-Atlas",
   robots: { index: false, follow: false },
 };
 

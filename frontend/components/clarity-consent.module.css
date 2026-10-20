@@ -1,0 +1,82 @@
+.banner {
+  position: fixed;
+  z-index: 1000;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  max-width: 54rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+  color: #f4f1e8;
+  background: #182622;
+  border: 1px solid #50645b;
+  border-radius: 0.8rem;
+  box-shadow: 0 1rem 3rem #0005;
+  font: 0.95rem/1.5 system-ui, sans-serif;
+}
+
+.banner p {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.6rem;
+}
+
+.actions button {
+  padding: 0.65rem 0.85rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid #a7b5ac;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font: inherit;
+}
+
+.actions button:first-child {
+  color: #14201c;
+  background: #d9e4d5;
+  border-color: #d9e4d5;
+}
+
+.preference {
+  position: fixed;
+  z-index: 1000;
+  right: 1rem;
+  bottom: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #182622;
+  border: 1px solid #50645b;
+  border-radius: 0.7rem;
+  box-shadow: 0 0.5rem 2rem #0004;
+}
+
+.preference button {
+  padding: 0.5rem 0.7rem;
+  color: #f4f1e8;
+  background: transparent;
+  border: 1px solid #a7b5ac;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font: 0.85rem/1.3 system-ui, sans-serif;
+}
+
+@media (max-width: 38rem) {
+  .banner {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+
+  .actions button {
+    flex: 1;
+  }
+}

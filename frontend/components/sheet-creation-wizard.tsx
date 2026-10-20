@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { characterNameField, creationGroups, creationStepLabel, identityFields, validateFields } from "../lib/sheet-creation";
+import { characterNameField, creationGroups, creationStepLabel, fieldOptions, identityFields, isFieldActive, reconcileDependentValues, validateFields } from "../lib/sheet-creation";
 import type { FieldValue, SheetField, SheetTemplate, StoredTemplate } from "../lib/sheet-template";
 import styles from "./sheet-creation-wizard.module.css";
+import { AiSheetRequest } from "./ai-assistance-panel";
 
 type Props = {
+  campaignId: string;
   templates: StoredTemplate[];
   templateId: string;
   template: SheetTemplate;
@@ -21,7 +23,7 @@ type Props = {
   calculationError: string;
   onChooseTemplate: (id: string) => void;
   onNameChange: (name: string) => void;
-  onValueChange: (id: string, value: FieldValue) => void;
+  onValueChange: (id: string, value: FieldValue | undefined) => void;
   onSave: () => Promise<void>;
   onOpenEditor?: () => void;
 };
@@ -30,16 +32,20 @@ type WizardStep = { key: string; title: string; fields: SheetField[]; kind: "tem
 
 export function SheetCreationWizard(props: Props) {
   const {
-    templates, templateId, template, values, name, calculated, busy, canCreate, loading,
+    campaignId, templates, templateId, template, values, name, calculated, busy, canCreate, loading,
     loadError, feedback, calculationError, onChooseTemplate, onNameChange, onValueChange,
     onSave, onOpenEditor,
   } = props;
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [collectionDrafts, setCollectionDrafts] = useState<Record<string, string>>({});
-  const groups = useMemo(() => creationGroups(template), [template]);
+  const [dependencyAnnouncement, setDependencyAnnouncement] = useState("");
+  const groups = useMemo(() => creationGroups(template).map((group) => ({
+    ...group,
+    fields: group.fields.filter((field) => isFieldActive(template, field, values)),
+  })).filter((group) => group.fields.length > 0), [template, values]);
   const nameField = characterNameField(template);
-  const identities = useMemo(() => identityFields(template), [template]);
+  const identities = useMemo(() => identityFields(template).filter((field) => isFieldActive(template, field, values)), [template, values]);
   const steps: WizardStep[] = [
     { key: "template", title: "Modelo", fields: [], kind: "template" },
     { key: "identity", title: "Nome e identidade", fields: identities, kind: "identity" },
@@ -60,13 +66,28 @@ export function SheetCreationWizard(props: Props) {
 
   function changeField(field: SheetField, value: FieldValue) {
     if (busy) return;
+    const reconciled = reconcileDependentValues(template, { ...values, [field.id]: value });
     onValueChange(field.id, value);
+    for (const id of reconciled.removedIds) onValueChange(id, undefined);
     clearError(field.id);
+    if (reconciled.removedIds.length) {
+      setErrors((current) => {
+        const next = { ...current };
+        for (const id of reconciled.removedIds) delete next[id];
+        return next;
+      });
+      setCollectionDrafts((current) => {
+        const next = { ...current };
+        for (const id of reconciled.removedIds) delete next[id];
+        return next;
+      });
+      setDependencyAnnouncement("Os campos dependentes foram atualizados conforme a escolha controladora.");
+    } else setDependencyAnnouncement("");
   }
 
   function advance() {
     if (busy) return;
-    const nextErrors = { ...validateFields(step.fields, values) };
+    const nextErrors = { ...validateFields(step.fields, values, template) };
     if (step.kind === "identity") {
       if (!name.trim()) nextErrors.$name = "Informe o nome do personagem.";
       else if (name.trim().length > 120) nextErrors.$name = "O nome deve ter até 120 caracteres.";
@@ -95,8 +116,12 @@ export function SheetCreationWizard(props: Props) {
     const value = values[field.id];
     const error = errors[field.id];
     const inputId = `sheet-field-${field.id}`;
-    const common = { id: inputId, "aria-invalid": Boolean(error), "aria-describedby": error ? `${inputId}-error` : undefined, disabled: busy };
+    const dependencyHelpId = `${inputId}-dependency-help`;
+    const controllingField = field.depends_on ? template.fields.find((candidate) => candidate.id === field.depends_on?.field_id) : undefined;
+    const describedBy = [error ? `${inputId}-error` : "", controllingField ? dependencyHelpId : ""].filter(Boolean).join(" ") || undefined;
+    const common = { id: inputId, "aria-invalid": Boolean(error), "aria-describedby": describedBy, disabled: busy };
     const errorNode = error ? <span className={styles.fieldError} id={`${inputId}-error`}>{error}</span> : null;
+    const dependencyHelp = controllingField ? <small className={styles.dependencyHelp} id={dependencyHelpId}>Este campo depende da escolha em {controllingField.label}.</small> : null;
     const label = <span className={styles.label}>{field.label}{field.required && <span className={styles.required}>Obrigatório</span>}</span>;
 
     if (field.kind === "formula") {
@@ -108,19 +133,20 @@ export function SheetCreationWizard(props: Props) {
     if (field.kind === "checkbox") {
       return <div className={styles.field} key={field.id}><label className={styles.checkRow} htmlFor={inputId}><input {...common} type="checkbox" checked={value === true} onChange={(event: ChangeEvent<HTMLInputElement>) => changeField(field, event.target.checked)} />{label}</label>{errorNode}</div>;
     }
-    if (field.kind === "select" && field.identity_kind && field.options.length > 0) {
+    const options = fieldOptions(template, field, values);
+    if (field.kind === "select" && field.identity_kind && options.length > 0) {
       const selected = typeof value === "string" ? value : "";
-      return <fieldset className={styles.identityField} key={field.id} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined}>
+      return <fieldset className={styles.identityField} key={field.id} aria-invalid={Boolean(error)} aria-describedby={describedBy}>
         <legend>{label}</legend><div className={styles.choiceGrid}>
-          {field.options.map((option, index) => <label className={`${styles.choice} ${selected === option ? styles.choiceSelected : ""}`} key={option}>
-            <input id={index === 0 ? inputId : undefined} type="radio" name={`identity-${field.id}`} value={option} checked={selected === option} disabled={busy} aria-invalid={Boolean(error)} aria-describedby={error ? `${inputId}-error` : undefined} onChange={() => changeField(field, option)} />
+          {options.map((option, index) => <label className={`${styles.choice} ${selected === option ? styles.choiceSelected : ""}`} key={option}>
+            <input id={index === 0 ? inputId : undefined} type="radio" name={`identity-${field.id}`} value={option} checked={selected === option} disabled={busy} aria-invalid={Boolean(error)} aria-describedby={describedBy} onChange={() => changeField(field, option)} />
             <span>{option}</span>
           </label>)}
-        </div>{errorNode}
+        </div>{dependencyHelp}{errorNode}
       </fieldset>;
     }
     if (field.kind === "select") {
-      return <label className={styles.field} key={field.id}>{label}<select {...common} value={typeof value === "string" ? value : ""} onChange={(event) => changeField(field, event.target.value)}><option value="">Selecione</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{errorNode}</label>;
+      return <label className={styles.field} key={field.id}>{label}<select {...common} value={typeof value === "string" ? value : ""} onChange={(event) => changeField(field, event.target.value)}><option value="">Selecione</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{dependencyHelp}{errorNode}</label>;
     }
     if (field.kind === "collection") {
       const items = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -137,7 +163,7 @@ export function SheetCreationWizard(props: Props) {
   const previewContent = <>
     <div className={styles.previewIdentity}><span>PERSONAGEM</span><strong>{name.trim() || "Sem nome"}</strong><small>{template.name || "Modelo"}</small></div>
     <div className={styles.previewFields}>
-      {template.fields.map((field) => {
+      {template.fields.filter((field) => isFieldActive(template, field, values)).map((field) => {
         if (field.id === nameField?.id) return null;
         let display: string;
         if (field.kind === "formula") display = calculated[field.id] === undefined ? "Aguardando cálculo" : String(calculated[field.id]);
@@ -180,12 +206,12 @@ export function SheetCreationWizard(props: Props) {
       {step.kind === "review" && <div className={styles.review}>
         <div className={styles.reviewName}><span>PERSONAGEM</span><strong>{name.trim() || "Nome não informado"}</strong><small>{template.name}</small></div>
         {steps.filter((item) => item.kind === "identity" || item.kind === "group").map((item) => {
-          const fields = item.fields.filter((field) => field.kind !== "formula" && field.kind !== "roll");
+          const fields = item.fields.filter((field) => isFieldActive(template, field, values) && field.kind !== "formula" && field.kind !== "roll");
           if (!fields.length && item.kind !== "identity") return null;
           return <section className={styles.reviewGroup} key={item.key}><h4>{item.title}</h4>{item.kind === "identity" && identities.length === 0 ? <p>{name.trim()}</p> : null}{fields.map((field) => <p key={field.id}><span>{field.label}</span><strong>{formatValue(values[field.id])}</strong></p>)}</section>;
         })}
-        {template.fields.filter((field) => field.kind === "formula").map((field) => <section className={styles.reviewGroup} key={field.id}><h4>{field.label} · calculado</h4><p><span>{field.expression || "Fórmula do modelo"}</span><strong>{calculated[field.id] === undefined ? "Aguardando cálculo" : String(calculated[field.id])}</strong></p></section>)}
-        {template.fields.filter((field) => field.kind === "roll").map((field) => <section className={styles.reviewGroup} key={field.id}><h4>{field.label} · prévia</h4><p><span>{field.expression || "Expressão do modelo"}</span><strong>Sem rolagem</strong></p></section>)}
+        {template.fields.filter((field) => isFieldActive(template, field, values) && field.kind === "formula").map((field) => <section className={styles.reviewGroup} key={field.id}><h4>{field.label} · calculado</h4><p><span>{field.expression || "Fórmula do modelo"}</span><strong>{calculated[field.id] === undefined ? "Aguardando cálculo" : String(calculated[field.id])}</strong></p></section>)}
+        {template.fields.filter((field) => isFieldActive(template, field, values) && field.kind === "roll").map((field) => <section className={styles.reviewGroup} key={field.id}><h4>{field.label} · prévia</h4><p><span>{field.expression || "Expressão do modelo"}</span><strong>Sem rolagem</strong></p></section>)}
       </div>}
 
       <footer className={styles.actions}>
@@ -194,8 +220,10 @@ export function SheetCreationWizard(props: Props) {
       </footer>
       {!canCreate && isLast && <p className={styles.permissionHint}>Seu papel nesta campanha não permite criar fichas.</p>}
     </article>
+    <p className={styles.visuallyHidden} role="status" aria-live="polite">{dependencyAnnouncement}</p>
     <aside className={styles.desktopPreview} aria-label="Prévia da ficha"><p className={styles.eyebrow}>PRÉVIA DA MESA</p>{previewContent}<small>Os resultados são atualizados ao preencher a ficha. Dados só são rolados na sessão.</small></aside>
     <details className={styles.mobilePreview}><summary>Ver prévia da ficha</summary>{previewContent}</details>
+    {templateId && canCreate && <AiSheetRequest campaignId={campaignId} templateId={templateId} />}
   </section>;
 }
 

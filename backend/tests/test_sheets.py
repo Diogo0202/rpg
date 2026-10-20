@@ -15,12 +15,12 @@ sheets_app.include_router(sheets.router)
 client = TestClient(sheets_app)
 TEMPLATE_SCHEMA = {
     "fields": [
-        {"id": "character_name", "kind": "text"},
-        {"id": "strength", "kind": "number"},
-        {"id": "clan", "kind": "select", "options": ["Brujah", "Toreador"]},
-        {"id": "active", "kind": "checkbox"},
-        {"id": "inventory", "kind": "collection"},
-        {"id": "pool", "kind": "formula", "expression": "strength + 2"},
+        {"id": "character_name", "label": "Nome", "kind": "text"},
+        {"id": "strength", "label": "Força", "kind": "number"},
+        {"id": "clan", "label": "Clã", "kind": "select", "options": ["Brujah", "Toreador"]},
+        {"id": "active", "label": "Ativo", "kind": "checkbox"},
+        {"id": "inventory", "label": "Inventário", "kind": "collection"},
+        {"id": "pool", "label": "Parada", "kind": "formula", "expression": "strength + 2"},
     ]
 }
 
@@ -55,7 +55,7 @@ def test_modular_sheet_rejects_unknown_or_mistyped_fields(values: dict[str, obje
 
 
 def test_modular_sheet_requires_non_calculated_required_fields() -> None:
-    fields = _template_fields({"schema": {"fields": [{"id": "character_name", "kind": "text", "required": True}]}})
+    fields = _template_fields({"schema": {"fields": [{"id": "character_name", "label": "Nome", "kind": "text", "required": True}]}})
     with pytest.raises(HTTPException, match="campo obrigatório ausente"):
         _validate_values({}, fields)
 

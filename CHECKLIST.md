@@ -1,4 +1,4 @@
-# Checklist de entrega do RPG Nexus
+# Checklist de entrega do RPG-Atlas
 
 Atualizado em 15/10/2026. Legenda: `[x]` implementado e validado localmente; `[~]` fluxo parcial ou aguardando validação remota; `[ ]` pendente. A [lista com percentuais](STATUS_FUNCIONALIDADES.md) contém o escopo detalhado.
 

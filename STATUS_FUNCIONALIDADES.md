@@ -1,4 +1,4 @@
-# Funcionalidades do RPG Nexus
+# Funcionalidades do RPG-Atlas
 
 Atualizado em **15/10/2026**, com base no código de `D:\rpg-github`, na [comparação com o RPG Atlas](COMPARACAO_RPG_ATLAS.md) e nas verificações locais desta sessão.
 

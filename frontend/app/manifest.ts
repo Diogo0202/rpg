@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "RPG Nexus",
-    short_name: "RPG Nexus",
+    name: "RPG-Atlas",
+    short_name: "RPG-Atlas",
     description: "Campanhas privadas de RPG para celular e computador.",
     start_url: "/app",
     display: "standalone",

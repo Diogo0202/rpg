@@ -4,6 +4,10 @@ export const creationSteps = ["identity", "attributes", "skills", "traits", "res
 export type CreationStep = (typeof creationSteps)[number];
 export const identityKinds = ["race", "subrace", "clan", "predator", "creed", "lineage", "origin", "archetype"] as const;
 export type IdentityKind = (typeof identityKinds)[number];
+export type SelectDependency = {
+  field_id: string;
+  cases: { equals: string; options: string[] }[];
+};
 
 export type SheetField = {
   id: string;
@@ -11,6 +15,7 @@ export type SheetField = {
   kind: FieldKind;
   required: boolean;
   options: string[];
+  depends_on?: SelectDependency;
   expression: string | null;
   creation_step?: CreationStep | null;
   identity_kind?: IdentityKind | null;

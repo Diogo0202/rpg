@@ -23,8 +23,9 @@ import { MusicCuesPanel } from "./music-cues-panel";
 import { SecondInquisitionPanel } from "./second-inquisition-panel";
 import { ChronicleDiagnosticPanel } from "./chronicle-diagnostic-panel";
 import { SystemRollPanel } from "./system-roll-panel";
+import { AiAssistancePanel } from "./ai-assistance-panel";
 
-type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "cofre" | "inventario" | "acoes" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5";
+type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "cofre" | "inventario" | "acoes" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai";
 type Book = { name: string; kind: string; state: "Pronto" | "Em revisão" | "Na fila" };
 
 const initialBooks: Book[] = [];
@@ -50,6 +51,7 @@ const areas: Array<{ id: Area; label: string; detail: string }> = [
   { id: "mesa", label: "Mesa", detail: "Iniciativa e turnos" },
   { id: "geracao", label: "Geração", detail: "Mapas, personagens e itens" },
   { id: "v5", label: "V5: risco", detail: "Fome, críticos e Vontade" },
+  { id: "ai", label: "Assistente IA", detail: "Pedidos e preparação privada" },
 ];
 
 type WorkbenchProps = { campaignId: string; campaignName: string; viewerId: string; isOwner: boolean; canManageTemplates: boolean; canEditSheets: boolean };
@@ -66,10 +68,10 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
   return (
     <main className="shell">
       <aside className="rail" aria-label="Navegação da campanha">
-        <div className="brand"><span>R</span><strong>RPG<br />NEXUS</strong></div>
+        <div className="brand"><span>R</span><strong>RPG<br />ATLAS</strong></div>
         <p className="campaign">{campaignName}<br /><small>{isOwner ? "Você é o mestre" : "Você é membro"}</small></p>
         <nav>
-          {areas.filter((item) => !["grupo", "si", "cronica"].includes(item.id) || canManageTemplates).map((item) => (
+          {areas.filter((item) => (!['grupo', 'si', 'cronica'].includes(item.id) || canManageTemplates)).map((item) => (
             <button key={item.id} type="button" aria-pressed={area === item.id} className={area === item.id ? "nav active" : "nav"} onClick={() => setArea(item.id)}>
               <strong>{item.label}</strong><small>{item.detail}</small>
             </button>
@@ -123,6 +125,7 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
 
         {area === "geracao" && <GenerationPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
         {area === "v5" && <V5ProbabilityPanel />}
+        {area === "ai" && <AiAssistancePanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
       </section>
     </main>
   );

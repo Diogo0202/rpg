@@ -231,7 +231,7 @@ export default function SpotifyPlaylistPanel({ campaignId }: { campaignId: strin
       )}
 
       <p className={styles.scope}>
-        Este painel guarda e abre links da campanha. Ele não conecta à sua conta Spotify nem toca música dentro do RPG Nexus.
+        Este painel guarda e abre links da campanha. Ele não conecta à sua conta Spotify nem toca música dentro do RPG-Atlas.
       </p>
     </section>
   );

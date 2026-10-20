@@ -1,1 +1,1 @@
-"""Domínio seguro da plataforma RPG Nexus."""
+"""Domínio seguro da plataforma RPG-Atlas."""

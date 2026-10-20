@@ -1,3 +1,6 @@
+import { isFieldActive, reconcileDependentValues } from "./sheet-creation.ts";
+import type { SelectDependency, SheetTemplate } from "./sheet-template.ts";
+
 export const SHEET_BACKUP_FORMAT = "rpg-nexus-sheet" as const;
 export const VAULT_BACKUP_FORMAT = "rpg-nexus-vault" as const;
 export const SHEET_BACKUP_VERSION = 1 as const;
@@ -11,6 +14,7 @@ export type BackupField = {
   required: boolean;
   options: string[];
   expression: string | null;
+  depends_on?: SelectDependency;
 };
 
 const presentationOnlyFieldKeys = new Set(["creation_step", "identity_kind", "character_name"]);
@@ -120,14 +124,16 @@ function stringArray(value: unknown, label: string, maxItems: number, maxLength:
 function validateField(value: unknown, index: number): BackupField {
   const label = `Campo ${index + 1}`;
   if (!isPlainObject(value)) throw new Error(`${label} deve ser um objeto.`);
-  exactKeys(value, ["id", "label", "kind", "required", "options", "expression"], label);
+  exactKeys(value, ["id", "label", "kind", "required", "options", "expression", "depends_on"], label);
   const id = boundedString(value.id, `${label}: id`, 64, 2);
   if (!/^[a-z][a-z0-9_]{1,63}$/.test(id)) throw new Error(`${label} tem id inválido.`);
   if (!fieldKinds.has(value.kind as BackupField["kind"])) throw new Error(`${label} tem tipo desconhecido.`);
   if (typeof value.required !== "boolean") throw new Error(`${label}: required deve ser booleano.`);
   const options = stringArray(value.options, `${label}: opções`, 100, 160);
   const expression = value.expression === null ? null : boundedString(value.expression, `${label}: expressão`, 120);
-  if (value.kind === "select" && options.length === 0) throw new Error(`${label} precisa de opções.`);
+  const dependency = value.depends_on === undefined ? undefined : validateDependency(value.depends_on, label);
+  if (dependency && value.kind !== "select") throw new Error(`${label}: somente campos de seleção aceitam dependência.`);
+  if (value.kind === "select" && options.length === 0 && !dependency) throw new Error(`${label} precisa de opções.`);
   if (["formula","roll"].includes(String(value.kind)) && !expression?.trim()) throw new Error(`${label} precisa de expressão.`);
   return {
     id,
@@ -136,7 +142,29 @@ function validateField(value: unknown, index: number): BackupField {
     required: value.required,
     options,
     expression,
+    ...(dependency ? { depends_on: dependency } : {}),
   };
+}
+
+function validateDependency(value: unknown, label: string): SelectDependency {
+  if (!isPlainObject(value)) throw new Error(`${label}: dependência inválida.`);
+  exactKeys(value, ["field_id", "cases"], `${label}: dependência`);
+  const field_id = boundedString(value.field_id, `${label}: campo controlador`, 64, 2);
+  if (!/^[a-z][a-z0-9_]{1,63}$/.test(field_id)) throw new Error(`${label}: id do campo controlador inválido.`);
+  if (!Array.isArray(value.cases) || value.cases.length < 1 || value.cases.length > 100) throw new Error(`${label}: casos de dependência inválidos.`);
+  const seen = new Set<string>();
+  const cases = value.cases.map((item, index) => {
+    const caseLabel = `${label}: caso ${index + 1}`;
+    if (!isPlainObject(item)) throw new Error(`${caseLabel} deve ser um objeto.`);
+    exactKeys(item, ["equals", "options"], caseLabel);
+    const equals = boundedString(item.equals, `${caseLabel}: valor`, 160, 1);
+    if (seen.has(equals)) throw new Error(`${label}: há casos repetidos para o mesmo valor.`);
+    seen.add(equals);
+    const options = stringArray(item.options, `${caseLabel}: opções`, 100, 160);
+    if (!options.length || options.length !== new Set(options).size) throw new Error(`${caseLabel}: informe opções únicas.`);
+    return { equals, options };
+  });
+  return { field_id, cases };
 }
 
 function validateEffects(value: unknown): BackupEffect[] {
@@ -216,6 +244,19 @@ function validateSheetBackup(input: unknown): SheetBackup {
     if (fieldIds.has(field.id)) throw new Error("O template contém ids de campo repetidos.");
     fieldIds.add(field.id);
   });
+  for (const field of fields) {
+    if (!field.depends_on) continue;
+    const parent = fields.find((candidate) => candidate.id === field.depends_on?.field_id);
+    if (!parent || parent.kind !== "select" || parent.id === field.id) throw new Error(`${field.label}: controlador inválido.`);
+    const visited = new Set<string>([field.id]);
+    let current: BackupField | undefined = parent;
+    while (current?.depends_on) {
+      if (visited.has(current.id)) throw new Error(`${field.label}: dependência circular.`);
+      visited.add(current.id);
+      current = fields.find((candidate) => candidate.id === current?.depends_on?.field_id);
+    }
+    if (current && visited.has(current.id)) throw new Error(`${field.label}: dependência circular.`);
+  }
   if (!isPlainObject(input.values)) throw new Error("Os valores da ficha são inválidos.");
   const values: SheetBackup["values"] = Object.create(null) as SheetBackup["values"];
   for (const [key, value] of Object.entries(input.values)) {
@@ -224,7 +265,7 @@ function validateSheetBackup(input: unknown): SheetBackup {
     if (["formula","roll"].includes(field.kind)) throw new Error(`O campo calculado ${field.label} não aceita valor de entrada.`);
     if (typeof value === "string") {
       if (value.length > 10_000 || !["text","select"].includes(field.kind)) throw new Error(`Valor inválido para ${field.label}.`);
-      if (field.kind === "select" && value !== "" && !field.options.includes(value)) throw new Error(`Opção inválida para ${field.label}.`);
+      if (field.kind === "select" && !field.depends_on && value !== "" && !field.options.includes(value)) throw new Error(`Opção inválida para ${field.label}.`);
       if (["checkbox", "collection", "formula", "roll"].includes(field.kind) && value !== "") throw new Error(`Tipo de valor incompatível para ${field.label}.`);
     } else if (typeof value === "number") {
       if (!Number.isFinite(value) || Math.abs(value) > 1_000_000 || field.kind !== "number") throw new Error(`Valor numérico inválido para ${field.label}.`);
@@ -238,9 +279,12 @@ function validateSheetBackup(input: unknown): SheetBackup {
     }
     if (!Array.isArray(value)) values[key] = value;
   }
+  const reconciled = reconcileDependentValues({ fields } as SheetTemplate, values);
+  const effectiveValues = reconciled.values;
   for(const field of fields){
+    if(!isFieldActive({ fields } as SheetTemplate, field, effectiveValues))continue;
     if(!field.required || ["formula","roll"].includes(field.kind))continue;
-    const value=values[field.id];
+    const value=effectiveValues[field.id];
     if(value===undefined || (typeof value==="string"&&!value.trim()) || (Array.isArray(value)&&value.length===0) || (field.kind==="checkbox"&&value!==true))throw new Error(`Campo obrigatório ausente: ${field.label}.`);
   }
   return {
@@ -248,7 +292,7 @@ function validateSheetBackup(input: unknown): SheetBackup {
     format_version: SHEET_BACKUP_VERSION,
     name: boundedString(input.name, "Nome da ficha", 120, 1),
     template: { name: boundedString(input.template.name, "Nome do template", 120, 1), version: input.template.version as number, fields },
-    values,
+    values: effectiveValues,
     effects: validateEffects(input.effects),
     ...(input.inventory === undefined ? {} : { inventory: validateInventory(input.inventory) }),
   };

@@ -38,7 +38,7 @@ values ('21000000-0000-0000-0000-000000000001', '31000000-0000-0000-0000-0000000
 select has_table('public', 'character_sheet_notifications', 'notification table exists');
 select is((select count(*)::integer from information_schema.columns
   where table_schema = 'public' and table_name = 'character_sheet_notifications'), 4, 'notification table exposes four columns');
-select ok(rowsecurity_active('public.character_sheet_notifications'::regclass), 'notification table has RLS');
+select ok((select relrowsecurity from pg_class where oid='public.character_sheet_notifications'::regclass), 'notification table has RLS');
 select ok(not has_table_privilege('authenticated', 'public.character_sheet_notifications', 'insert,update,delete'), 'authenticated clients cannot write notifications');
 select is((select count(*)::integer from public.character_sheet_notifications), 1, 'sheet owner reads own notification');
 select is((select count(*)::integer from public.character_sheet_notifications where owner_id = '11000000-0000-0000-0000-000000000003'), 0, 'player cannot read another campaign notification');

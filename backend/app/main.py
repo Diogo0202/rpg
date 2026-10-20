@@ -20,6 +20,8 @@ from app.services.extraction import create_review_draft
 from app.services.sheet_calculations import calculate_sheet
 from app.services.templates import validate_template
 from app.security import ApiSecurityMiddleware
+from app.access_audit import AccessAuditMiddleware
+from app.shared_concurrency import SharedAdmissionMiddleware
 from app.routes.generators import router as generation_router
 from app.routes.v5 import router as v5_router
 from app.routes.sheets import router as sheets_router
@@ -29,8 +31,10 @@ from app.routes.v5_actions import router as v5_actions_router
 from app.routes.second_inquisition import router as second_inquisition_router
 from app.routes.chronicle import router as chronicle_router
 from app.routes.system_rolls import router as system_rolls_router
+from app.routes.ai_assistance import router as ai_assistance_router
+from app.routes.mobile_sync import router as mobile_sync_router
 
-app = FastAPI(title="RPG Nexus API", version="0.1.0")
+app = FastAPI(title="RPG-Atlas API", version="0.1.0")
 app.include_router(generation_router)
 app.include_router(v5_router)
 app.include_router(sheets_router)
@@ -40,6 +44,8 @@ app.include_router(v5_actions_router)
 app.include_router(second_inquisition_router)
 app.include_router(chronicle_router)
 app.include_router(system_rolls_router)
+app.include_router(ai_assistance_router)
+app.include_router(mobile_sync_router)
 
 # Em produção a lista vem do ambiente. Não abrimos CORS para qualquer origem.
 origins = [
@@ -50,13 +56,15 @@ origins = [
 if "*" in origins:
     raise RuntimeError("CORS_ORIGINS não pode conter * quando credenciais estão liberadas")
 app.add_middleware(ApiSecurityMiddleware)
+app.add_middleware(SharedAdmissionMiddleware)
+app.add_middleware(AccessAuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
-    expose_headers=["Retry-After"],
+    expose_headers=["Retry-After", "X-Request-ID"],
 )
 
 
@@ -105,4 +113,7 @@ def create_extraction_draft(
     payload: ExtractionRequest,
     _: Annotated[None, Depends(require_extraction_worker)],
 ) -> dict[str, object]:
-    return create_review_draft(payload)
+    try:
+        return create_review_draft(payload)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error

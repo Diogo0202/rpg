@@ -13,6 +13,46 @@ MAX_COLLECTION_ITEMS = 200
 MAX_COLLECTION_TEXT_LENGTH = 500
 
 
+def _active_options(
+    field_id: str,
+    fields: dict[str, dict[str, Any]],
+    values: dict[str, Any],
+    visiting: set[str] | None = None,
+) -> tuple[bool, list[str]]:
+    field = fields[field_id]
+    dependency = field.get("depends_on")
+    static_options = field.get("options")
+    if not isinstance(dependency, dict):
+        return True, static_options if isinstance(static_options, list) else []
+
+    chain = visiting if visiting is not None else set()
+    if field_id in chain:
+        raise ValueError("dependências circulares entre campos")
+    chain.add(field_id)
+    controller_id = dependency.get("field_id")
+    controller = fields.get(controller_id) if isinstance(controller_id, str) else None
+    if controller is None or controller.get("kind") != "select":
+        raise ValueError(f"campo controlador inválido para {field_id}")
+    controller_active, _ = _active_options(controller_id, fields, values, chain)
+    chain.remove(field_id)
+    if not controller_active:
+        return False, []
+
+    selected = values.get(controller_id)
+    if not isinstance(selected, str):
+        return False, []
+    cases = dependency.get("cases")
+    if not isinstance(cases, list):
+        raise ValueError(f"casos de dependência inválidos para {field_id}")
+    for case in cases:
+        if isinstance(case, dict) and case.get("equals") == selected:
+            options = case.get("options")
+            if not isinstance(options, list):
+                raise ValueError(f"opções dependentes inválidas para {field_id}")
+            return True, options
+    return False, []
+
+
 def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, Any]]) -> None:
     """Check persisted sheet inputs against the approved template and storage limits."""
     if type(values) is not dict:
@@ -34,9 +74,15 @@ def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, An
 
     for field_id, field in fields.items():
         kind = field.get("kind")
-        required = field.get("required") is True and kind not in {"formula", "roll"}
+        active, options = _active_options(field_id, fields, values)
         present = field_id in values
         value = values.get(field_id)
+        if not active:
+            if present:
+                raise ValueError(f"campo inativo não pode ter valor: {field_id}")
+            continue
+
+        required = field.get("required") is True and kind not in {"formula", "roll"}
         if required and (
             not present
             or value is None
@@ -57,8 +103,7 @@ def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, An
             elif type(value) is float:
                 valid = math.isfinite(value) and abs(value) <= MAX_NUMBER_ABS
         elif kind == "select":
-            options = field.get("options")
-            valid = isinstance(value, str) and isinstance(options, list) and value in options
+            valid = isinstance(value, str) and value in options
         elif kind == "checkbox":
             valid = isinstance(value, bool)
         elif kind == "collection":

@@ -8,11 +8,13 @@ import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
 import { findCompendiumEntry } from "../lib/compendium";
 import { authenticatedPost, type ModifierPreview } from "./character-effects-panel";
 import { SYSTEM_STARTERS } from "../lib/system-starters";
-import { characterNameField, fieldKinds, creationSteps, identityKinds, type FieldKind, type SheetField, type SheetTemplate, type FieldValue, type StoredTemplate } from "../lib/sheet-template";
+import { characterNameField, fieldKinds, creationSteps, identityKinds, type FieldKind, type SheetField, type SheetTemplate, type FieldValue, type StoredTemplate, type SelectDependency } from "../lib/sheet-template";
+import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sheet-creation";
 import { createCampaignSheet } from "../lib/sheet-api";
+import { AiSheetRequest } from "./ai-assistance-panel";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
-type StoredSheet = { id: string; name: string; template_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[] };
+type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[] };
 const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
 const identityLabels = { race: "Raça", subrace: "Sub-raça", clan: "Clã", predator: "Predador", creed: "Credo", lineage: "Linhagem", origin: "Origem", archetype: "Arquétipo" };
 
@@ -65,7 +67,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       setLoadError("");
       const [templateResult, sheetResult] = await Promise.all([
         supabase.from("system_templates").select("id, name, version, schema").eq("campaign_id", campaignId).eq("status", "approved").order("name"),
-        supabase.from("character_sheets").select("id, name, template_id, values, version, effects").eq("campaign_id", campaignId).order("name"),
+        supabase.from("character_sheets").select("id, name, template_id, owner_id, values, version, effects").eq("campaign_id", campaignId).order("name"),
       ]);
       if (!active) return;
       if (templateResult.error || sheetResult.error) {
@@ -147,6 +149,16 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
   async function saveTemplate() {
     if (!canManageTemplates) return;
+    for (const field of template.fields) {
+      if (!field.depends_on) continue;
+      const parent = template.fields.find((candidate) => candidate.id === field.depends_on?.field_id);
+      const parentOptions = parent ? possibleTemplateOptions(parent) : [];
+      const orphanedCase = field.depends_on.cases.find((item) => !parentOptions.includes(item.equals));
+      if (orphanedCase) {
+        setFeedback(`O caso “${orphanedCase.equals || "sem valor"}” de ${field.label} não corresponde às opções válidas do campo controlador.`);
+        return;
+      }
+    }
     const api = process.env.NEXT_PUBLIC_API_URL;
     if (!api) { setFeedback("Configure NEXT_PUBLIC_API_URL para validar o modelo."); return; }
     setBusy(true);
@@ -193,7 +205,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         const { data, error } = await supabase.from("character_sheets")
           .update({ name, values: payloadValues, version: sheetVersion + 1, updated_at: new Date().toISOString() })
           .eq("id", sheetId).eq("campaign_id", campaignId).eq("version", sheetVersion)
-          .select("id, name, template_id, values, version, effects").maybeSingle();
+          .select("id, name, template_id, owner_id, values, version, effects").maybeSingle();
         if (error || !data) throw new Error(error?.message ?? "A ficha mudou em outra sessão. Reabra antes de salvar.");
         setSheets((current) => current.map((item) => item.id === data.id ? data as StoredSheet : item));
         if (!isCurrent()) return;
@@ -250,6 +262,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       fields: current.fields.map((field) => ({
         ...field,
         ...(field.id === fieldId ? { id: nextId } : {}),
+        ...(field.depends_on?.field_id === fieldId ? { depends_on: { ...field.depends_on, field_id: nextId } } : {}),
         ...(field.expression ? { expression: field.expression.replace(reference, `$1${nextId}`) } : {}),
       })),
     }));
@@ -270,9 +283,15 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       kind,
       character_name: kind === "text" && field.character_name === true,
       identity_kind: kind === "select" ? field.identity_kind : null,
+      depends_on: kind === "select" ? field.depends_on : undefined,
       options: kind === "select" ? (field.options.length ? field.options : ["Opção 1"]) : [],
       expression: kind === "formula" ? (field.expression ?? "") : kind === "roll" ? (field.expression ?? "2d6") : null,
     });
+    if (kind !== "select") {
+      setTemplate((current) => ({ ...current, fields: current.fields.map((candidate) => candidate.depends_on?.field_id === field.id
+        ? { ...candidate, options: [...new Set(candidate.depends_on.cases.flatMap((item) => item.options))], depends_on: undefined }
+        : candidate) }));
+    }
   }
 
   function addField() {
@@ -292,7 +311,10 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   function removeField(fieldId: string) {
     editorRevision.current += 1;
     setTemplateId("");
-    setTemplate((current) => ({ ...current, fields: current.fields.filter((field) => field.id !== fieldId) }));
+    const nextTemplate = { ...template, fields: template.fields.filter((field) => field.id !== fieldId).map((field) => field.depends_on?.field_id === fieldId
+      ? { ...field, options: [...new Set(field.depends_on.cases.flatMap((item) => item.options))], depends_on: undefined }
+      : field) };
+    setTemplate(nextTemplate);
     setValues((current) => {
       const next = { ...current };
       delete next[fieldId];
@@ -302,14 +324,56 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setRollResults({});
   }
 
-  function setValue(fieldId: string, value: FieldValue) {
+  function setValue(fieldId: string, value: FieldValue | undefined) {
     if (busy) return;
     editorRevision.current += 1;
-    setValues((current) => ({ ...current, [fieldId]: value }));
+    setValues((current) => {
+      const next = { ...current };
+      if (value === undefined) delete next[fieldId];
+      else next[fieldId] = value;
+      return reconcileDependentValues(template, next).values;
+    });
     if (characterNameField(template)?.id === fieldId && typeof value === "string") setSheetName(value);
     setCalculated({});
     setRollResults({});
     setFeedback("");
+  }
+
+  function configureDependency(fieldId: string, parentId: string) {
+    const field = template.fields.find((item) => item.id === fieldId);
+    const parent = template.fields.find((item) => item.id === parentId && item.kind === "select");
+    if (!field) return;
+    if (!parent) {
+      const restoredOptions = field.depends_on?.cases.flatMap((item) => item.options) ?? field.options;
+      updateField(fieldId, { depends_on: undefined, options: [...new Set(restoredOptions)] });
+      return;
+    }
+    const previous = field.depends_on?.field_id === parent.id ? field.depends_on.cases : [];
+    const parentOptions = possibleTemplateOptions(parent);
+    const equalsValues = [...new Set(parentOptions)];
+    const cases = equalsValues.length
+      ? equalsValues.map((equals) => ({ equals, options: previous.find((item) => item.equals === equals)?.options ?? field.options }))
+      : previous;
+    updateField(fieldId, { options: [], depends_on: { field_id: parent.id, cases } });
+  }
+
+  function updateDependencyCase(fieldId: string, index: number, update: Partial<SelectDependency["cases"][number]>) {
+    const field = template.fields.find((item) => item.id === fieldId);
+    if (!field?.depends_on) return;
+    const cases = field.depends_on.cases.map((item, caseIndex) => caseIndex === index ? { ...item, ...update } : item);
+    updateField(fieldId, { depends_on: { ...field.depends_on, cases } });
+  }
+
+  function addDependencyCase(fieldId: string) {
+    const field = template.fields.find((item) => item.id === fieldId);
+    if (!field?.depends_on) return;
+    updateField(fieldId, { depends_on: { ...field.depends_on, cases: [...field.depends_on.cases, { equals: "", options: [] }] } });
+  }
+
+  function removeDependencyCase(fieldId: string, index: number) {
+    const field = template.fields.find((item) => item.id === fieldId);
+    if (!field?.depends_on) return;
+    updateField(fieldId, { depends_on: { ...field.depends_on, cases: field.depends_on.cases.filter((_, caseIndex) => caseIndex !== index) } });
   }
 
   function changeCharacterName(name: string) {
@@ -329,6 +393,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   function collectValues(partial = false): Record<string, unknown> {
     const output: Record<string, unknown> = {};
     for (const field of template.fields) {
+      if (!isFieldActive(template, field, values)) continue;
       if (field.kind === "formula" || field.kind === "roll") continue;
       const value = characterNameField(template)?.id === field.id ? sheetName : values[field.id];
 
@@ -360,7 +425,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
       const text = typeof value === "string" ? value.trim() : "";
       if (field.required && !text && !partial) throw new Error(`${field.label}: preencha este campo.`);
-      if (field.kind === "select" && text && !field.options.includes(text)) throw new Error(`${field.label}: escolha uma opção do modelo.`);
+      if (field.kind === "select" && text && !fieldOptions(template, field, values).includes(text)) throw new Error(`${field.label}: escolha uma opção do modelo.`);
       if (text) output[field.id] = text;
     }
 
@@ -461,6 +526,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       </nav>
       {mode === "guided" && !sheetId ? <SheetCreationWizard
         key={templateId || "no-template"}
+        campaignId={campaignId}
         templates={templates} templateId={templateId} template={template} values={values}
         name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets}
         loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
@@ -557,9 +623,37 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
                     setTemplate((current) => ({ ...current, fields: current.fields.map((item) => ({ ...item, character_name: item.id === field.id ? event.target.checked : false })) }));
                   }} /> Nome do personagem</label>}
 
-                  {field.kind === "select" && <label className="sheet-wide">Opções, uma por linha
-                    <textarea rows={3} value={field.options.join("\n")} onChange={(event) => updateField(field.id, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
-                  </label>}
+                  {field.kind === "select" && <>
+                    <label className="sheet-wide">Campo controlador (opcional)
+                      <select value={field.depends_on?.field_id ?? ""} onChange={(event) => configureDependency(field.id, event.target.value)}>
+                        <option value="">Sem dependência</option>
+                        {template.fields.filter((candidate) => candidate.kind === "select" && candidate.id !== field.id && !createsDependencyCycle(template, field.id, candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label} ({candidate.id})</option>)}
+                      </select>
+                      <small>O campo aparece quando a escolha controladora tiver um caso configurado.</small>
+                    </label>
+                    {!field.depends_on && <label className="sheet-wide">Opções, uma por linha
+                      <textarea rows={3} value={field.options.join("\n")} onChange={(event) => updateField(field.id, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
+                    </label>}
+                    {field.depends_on && <div className="sheet-wide sheet-dependency-cases">
+                      <p>Casos de opções</p>
+                      <small>Quando o valor controlador corresponder, estas opções substituem as opções fixas. Caso sem correspondência deixa o campo oculto.</small>
+                      {field.depends_on.cases.map((item, caseIndex) => <fieldset className="sheet-dependency-case" key={`${field.id}-case-${caseIndex}`}>
+                        <legend>Caso {caseIndex + 1}</legend>
+                        <label>Valor do campo controlador
+                          <select value={item.equals} onChange={(event) => updateDependencyCase(field.id, caseIndex, { equals: event.target.value })}>
+                            <option value="">Selecione uma opção</option>
+                            {possibleTemplateOptions(template.fields.find((candidate) => candidate.id === field.depends_on?.field_id) ?? field).map((option) => <option key={option} value={option}>{option}</option>)}
+                            {item.equals && !possibleTemplateOptions(template.fields.find((candidate) => candidate.id === field.depends_on?.field_id) ?? field).includes(item.equals) && <option value={item.equals}>{item.equals} (fora das opções atuais)</option>}
+                          </select>
+                        </label>
+                        <label>Opções disponíveis, uma por linha
+                          <textarea rows={3} value={item.options.join("\n")} onChange={(event) => updateDependencyCase(field.id, caseIndex, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
+                        </label>
+                        <button className="sheet-remove" type="button" onClick={() => removeDependencyCase(field.id, caseIndex)}>Remover caso</button>
+                      </fieldset>)}
+                      <button className="quiet" type="button" onClick={() => addDependencyCase(field.id)}>Adicionar caso</button>
+                    </div>}
+                  </>}
 
                   {(field.kind === "formula" || field.kind === "roll") && <label className="sheet-wide">Expressão
                     <input value={field.expression ?? ""} maxLength={120} spellCheck={false} onChange={(event) => updateField(field.id, { expression: event.target.value })} />
@@ -581,7 +675,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         <p className="sheet-preview-meta">Versão {template.version} <span>·</span> {template.fields.length} campos</p>
 
         <div className="sheet-preview-fields">
-          {template.fields.map((field) => {
+          {template.fields.filter((field) => isFieldActive(template, field, values)).map((field) => {
             if (characterNameField(template)?.id === field.id) return null;
             if (field.kind === "formula") {
               const result = calculated[field.id];
@@ -597,7 +691,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
             if (field.kind === "select") {
               return <label className="sheet-preview-input" key={field.id}>{field.label}
                 <select value={typeof values[field.id] === "string" ? String(values[field.id]) : ""} onChange={(event) => setValue(field.id, event.target.value)}>
-                  <option value="">Selecione</option>{field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+                  <option value="">Selecione</option>{fieldOptions(template, field, values).map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>
               </label>;
             }
@@ -628,6 +722,22 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         <div className="sheet-api-note"><span>Σ</span><p>Fórmulas são calculadas no servidor. O editor não executa código do template.</p></div>
       </aside>
       </div></fieldset>}
+      {sheetId && templateId && canEditSheets && sheets.find((item) => item.id === sheetId)?.owner_id === viewerId && <AiSheetRequest key={sheetId} campaignId={campaignId} templateId={templateId} targetId={sheetId} />}
     </section>
   );
+}
+
+function createsDependencyCycle(template: SheetTemplate, childId: string, proposedParentId: string): boolean {
+  let current = template.fields.find((field) => field.id === proposedParentId);
+  const visited = new Set<string>();
+  while (current?.depends_on) {
+    if (current.id === childId || visited.has(current.id)) return true;
+    visited.add(current.id);
+    current = template.fields.find((field) => field.id === current?.depends_on?.field_id);
+  }
+  return current?.id === childId;
+}
+
+function possibleTemplateOptions(field: SheetField): string[] {
+  return [...new Set(field.depends_on ? field.depends_on.cases.flatMap((item) => item.options) : field.options)];
 }

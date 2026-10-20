@@ -63,6 +63,39 @@ class BoundedRateLimiter:
             return True, max(1, int(bucket.expires_at - now + 0.999))
 
 
+class ConcurrencyGate:
+    """Non-queuing process-wide cap; every tool shares the same ten slots.
+
+    Multiple processes must sit behind a shared admission controller with the
+    same global cap. This object deliberately makes no distributed guarantee.
+    """
+
+    def __init__(self, capacity: int = 10):
+        if isinstance(capacity, bool) or not isinstance(capacity, int) or not 1 <= capacity <= 10:
+            raise ValueError("API_MAX_CONCURRENT_REQUESTS deve ser um inteiro entre 1 e 10")
+        self.capacity = capacity
+        self._active = 0
+        self._lock = threading.Lock()
+
+    @property
+    def active(self) -> int:
+        with self._lock:
+            return self._active
+
+    def acquire(self) -> bool:
+        with self._lock:
+            if self._active >= self.capacity:
+                return False
+            self._active += 1
+            return True
+
+    def release(self) -> None:
+        with self._lock:
+            if self._active <= 0:
+                raise RuntimeError("concurrency slot released without acquisition")
+            self._active -= 1
+
+
 _IP_LIMITS: dict[str, Limit] = {
     "default": Limit(180, 60),
     "probability": Limit(180, 60),
@@ -139,9 +172,12 @@ async def verify_supabase_user(authorization: str) -> dict[str, Any]:
 
 
 class ApiSecurityMiddleware:
-    def __init__(self, app: Any, limiter: BoundedRateLimiter | None = None):
+    def __init__(self, app: Any, limiter: BoundedRateLimiter | None = None, concurrency: ConcurrencyGate | None = None):
         self.app = app
         self.limiter = limiter or BoundedRateLimiter()
+        self.concurrency = concurrency if concurrency is not None else ConcurrencyGate(
+            int(os.getenv("API_MAX_CONCURRENT_REQUESTS", "10"))
+        )
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
         if scope["type"] != "http":
@@ -153,6 +189,17 @@ class ApiSecurityMiddleware:
             await self.app(scope, receive, send)
             return
 
+        if not self.concurrency.acquire():
+            await _send_json(send, 429, b'{"detail":"limite de requisicoes simultaneas atingido"}', [(b"retry-after", b"1")])
+            return
+        try:
+            # Includes Auth I/O, body reads and the whole response lifetime.
+            # No unbounded wait queue is created when all slots are occupied.
+            await self._protected_request(scope, receive, send, path, method)
+        finally:
+            self.concurrency.release()
+
+    async def _protected_request(self, scope: dict[str, Any], receive: Any, send: Any, path: str, method: str) -> None:
         raw_headers = [(key.lower(), value) for key, value in scope.get("headers", [])]
         authorization_values = [value for key, value in raw_headers if key == b"authorization"]
         worker_values = [value for key, value in raw_headers if key == b"x-worker-token"]
@@ -203,6 +250,9 @@ class ApiSecurityMiddleware:
                 await _send_json(send, status, detail)
                 return
 
+            # Retain only the verified identity even if the following quota
+            # check denies access. Auditing must attribute authenticated abuse.
+            scope.setdefault("state", {})["supabase_user"] = user
             user_id = user["id"]
             allowed, retry = self.limiter.consume(("uid:" + user_id, category), _USER_LIMITS[category])
             if not allowed:

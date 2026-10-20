@@ -56,6 +56,7 @@
 .field :focus-visible,.choice:focus-within,.templateChoice:focus-visible,.editorLink:focus-visible,.actions button:focus-visible { outline: 2px solid var(--accent, #b84a31); outline-offset: 2px; }
 .field [aria-invalid="true"],.identityField[aria-invalid="true"] { border-color: #a3382c; }
 .fieldError { color: #a3382c; font-size: 11px; line-height: 1.4; }
+.dependencyHelp { color: var(--muted, #6f746d); font-size: 10px; line-height: 1.4; }
 .checkRow { display: flex; align-items: center; gap: 10px; min-height: 42px; }
 .checkRow input { width: 17px; height: 17px; margin: 0; accent-color: var(--moss, #425e4b); }
 .checkRow .label { display: inline-flex; }
@@ -103,6 +104,7 @@
 .previewRow small { color: #776f5d; font-size: 8px; font-weight: 400; }
 .previewRow strong { max-width: 54%; color: #3c5a45; font: 14px/1.2 Georgia, serif; text-align: right; overflow-wrap: anywhere; }
 .mobilePreview { display: none; }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 @media (max-width: 920px) {
   .wizard { grid-template-columns: minmax(0, 1fr); }

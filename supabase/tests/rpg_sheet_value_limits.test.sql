@@ -87,7 +87,7 @@ select throws_ok($$insert into public.character_sheets(campaign_id,template_id,o
 select throws_ok($$insert into public.character_sheets(campaign_id,template_id,owner_id,name,values)
   values ('20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','Too Many',
     (select jsonb_object_agg('f'||g, g) from generate_series(1,201) g))$$,
-  'P0001', 'sheet values exceed the storage limits', 'rejects more than 200 fields');
+  'P0001', 'template fields must have unique ids and at most 200 fields', 'rejects oversized model before accepting more than 200 values');
 
 reset role;
 set local role authenticated;

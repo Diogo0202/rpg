@@ -52,7 +52,7 @@ function makeRemoteBackup(sheet: RemoteSheet, template: RemoteTemplate, inventor
   const fields = Array.isArray(rawTemplate?.fields) ? rawTemplate.fields.map((field) => {
     if (!field || typeof field !== "object") return field;
     const row = field as Record<string, unknown>;
-    return { id: row.id, label: row.label, kind: row.kind, required: row.required, options: row.options ?? [], expression: row.expression ?? null };
+    return { id: row.id, label: row.label, kind: row.kind, required: row.required, options: row.options ?? [], expression: row.expression ?? null, ...(row.depends_on ? { depends_on: row.depends_on } : {}) };
   }) : rawTemplate?.fields;
   const effects = Array.isArray(sheet.effects) ? sheet.effects.map((effect) => {
     if (!effect || typeof effect !== "object") return effect;

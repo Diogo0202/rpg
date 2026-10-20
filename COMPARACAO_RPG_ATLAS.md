@@ -1,4 +1,4 @@
-# Comparação do RPG Nexus com o inventário do RPG Atlas
+# Comparação do RPG-Atlas com o inventário do projeto de referência Atlas
 
 Revisão de 15/10/2026. O documento fornecido descreve o RPG Atlas no snapshot `1206601`, datado de 14/10/2026. O código de referência foi conferido em `D:\rpg-atlas-reference`, commit `fb34a5bb6d4d1177c45f2cf64d63533fc8b21b5c`, que contém o snapshot citado em seu histórico. As alterações desta entrega estão em `D:\rpg-github`, repositório `Diogo0202/rpg`.
 

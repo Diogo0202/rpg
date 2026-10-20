@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from uuid import UUID
 
 from app.main import app
 
@@ -11,6 +12,7 @@ def test_health_and_safe_dice_endpoint(monkeypatch) -> None:
 
     denied = client.post("/api/v1/dice/roll", json={"expression": "2d6+1"})
     assert denied.status_code == 401
+    assert str(UUID(denied.headers["x-request-id"])) == denied.headers["x-request-id"]
 
     async def mock_verify(authorization: str):
         assert authorization == "Bearer dummy-jwt"
@@ -19,6 +21,7 @@ def test_health_and_safe_dice_endpoint(monkeypatch) -> None:
     monkeypatch.setattr("app.security.verify_supabase_user", mock_verify)
     response = client.post("/api/v1/dice/roll", json={"expression": "2d6+1"}, headers={"Authorization": "Bearer dummy-jwt"})
     assert response.status_code == 200
+    assert response.headers["x-request-id"] != denied.headers["x-request-id"]
     assert 3 <= response.json()["total"] <= 13
 
 
@@ -29,6 +32,17 @@ def test_cors_headers_wrap_authentication_responses() -> None:
     )
     assert response.status_code == 401
     assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "X-Request-ID" in response.headers["access-control-expose-headers"]
+
+
+def test_extraction_invalid_untrusted_metadata_returns_422(monkeypatch) -> None:
+    monkeypatch.setenv("EXTRACTION_WORKER_TOKEN", "local-test-token")
+    response = client.post(
+        "/api/v1/extractions/draft",
+        json={"source_id": "x" * 129, "rights_confirmed": True, "page_references": [1], "suggested_system_name": "Sistema teste"},
+        headers={"X-Worker-Token": "local-test-token"},
+    )
+    assert response.status_code == 422
 
 
 def test_private_narrator_routes_are_mounted_and_require_a_session(monkeypatch) -> None:

@@ -1,0 +1,19 @@
+# RPG-Atlas
+
+> Aplicação web para organizar campanhas privadas de RPG de mesa.
+
+## Recursos públicos descritos pelo projeto
+
+- Campanhas privadas acessadas por convite e protegidas por políticas de banco.
+- Fichas flexíveis com campos e fórmulas definidos pela mesa.
+- Cadastro de personagens, locais, relações e eventos no diário da campanha.
+- Roladores e ferramentas iniciais para alguns sistemas, com cobertura parcial das regras.
+- Busca de regras restrita a membros e fontes autorizadas pela campanha.
+
+## Acesso
+
+A área de campanhas exige autenticação. O conteúdo e os dados de cada mesa pertencem aos membros convidados.
+
+## Estado do projeto
+
+O produto está em desenvolvimento. Consulte o README do repositório para limitações de recursos, dependências de banco e integrações pendentes.
