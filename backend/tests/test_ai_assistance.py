@@ -164,6 +164,74 @@ def test_known_usage_on_refusal_is_settled(app, actor, store, settings, monkeypa
     assert settlement["p_actual_micro"] == 15
 
 
+@pytest.mark.parametrize("failure", ["sheet_validation", "npc_relationship"])
+def test_known_usage_survives_local_validation_failure(app, actor, store, settings, monkeypatch, failure):
+    actor.manager = True
+    result = {**SHEET, "values": {"total": 99}}
+    kind = "sheet"
+    if failure == "npc_relationship":
+        kind = "npc"
+        result = {"name": "Mara", "description": "Informante", "motivation": "Proteger a rua",
+                  "voice": "Direta", "secret": "Uma dívida", "hook": "Um pedido",
+                  "relationships": [{"target_id": E, "relation_type": "aliada", "notes": ""}], "questions": []}
+
+    async def generated(*args):
+        store["paid"] += 1
+        return ai.ai_provider.ProviderResult(result, 100, 20, "fake")
+
+    monkeypatch.setattr(ai.ai_provider, "generate_proposal", generated)
+    body = {"kind": kind, "brief": "Uma personagem", "idempotency_key": OP}
+    if kind == "sheet":
+        body["template_id"] = T
+    response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json=body)
+    assert response.status_code == (422 if kind == "npc" else 502)
+    settlements = [call[3] for call in store["calls"] if call[1] == "rpc/ai_budget_settle"]
+    assert len(settlements) == 1
+    assert settlements[0]["p_actual_micro"] == 120
+    assert not any(call[1] == "rpc/ai_budget_uncertain" for call in store["calls"])
+    assert store["paid"] == 1
+    assert store["request"]["status"] == "failed"
+    replay = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json=body)
+    assert replay.status_code == 201
+    assert replay.json()["request"]["status"] == "failed"
+    assert store["paid"] == 1
+
+
+def test_persistence_failure_does_not_settle_known_usage_twice(app, actor, store, settings, monkeypatch):
+    service = ai._service
+
+    async def failed_write(method, table, **kwargs):
+        if table == "ai_proposal_contents" and method == "PATCH":
+            raise HTTPException(503, "Banco indisponível")
+        return await service(method, table, **kwargs)
+
+    monkeypatch.setattr(ai, "_service", failed_write)
+    response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json={
+        "kind": "sheet", "brief": "Uma personagem", "template_id": T, "idempotency_key": OP})
+    assert response.status_code == 503
+    assert len([call for call in store["calls"] if call[1] == "rpc/ai_budget_settle"]) == 1
+    assert not any(call[1] == "rpc/ai_budget_uncertain" for call in store["calls"])
+    assert store["paid"] == 1
+
+
+def test_financial_operations_are_scoped_to_proposal(app, actor, store, settings):
+    client = TestClient(app)
+    body = {"kind": "sheet", "brief": "Uma personagem", "template_id": T, "idempotency_key": OP}
+    first = client.post(f"/api/v1/campaigns/{C}/ai/proposals", json=body)
+    assert first.status_code == 201
+    # A different campaign permits the same client key and creates its own proposal.
+    store["request"] = None
+    other_campaign = "10000000-0000-4000-8000-000000000002"
+    second = client.post(f"/api/v1/campaigns/{other_campaign}/ai/proposals", json=body)
+    assert second.status_code == 201
+    reservations = [call[3]["p_operation_id"] for call in store["calls"] if call[1] == "rpc/ai_budget_reserve"]
+    assert len(set(reservations)) == 2
+    for path in ["rpc/ai_budget_dispatch", "rpc/ai_budget_settle"]:
+        assert [call[3]["p_operation_id"] for call in store["calls"] if call[1] == path] == reservations
+    assert first.json()["request"]["idempotency_key"] == OP
+    assert second.json()["request"]["idempotency_key"] == OP
+
+
 def test_approval_validates_required_and_calculated_fields(app, actor, store, settings):
     actor.manager = True
     store["request"] = row()

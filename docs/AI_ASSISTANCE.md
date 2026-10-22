@@ -45,6 +45,8 @@ O coordenador PostgreSQL serializa a admissão por uma linha de orçamento compa
 
 Antes de chamar o provedor, reserva o custo máximo conservador para a janela de entrada do modelo e 4.096 tokens de saída. Com os preços padrão, essa reserva é US$ 0,318432. O consumo informado pelo provedor acerta a reserva; desconto de cache não é presumido. Uma falha com cobrança incerta mantém a reserva. Não há repetição automática de chamadas pagas.
 
+O consumo conhecido também é acertado quando a resposta falha na validação local, por exemplo, ao propor um vínculo fora do contexto selecionado. Uma falha de gravação após o acerto não repete a liquidação nem marca essa operação como incerta. O identificador financeiro deriva da proposta e da chave da operação; repetir a mesma chave de cliente em outra campanha não bloqueia seu orçamento.
+
 Há no máximo duas gerações simultâneas no projeto, uma por campanha e duas gerações por UID em 60 segundos. Cada refinamento conta como nova geração. Os leases de concorrência duram 120 segundos, mas o timeout da chamada é de 40 segundos. Expirar o lease não devolve dinheiro reservado. Falhas antes do despacho podem devolver a reserva; resultados com consumo conhecido são acertados mesmo quando a resposta é recusada ou inválida.
 
 Ao consultar os pedidos, o servidor recupera operações vencidas: pedidos em geração ficam com status de falha, sem apagar o conteúdo. Reservas sem despacho podem ser devolvidas; chamadas já despachadas mantêm o custo reservado quando o consumo permanece incerto. Um lease vencido não autoriza um novo despacho.
@@ -86,5 +88,9 @@ Validação local em 19/10/2026:
 | `node scripts/test-ai-ui.cjs` | Fluxos em 1440 e 390 px passaram, sem erros de navegador ou largura excedente |
 
 O build ainda aponta avisos de múltiplos lockfiles e `metadataBase`; esses avisos não impediram a compilação. Os totais incluem testes de outras partes do repositório e não representam testes exclusivos da assistência por IA.
+
+Revisão de 21/10/2026: a suíte completa do backend passou com 279 testes e IA desativada. Foram acrescentados quatro cenários de regressão para consumo conhecido após validação inválida de ficha ou relação de NPC, falha de persistência após liquidação e chave de cliente repetida em campanhas distintas. Os cenários de falha de validação também conferem que repetir o pedido não gera outra chamada. Provedor e banco desses testes são simulados; não houve chamadas pagas ou alterações no banco remoto. O frontend não mudou nesta revisão.
+
+Validação para publicação em 22/10/2026: 277 testes do backend passaram em uma cópia isolada de `HEAD` com apenas as correções financeiras, seus testes e esta documentação. Esse total exclui o trabalho paralelo ainda não incluído no commit. A IA permaneceu desativada.
 
 Execute os comandos de teste da raiz e o build. Para ativar no destino, ainda é necessário aplicar as migrations revisadas em um projeto de teste, conferir sessões reais com papéis diferentes e configurar os segredos pelo fluxo seguro. Esta entrega não faz deploy, chamadas pagas nem migrations remotas.

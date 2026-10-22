@@ -8,7 +8,7 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Literal
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -283,6 +283,8 @@ async def _generation_inputs(campaign_id: UUID, actor: Actor, payload: ProposalC
 
 
 async def _generate(row: dict, actor: Actor, context: dict, template: dict | None, operation_id: str) -> dict:
+    # Client keys are scoped to a proposal, while the financial ledger is global.
+    operation_id = str(uuid5(UUID(row["id"]), operation_id))
     try:
         settings = ai_provider.provider_settings()
         ai_provider.build_request(row["kind"], context, template, settings)
@@ -296,11 +298,14 @@ async def _generate(row: dict, actor: Actor, context: dict, template: dict | Non
         status = 429 if reason in {"budget", "busy", "rate"} else 503
         raise HTTPException(status, "Orçamento ou limite de geração indisponível. Aguarde antes de tentar novamente.", headers={"Retry-After": "60"} if status == 429 else None)
     dispatched = False
+    settled = False
+    known_usage = None
     try:
         if await _service("POST", "rpc/ai_budget_dispatch", payload={"p_operation_id": operation_id}) is not True:
             raise HTTPException(503, "A reserva da geração não pôde ser confirmada.")
         dispatched = True
         generated = await ai_provider.generate_proposal(row["kind"], context, template)
+        known_usage = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
         result = ai_provider.validate_result(row["kind"], generated.result, template)
         if row["kind"] == "npc":
             allowed_ids = {item["id"] for item in context.get("items", []) if item.get("kind") == "entity"}
@@ -309,6 +314,7 @@ async def _generate(row: dict, actor: Actor, context: dict, template: dict | Non
             await _validate_relationships(row["campaign_id"], actor, result.get("relationships", []))
         if await _service("POST", "rpc/ai_budget_settle", payload={"p_operation_id": operation_id, "p_actual_micro": settings.cost_micro(generated.input_tokens, generated.output_tokens), "p_input_tokens": generated.input_tokens, "p_output_tokens": generated.output_tokens}) is not True:
             raise HTTPException(503, "Não foi possível confirmar o consumo da geração.")
+        settled = True
         await _service("PATCH", "ai_proposal_contents", params={"request_id": f"eq.{row['id']}"}, payload={"context": context, "result": _bounded(result)})
         rows = await _service("PATCH", "ai_requests", params={"id": f"eq.{row['id']}", "version": f"eq.{row['version']}", "status": "eq.generating"}, payload={"status": "pending"})
         if not rows:
@@ -318,12 +324,12 @@ async def _generate(row: dict, actor: Actor, context: dict, template: dict | Non
     except (Exception, asyncio.CancelledError) as error:
         # A timed-out paid request is financially uncertain; never refund it blindly.
         try:
-            usage = error.usage if isinstance(error, ai_provider.AIProviderError) else None
-            if dispatched and usage:
+            usage = known_usage or (error.usage if isinstance(error, ai_provider.AIProviderError) else None)
+            if not settled and dispatched and usage:
                 settled = await asyncio.shield(_service("POST", "rpc/ai_budget_settle", payload={"p_operation_id": operation_id, "p_actual_micro": settings.cost_micro(usage["input_tokens"], usage["output_tokens"]), "p_input_tokens": usage["input_tokens"], "p_output_tokens": usage["output_tokens"]}))
                 if settled is not True:
                     await asyncio.shield(_service("POST", "rpc/ai_budget_uncertain", payload={"p_operation_id": operation_id}))
-            else:
+            elif not settled:
                 await asyncio.shield(_service("POST", "rpc/" + ("ai_budget_uncertain" if dispatched else "ai_budget_cancel"), payload={"p_operation_id": operation_id}))
         except Exception:
             LOGGER.warning("ai_generation settlement=unavailable")
