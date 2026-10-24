@@ -34,7 +34,11 @@ Este registro compara `gemini-code-1792758636392.md` com o checkout de `D:\rpg-g
 
 ## Limites da evidência
 
-Em 23/10/2026, a suíte local passou 352 testes de backend, 69 testes de domínio do frontend e 64 testes Vitest mobile. Outros 26 testes verificaram sincronização e IndexedDB, sem casos ignorados. O banco descartável PGlite aplicou 31 migrations e passou 392 verificações. Builds de produção do site e do mobile passaram, assim como os typechecks. Os testes de navegador confirmaram marketplace, tutor e inventário em 390 e 1440 pixels, sem erro de console nem rolagem horizontal, com APIs simuladas e rede externa bloqueada.
+Na revisão encerrada em 24/10/2026, a suíte local passou 352 testes de backend, 69 testes de domínio do frontend e 64 testes Vitest mobile. Outros 26 testes verificaram sincronização e IndexedDB, sem casos ignorados. O banco descartável PGlite aplicou 31 migrations e passou 393 verificações. Builds de produção do site e do mobile passaram, assim como os typechecks. Os testes de navegador confirmaram marketplace, tutor e inventário em 390 e 1440 pixels, sem erro de console nem rolagem horizontal, com APIs simuladas e rede externa bloqueada.
+
+O teste integrado também passou oito cenários com cliente TypeScript, FastAPI real e PostgreSQL descartável: criação, recibos duplicados, atributos de item, edições concorrentes, transferência de propriedade, repetição do ajuste numérico e revogação de acesso. O cenário agora aplica todas as migrations. Os DTOs do banco listam os campos permitidos explicitamente, para que novas colunas não alterem a resposta móvel nem enviem dados extras por acidente.
+
+O bundle mobile de produção registrou o service worker e abriu a tela Mesa após recarga sem rede em Chromium, com janela de 390 pixels e sem erros de execução. Esse ensaio verifica o shell e o modo local; não comprova sincronização com Supabase hospedado nem instalação em um telefone físico.
 
 Esses resultados não testam RLS hospedado nem substituem ensaio com jogador, mestre e conta de outra campanha. Não houve deploy, chamada paga OpenAI ou configuração de anúncio. Os caminhos comuns de edição continuam em conflito quando duas pessoas alteram o mesmo campo com a mesma versão-base. A troca da arquitetura móvel por Next.js/Zustand e as animações propostas ficam fora desta entrega.
 
