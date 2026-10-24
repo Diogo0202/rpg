@@ -69,7 +69,7 @@ function normalizeRecord(input: unknown): SyncRecord | null {
 }
 
 function loopback(hostname: string): boolean { return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]"; }
-function checkedBaseUrl(value: string): string {
+export function checkedBaseUrl(value: string): string {
   let url: URL;
   try { url = new URL(value); } catch { throw new Error("baseUrl must be an absolute HTTPS URL, or HTTP loopback for local development"); }
   if (url.username || url.password || url.search || url.hash) throw new Error("baseUrl cannot include credentials, query, or fragment");
@@ -108,8 +108,9 @@ export class FastApiSyncTransport implements SyncTransport {
   private readonly base: string;
   constructor(options: FastApiSyncTransportOptions) {
     this.options = options;
-    this.fetcher = options.fetch ?? globalThis.fetch;
-    if (!this.fetcher) throw new Error("fetch is unavailable");
+    const fetcher = options.fetch ?? globalThis.fetch;
+    if (!fetcher) throw new Error("fetch is unavailable");
+    this.fetcher = options.fetch ?? fetcher.bind(globalThis);
     this.base = checkedBaseUrl(options.baseUrl);
     this.now = options.now ?? Date.now;
     this.sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -258,6 +259,12 @@ export class FastApiSyncTransport implements SyncTransport {
     if (payload.has_more && nextAfterId === null) throw new Error("Snapshot page is missing next_after_id");
     return { protocol_version: 1, campaign_id: campaignId, cursor: normalizeCursor(payload.cursor, "snapshot"), records, next_after_id: nextAfterId, has_more: payload.has_more };
   }
-}
 
+  async adjustSheet(sheetId: string, input: { operation_id: string; field_id: string; delta: number; reason?: string }): Promise<unknown> {
+    if (!uuidPattern.test(sheetId) || !uuidPattern.test(input.operation_id) || !/^[a-z][a-z0-9_]{1,63}$/.test(input.field_id) || !Number.isSafeInteger(input.delta) || input.delta === 0 || Math.abs(input.delta) > 1000 || (input.reason !== undefined && (typeof input.reason !== "string" || input.reason.length > 200))) throw new Error("Invalid atomic sheet adjustment");
+    return this.request(`/api/v1/sheets/${encodeURIComponent(sheetId)}/adjust`, {
+      method: "POST", body: JSON.stringify(input),
+    });
+  }
+}
 

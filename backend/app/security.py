@@ -7,6 +7,7 @@ proxy addresses; this middleware deliberately ignores X-Forwarded-For.
 from __future__ import annotations
 
 import os
+import re
 import secrets
 import threading
 import time
@@ -238,7 +239,10 @@ class ApiSecurityMiddleware:
             worker_authenticated = True
 
         user: dict[str, Any] | None = None
-        if not worker_authenticated:
+        public_marketplace_read = method == "GET" and re.fullmatch(
+            r"/api/v1/marketplace/systems(?:/[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})?/?", path
+        ) is not None and not authorization_values
+        if not worker_authenticated and not public_marketplace_read:
             authorization = headers.get(b"authorization", b"").decode("latin-1")
             try:
                 # Resolve the function at request time so tests can inject a

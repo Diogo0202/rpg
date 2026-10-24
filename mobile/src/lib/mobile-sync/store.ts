@@ -6,10 +6,12 @@ const partitionKey = (p: SyncPartition) => JSON.stringify([p.accountId, p.campai
 const clone = <T>(value: T): T => structuredClone(value);
 
 function initialState(partition: SyncPartition): SyncState {
-  return { schema: "rpg-nexus-mobile-v1", partition: { ...partition }, cursor: null, records: {}, outbox: [], updatedAt: Date.now() };
+  return { schema: "rpg-nexus-mobile-v1", partition: { ...partition }, cursor: null, records: {}, outbox: [], adjustments: [], updatedAt: Date.now() };
 }
 function normalize(state: SyncState): SyncState {
-  return clone(state);
+  const copy = clone(state);
+  copy.adjustments ??= [];
+  return copy;
 }
 
 export class MemoryCoordinator {

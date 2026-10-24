@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { creationGroups, identityFields, validateField, validateFields } from "../lib/sheet-creation.ts";
+import { creationGroups, identityFields, masterGrantedFieldIds, validateField, validateFields } from "../lib/sheet-creation.ts";
 import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content.ts";
+
+test("XP and pool currencies are master-granted, tracks are not", () => {
+  const oneRing = SYSTEM_STARTERS.find((starter) => starter.id === "one-ring").template;
+  assert.deepEqual([...masterGrantedFieldIds(oneRing)].sort(), ["esperanca", "experiencia"]);
+  const vampire = SYSTEM_STARTERS.find((starter) => starter.id === "vampire-v5").template;
+  assert.deepEqual([...masterGrantedFieldIds(vampire)], ["experiencia"]);
+});
+
+test("generated entries drop narrator-only details before reaching the world library", () => {
+  const entry = { kind: "npc", name: "Iara", summary: "s", seed: 1, details: { goal: "g", secret: "x", story_hook: "revela x", weakness: "w", encounter_hook: "evita w" } };
+  assert.deepEqual(publicGeneratedEntry(entry).details, { goal: "g" });
+  assert.deepEqual(Object.keys(narratorOnlyDetails(entry.details)), ["secret", "story_hook", "weakness", "encounter_hook"]);
+  assert.equal(entry.details.secret, "x", "the original entry is not mutated");
+});
 
 const field = (id, kind = "text", overrides = {}) => ({
   id,
@@ -74,4 +89,21 @@ test("starters têm system_key e metadata explícita de identidade e nome", () =
   assert.equal(SYSTEM_STARTERS[0].template.fields.find((item) => item.id === "predador").identity_kind, "predator");
   assert.equal(SYSTEM_STARTERS[1].template.fields.find((item) => item.id === "credo").identity_kind, "creed");
   assert.equal(SYSTEM_STARTERS[2].template.fields.find((item) => item.id === "linhagem").identity_kind, "lineage");
+});
+
+test("V5 starter carries creation arithmetic, field limits and private fields", () => {
+  const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
+  const rules = Object.fromEntries(v5.template.creation_rules.map((rule) => [rule.id, rule]));
+  assert.equal(rules.atributos.fields.length, 9);
+  assert.deepEqual(rules.atributos.options[0].counts, { 4: 1, 3: 3, 2: 4, 1: 1 });
+  assert.equal(rules.habilidades.fields.length, 27);
+  for (const option of rules.habilidades.options) {
+    assert.ok(Object.values(option.counts).reduce((sum, count) => sum + count, 0) <= 27);
+  }
+  const fields = Object.fromEntries(v5.template.fields.map((field) => [field.id, field]));
+  assert.deepEqual([fields.forca.min, fields.forca.max], [1, 5]);
+  assert.deepEqual([fields.fome.min, fields.fome.max], [0, 5]);
+  assert.equal(fields.compulsao_atual.private, true);
+  assert.equal(fields.segredos.private, true);
+  assert.equal(fields.nome.private, undefined);
 });

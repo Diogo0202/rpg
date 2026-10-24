@@ -1,0 +1,12 @@
+.picker { display: flex; align-items: center; gap: 1rem; padding: .9rem; border: 1px solid #51463b; border-radius: 12px; background: rgba(12,12,15,.35); }
+.controls { display: grid; gap: .4rem; min-width: 0; }
+.label { color: #e4ddd3; font-weight: 600; }
+.required { margin-left: .5rem; padding: .1rem .45rem; border-radius: 999px; background: #453925; color: #f0d6ad; font-size: .72rem; font-weight: 600; }
+.controls input { max-width: 100%; color: #e4ddd3; }
+.controls small { color: #c7c0b7; font-size: .8rem; line-height: 1.4; }
+.status { margin: 0; color: #f0cf9f; font-size: .85rem; }
+.error { margin: 0; color: #f0aaaa; font-size: .85rem; }
+.avatar { flex: none; border: 2px solid #b58f5d; border-radius: 50%; object-fit: cover; background: #19181b; }
+.avatarFallback { display: inline-grid; flex: none; place-items: center; border: 2px dashed #625747; border-radius: 50%; background: #19181b; color: #d4b17d; font-weight: 700; letter-spacing: .04em; }
+
+@media (max-width: 560px) { .picker { flex-direction: column; align-items: flex-start; } }

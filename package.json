@@ -11,7 +11,7 @@
     "test:api": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts\\test-api.ps1",
     "test:web": "npm --prefix frontend run test:domain",
     "test:db": "node scripts/test-db.mjs",
-    "test:mobile": "node --experimental-strip-types --test frontend/tests/mobile-sync.test.mjs frontend/tests/mobile-sync-indexeddb.test.mjs",
+    "test:mobile": "node --experimental-strip-types --test mobile/tests/mobile-sync.test.mjs mobile/tests/mobile-sync-indexeddb.test.mjs",
     "dev:mobile": "npm --prefix mobile run dev",
     "build:mobile": "npm --prefix mobile run build",
     "test:mobile:ui": "npm --prefix mobile test",

@@ -57,5 +57,7 @@ describe("randomInt and rolling", () => {
   it("rejects non-finite pool values", () => {
     expect(() => rollPool(3, Number.NaN)).toThrow("fome inválidos");
     expect(() => rollPool(3, Number.POSITIVE_INFINITY)).toThrow("fome inválidos");
+    expect(() => rollPool(6, 6)).toThrow("fome inválidos");
+    expect(() => rollPool(3, 1.5)).toThrow("fome inválidos");
   });
 });

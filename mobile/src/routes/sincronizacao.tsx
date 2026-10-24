@@ -55,11 +55,12 @@ const STATUS: Record<string, string> = {
 };
 
 function SyncQueue() {
-  const { state, engine, refresh } = useNexus();
+  const { state, engine, refresh, mode, syncNow, connectionMessage } = useNexus();
   const [busy, setBusy] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const summary = outboxSummary(state);
   const entries = state?.outbox ?? [];
+  const adjustments = state?.adjustments ?? [];
 
   const refreshFromServer = async () => {
     if (!engine) return;
@@ -127,30 +128,37 @@ function SyncQueue() {
         title="Sincronização"
         subtitle="As operações ficam persistidas neste aparelho até haver conexão autenticada."
         actions={
-          <Btn
+          <div className="flex flex-wrap gap-2"><Btn
+            disabled={refreshing || !engine || mode !== "connected"}
+            onClick={async () => {
+              setRefreshing(true);
+              try { await syncNow(); }
+              catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao sincronizar."); }
+              finally { setRefreshing(false); }
+            }}
+          >Sincronizar agora</Btn><Btn
             variant="outline"
-            disabled={refreshing || !engine}
+            disabled={refreshing || !engine || mode !== "connected"}
             onClick={() => void refreshFromServer()}
           >
             {refreshing ? "Buscando…" : "Buscar alterações"}
-          </Btn>
+          </Btn></div>
         }
       />
       <Panel title="Estado da conexão">
         <div className="flex flex-wrap items-center gap-2">
-          <Tag tone="warn">API e login remoto desconectados</Tag>
+          <Tag tone={mode === "connected" ? "forest" : "warn"}>{mode === "connected" ? "Campanha da conta autenticada" : "Modo local, sem envio ao servidor"}</Tag>
           <span className="text-sm text-ink">
             {summary.total} operação(ões), {summary.queued} na fila, {summary.conflicts}{" "}
             conflito(s), {summary.blocked} bloqueada(s).
           </span>
         </div>
         <p className="mt-2 text-xs text-ink-muted">
-          “Buscar alterações” tenta consultar o serviço configurado. Esta prévia ainda não tem
-          sessão de usuário nem transporte remoto autenticado.
+          {connectionMessage || (mode === "local" ? "Conecte uma conta e escolha a campanha em Mais > Configurações. Os dados demonstrativos permanecem separados." : "Alterações só saem da fila após confirmação da API. Conflitos exigem sua escolha.")}
         </p>
       </Panel>
       <div className="mt-4 space-y-3">
-        {!entries.length && <Empty>A fila local está vazia.</Empty>}
+        {!entries.length && !adjustments.length && <Empty>A fila local está vazia.</Empty>}
         {entries.map((entry) => {
           const mutation = entry.mutation;
           const base = state?.records[recordKey(mutation.entity_type, mutation.entity_id)];
@@ -232,6 +240,18 @@ function SyncQueue() {
             </Panel>
           );
         })}
+        {adjustments.map((intent) => (
+          <Panel key={intent.operation_id} title={`Ajuste · ${intent.field_id}`} actions={<Tag tone={intent.state === "queued" || intent.state === "inflight" ? "warn" : "ink"}>{STATUS[intent.state] ?? intent.state}</Tag>}>
+            <dl className="grid gap-x-3 gap-y-1 text-xs text-ink-muted sm:grid-cols-2">
+              <dt>Operação</dt><dd className="break-all font-mono">{intent.operation_id}</dd>
+              <dt>Ficha</dt><dd className="break-all font-mono">{intent.sheet_id}</dd>
+              <dt>Delta solicitado</dt><dd>{intent.delta > 0 ? "+" : ""}{intent.delta}</dd>
+              <dt>Criado</dt><dd>{new Date(intent.created_at).toLocaleString()}</dd>
+            </dl>
+            {intent.reason && <p className="mt-2 text-sm text-ink-muted">Motivo: {intent.reason}</p>}
+            {intent.last_error && <p className="mt-2 text-sm text-destructive">{intent.last_error}</p>}
+          </Panel>
+        ))}
       </div>
     </>
   );

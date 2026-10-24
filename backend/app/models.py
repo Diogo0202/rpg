@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.services.creation_rules import CreationRule
 from app.services.modifiers import Effect, ModifierPreview, Tag
 
 
@@ -67,6 +68,11 @@ class TemplateField(BaseModel):
     identity_kind: Literal["race", "subrace", "clan", "predator", "creed", "lineage", "origin", "archetype"] | None = None
     character_name: bool = False
     depends_on: FieldDependency | None = None
+    # Owner and master only: stripped from party_status_public, overlays and other players.
+    private: bool = False
+    # Hard limits for number fields, enforced on every write (creation and later edits).
+    min: int | None = Field(default=None, ge=-1_000_000, le=1_000_000)
+    max: int | None = Field(default=None, ge=-1_000_000, le=1_000_000)
 
     @field_validator("id")
     @classmethod
@@ -77,6 +83,10 @@ class TemplateField(BaseModel):
 
     @model_validator(mode="after")
     def kind_requirements(self) -> "TemplateField":
+        if (self.min is not None or self.max is not None) and self.kind != FieldKind.number:
+            raise ValueError("mínimo e máximo só valem para campos numéricos")
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError(f"o mínimo de {self.id} passa do máximo")
         if self.kind == FieldKind.select and self.depends_on is None and not self.options:
             raise ValueError("campo select precisa de opções")
         if self.depends_on is not None and self.kind != FieldKind.select:
@@ -88,12 +98,66 @@ class TemplateField(BaseModel):
         return self
 
 
+class MetaCurrency(BaseModel):
+    """Recurso genérico (Força de Vontade, Inspiração, Esperança).
+
+    pool: gastar reduz ``field``; track: gastar aumenta uma trilha de dano.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: Annotated[str, Field(min_length=2, max_length=64)]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    field: Annotated[str, Field(min_length=2, max_length=64)]
+    mode: Literal["pool", "track"]
+    max: Annotated[int, Field(ge=0, le=1000)] | None = None
+    max_field: Annotated[str, Field(min_length=2, max_length=64)] | None = None
+
+    @field_validator("id")
+    @classmethod
+    def valid_id(cls, value: str) -> str:
+        if not FIELD_ID.fullmatch(value):
+            raise ValueError("id do recurso deve usar letras minúsculas, números e sublinhado")
+        return value
+
+
 class TemplateDraft(BaseModel):
     name: Annotated[str, Field(min_length=3, max_length=120)]
     version: Annotated[int, Field(ge=1)] = 1
     fields: list[TemplateField] = Field(min_length=1, max_length=200)
     system_key: str | None = Field(default=None, max_length=80)
     rules_profile_version: Annotated[int, Field(ge=1)] | None = None
+    experience_field: str | None = Field(default=None, max_length=64)
+    inventory_schema: list[TemplateField] = Field(default_factory=list, max_length=200)
+    meta_currencies: list[MetaCurrency] = Field(default_factory=list, max_length=10)
+    creation_rules: list[CreationRule] = Field(default_factory=list, max_length=50)
+
+    @model_validator(mode="after")
+    def rule_references(self) -> "TemplateDraft":
+        numbers = {field.id for field in self.fields if field.kind == FieldKind.number}
+        ids = [rule.id for rule in self.creation_rules]
+        if len(ids) != len(set(ids)):
+            raise ValueError("cada regra de criação precisa de um id único")
+        for rule in self.creation_rules:
+            missing = [field_id for field_id in rule.fields if field_id not in numbers]
+            if missing:
+                raise ValueError(f"regra {rule.label} cita campos que não são numéricos: {', '.join(missing)}")
+        return self
+
+    @model_validator(mode="after")
+    def resource_references(self) -> "TemplateDraft":
+        kinds = {field.id: field.kind for field in self.fields}
+        if self.experience_field is not None and kinds.get(self.experience_field) != FieldKind.number:
+            raise ValueError(f"campo de experiência precisa ser numérico: {self.experience_field}")
+        ids = [currency.id for currency in self.meta_currencies]
+        if len(ids) != len(set(ids)):
+            raise ValueError("cada recurso precisa de um id único")
+        for currency in self.meta_currencies:
+            if kinds.get(currency.field) != FieldKind.number:
+                raise ValueError(f"recurso {currency.label} precisa apontar para um campo numérico: {currency.field}")
+            if currency.max_field is not None and kinds.get(currency.max_field) not in {FieldKind.number, FieldKind.formula}:
+                raise ValueError(f"máximo de {currency.label} precisa ser campo numérico ou fórmula: {currency.max_field}")
+        return self
 
     @model_validator(mode="after")
     def unique_field_ids(self) -> "TemplateDraft":

@@ -62,6 +62,18 @@ async def test_health_and_options_are_public_and_options_does_not_consume(monkey
 
 
 @pytest.mark.anyio
+async def test_only_public_marketplace_reads_skip_authentication():
+    secured = ApiSecurityMiddleware(make_app())
+    base = "/api/v1/marketplace/systems"
+    assert (await request(secured, base)).status_code == 200
+    assert (await request(secured, base + "/10000000-0000-4000-8000-000000000001")).status_code == 200
+    assert (await request(secured, base, method="POST")).status_code == 401
+    assert (await request(secured, base + "/admin")).status_code == 401
+    assert (await request(secured, base + "/10000000-0000-4000-8000-000000000001/report", method="POST")).status_code == 401
+    assert (await request(secured, base, headers={"Authorization": "bad-token"})).status_code == 401
+
+
+@pytest.mark.anyio
 async def test_api_requires_verified_supabase_user_and_stores_it(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "test-publishable-key")

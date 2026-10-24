@@ -5,6 +5,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.models import FieldKind, TemplateDraft
+from app.services.creation_rules import Violation, evaluate_creation_rules
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_values import validate_sheet_values
 
@@ -22,6 +23,24 @@ def approved_template_draft(template: dict[str, Any]) -> TemplateDraft:
         return TemplateDraft.model_validate(draft_data)
     except ValidationError as error:
         raise ValueError("schema do template aprovado é inválido") from error
+
+
+def creation_report(template: dict[str, Any], values: dict[str, Any]) -> tuple[list[str], list[Violation]]:
+    """Field errors and rule violations for a draft, without raising; the wizard calls this per step."""
+    draft = approved_template_draft(template)
+    fields = {field.id: field.model_dump(mode="json") for field in draft.fields}
+    errors: list[str] = []
+    for field_id, value in values.items():
+        field = fields.get(field_id)
+        if field is None:
+            errors.append(f"campo desconhecido: {field_id}")
+            continue
+        if field["kind"] != FieldKind.number.value or isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+        minimum, maximum = field.get("min"), field.get("max")
+        if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+            errors.append(f"{field['label']} precisa ficar entre {minimum if minimum is not None else '-∞'} e {maximum if maximum is not None else '∞'}")
+    return errors, evaluate_creation_rules(draft.creation_rules, values)
 
 
 def prepare_sheet_creation(
@@ -64,6 +83,9 @@ def prepare_sheet_creation(
         )
     }
     calculate_sheet(draft, calculation_inputs)
+    violations = evaluate_creation_rules(draft.creation_rules, normalized_values)
+    if violations:
+        raise ValueError("; ".join(violation.message for violation in violations))
 
     persisted_values = {
         field_id: value

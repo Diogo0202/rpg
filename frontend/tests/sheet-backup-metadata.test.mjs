@@ -4,6 +4,12 @@ import { createSheetBackup, mechanicallyEquivalentFields, parseBackupText, valid
 
 const field = { id: "nome", label: "Nome", kind: "text", required: true, options: [], expression: null };
 
+test("backup round trip preserves dynamic inventory values", () => {
+  const doc = createSheetBackup({ name: "Mara", template: { name: "Original", version: 1, fields: [field] }, values: { nome: "Mara" }, effects: [], inventory: [{ name: "Corda", category: "equipment", quantity: 1, resource_cost: 0, damage_bonus: 0, protection: 0, notes: "", acquired: true, equipped: false, sort_order: 0, custom_values: { peso: 2, tags: ["leve"], fragil: false } }] });
+  assert.deepEqual(parseBackupText(JSON.stringify(doc))[0].inventory[0].custom_values, { peso: 2, tags: ["leve"], fragil: false });
+  assert.throws(() => validateBackup({ ...doc, inventory: [{ ...doc.inventory[0], custom_values: { peso: { execute: "code" } } }] }), /atributo/i);
+});
+
 test("ignora somente metadados de apresentação do template aprovado", () => {
   const approved = [{ ...field, creation_step: "identity", identity_kind: "origin", character_name: true }];
   assert.equal(mechanicallyEquivalentFields(approved, [field]), true);

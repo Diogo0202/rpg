@@ -17,8 +17,10 @@ import { CampaignJournalPanel } from "./campaign-journal-panel";
 import { CharacterInventoryPanel } from "./character-inventory-panel";
 import { WorldLibraryPanel } from "./world-library-panel";
 import { SavedMapsPanel } from "./saved-maps-panel";
+import { PlayerMapView } from "./player-map-view";
 import { SceneModePanel } from "./scene-mode-panel";
 import { ExperiencePanel } from "./experience-panel";
+import { SheetResourcesPanel } from "./sheet-resources-panel";
 import { MusicCuesPanel } from "./music-cues-panel";
 import { SecondInquisitionPanel } from "./second-inquisition-panel";
 import { ChronicleDiagnosticPanel } from "./chronicle-diagnostic-panel";
@@ -44,10 +46,10 @@ const areas: Array<{ id: Area; label: string; detail: string }> = [
   { id: "acoes", label: "Ações V5", detail: "Dados de Fome e trilhas" },
   { id: "sistemas", label: "Outros roladores", detail: "Caçador e O Um Anel" },
   { id: "diario", label: "Diário", detail: "Sessões, facções e tensão" },
-  { id: "experiencia", label: "Experiência", detail: "Custos e histórico local" },
+  { id: "experiencia", label: "Experiência", detail: "Saldo, recursos e custos" },
   { id: "musica", label: "Música", detail: "Playlists e trilhas de sessão" },
   { id: "mundo", label: "Mundo", detail: "Entidades e consequências" },
-  { id: "mapa", label: "Mapas", detail: "Mapas salvos e marcadores" },
+  { id: "mapa", label: "Mapas", detail: "Muros, casas, portas e pins" },
   { id: "mesa", label: "Mesa", detail: "Iniciativa e turnos" },
   { id: "geracao", label: "Geração", detail: "Mapas, personagens e itens" },
   { id: "v5", label: "V5: risco", detail: "Fome, críticos e Vontade" },
@@ -117,8 +119,10 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
         {area === "acoes" && <V5ActionPanel campaignId={campaignId} canEdit={canEditSheets} />}
         {area === "sistemas" && <SystemRollPanel />}
         {area === "diario" && <CampaignJournalPanel campaignId={campaignId} canManage={canManageTemplates} />}
-        {area === "experiencia" && <ExperiencePanel viewerId={viewerId} />}
-        {area === "mapa" && <SavedMapsPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
+        {area === "experiencia" && <><SheetResourcesPanel viewerId={viewerId} canManage={canManageTemplates} /><ExperiencePanel viewerId={viewerId} /></>}
+        {area === "mapa" && (canManageTemplates
+          ? <SavedMapsPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />
+          : <PlayerMapView campaignId={campaignId} viewerId={viewerId} />)}
         {area === "mesa" && <SceneModePanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
 
         {area === "mundo" && <WorldLibraryPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}

@@ -1,0 +1,25 @@
+.panel { display: grid; gap: 1rem; min-width: 0; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid rgba(206,178,132,.24); border-radius: 18px; background: linear-gradient(145deg,#242023,#18181d); color: #f2eee8; }
+.panel h2 { margin: 0; }
+.header,.resources li,.log li { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.header p:not(.eyebrow) { max-width: 68ch; margin: .45rem 0 0; color: #c7c0b7; line-height: 1.5; }
+.eyebrow { margin: 0 0 .35rem; color: #d4b17d; font-size: .74rem; font-weight: 700; letter-spacing: .1em; }
+.character { flex: none; padding: .45rem .7rem; border: 1px solid #51463b; border-radius: 999px; color: #e5d6c3; font-size: .84rem; }
+.notice { min-height: 1.25rem; margin: -.55rem 0 0; color: #f0cf9f; }
+.controls { display: grid; grid-template-columns: minmax(7rem,.4fr) minmax(12rem,1fr); gap: .75rem; }
+.controls label { display: grid; gap: .4rem; color: #e4ddd3; font-size: .84rem; }
+.controls input { width: 100%; min-height: 2.65rem; padding: .55rem .7rem; border: 1px solid #625747; border-radius: 8px; background: #19181b; color: inherit; font: inherit; }
+.resources { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+.resources li { align-items: center; padding: .8rem; border: 1px solid #454047; border-radius: 10px; background: rgba(12,12,15,.35); }
+.resources li div:first-child { display: grid; gap: .22rem; }
+.resources span,.log span,.log time,.empty { color: #c7c0b7; font-size: .85rem; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.panel button { min-height: 2.4rem; padding: .45rem .7rem; border: 1px solid #b58f5d; border-radius: 8px; background: transparent; color: #f0d6ad; font: inherit; cursor: pointer; }
+.panel button:hover:not(:disabled) { background: #453925; }
+.panel button:disabled { opacity: .5; cursor: not-allowed; }
+.panel button:focus-visible,.controls input:focus-visible { outline: 3px solid #f0c77f; outline-offset: 2px; }
+.log summary { cursor: pointer; color: #e4ddd3; }
+.log ol { display: grid; gap: .4rem; margin: .6rem 0 0; padding: 0; list-style: none; }
+.log time { flex: none; font-variant-numeric: tabular-nums; }
+.empty { margin: 0; }
+
+@media (max-width: 560px) { .header,.resources li,.log li { flex-direction: column; } .controls { grid-template-columns: 1fr; } }

@@ -1,7 +1,4 @@
-/**
- * Single service-worker registration wrapper. Never registers in dev, iframes,
- * Lovable preview hosts or with ?sw=off; in those contexts it unregisters /sw.js.
- */
+/** A content-free client shell can serve these public app navigations offline. */
 export const SHELL_ROUTES = [
   "/",
   "/fichas",
@@ -11,28 +8,7 @@ export const SHELL_ROUTES = [
   "/mais",
   "/mais/diario",
   "/sincronizacao",
-];
-
-/** Workbox-serializable matcher: keep it self-contained for generateSW. */
-export function isPublicShellRequest({ url, request }: { url: URL; request: Request }): boolean {
-  const routes = [
-    "/",
-    "/fichas",
-    "/fichas/nova",
-    "/dados",
-    "/mundo",
-    "/mais",
-    "/mais/diario",
-    "/sincronizacao",
-  ];
-  const isWarmup = request.headers.get("x-rpg-nexus-shell") === "1";
-  return (
-    url.origin === self.location.origin &&
-    url.search === "" &&
-    routes.includes(url.pathname) &&
-    (request.mode === "navigate" || isWarmup)
-  );
-}
+] as const;
 
 function refused(): boolean {
   if (!import.meta.env.PROD) return true;
@@ -72,14 +48,6 @@ export async function setupServiceWorker(): Promise<PwaStatus> {
   }
   try {
     await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-    const reg = await navigator.serviceWorker.ready;
-    // Warm the shell cache for every tab so offline navigation works. Shell HTML has no private data.
-    if (reg.active)
-      for (const path of SHELL_ROUTES)
-        void fetch(path, {
-          headers: { "x-rpg-nexus-shell": "1" },
-          credentials: "omit",
-        }).catch(() => undefined);
     return "registered";
   } catch {
     return "error";

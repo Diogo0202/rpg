@@ -18,6 +18,14 @@ export function creationStepLabel(step: CreationStep): string {
   return stepLabels[step];
 }
 
+/** XP and pool meta currencies start at zero; only the campaign master grants them (enforced by the database). */
+export function masterGrantedFieldIds(template: SheetTemplate): Set<string> {
+  const ids = new Set<string>();
+  if (template.experience_field) ids.add(template.experience_field);
+  for (const currency of template.meta_currencies ?? []) if (currency.mode === "pool") ids.add(currency.field);
+  return ids;
+}
+
 export function identityFields(template: SheetTemplate): SheetField[] {
   const nameField = characterNameField(template);
   return template.fields.filter((field) => field.id !== nameField?.id && field.creation_step === "identity");

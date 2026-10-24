@@ -17,9 +17,9 @@ function isActive(path: string, to: string) {
 }
 
 export function SyncIndicator() {
-  const { state, ready } = useNexus();
+  const { state, ready, mode } = useNexus();
   const s = outboxSummary(state);
-  const label = !ready ? "Abrindo…" : s.conflicts ? `${s.conflicts} conflito${s.conflicts > 1 ? "s" : ""}` : `Modo local · ${s.queued} pendente${s.queued === 1 ? "" : "s"}`;
+  const label = !ready ? "Abrindo…" : s.conflicts ? `${s.conflicts} conflito${s.conflicts > 1 ? "s" : ""}` : s.blocked ? `${s.blocked} operação(ões) bloqueada(s)` : `${mode === "local" ? "Modo local" : "Campanha"} · ${s.queued} pendente${s.queued === 1 ? "" : "s"}`;
   return (
     <Link
       to="/sincronizacao"
@@ -35,6 +35,7 @@ export function SyncIndicator() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const { mode, campaignName } = useNexus();
   return (
     <div className="flex min-h-dvh">
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-primary focus:p-2 focus:text-primary-foreground">Pular para o conteúdo</a>
@@ -57,7 +58,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="safe-top sticky top-0 z-30 border-b border-border bg-forest-deep/95 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2">
             <Link to="/" className="font-display text-xl font-semibold text-primary lg:hidden">RPG-Atlas</Link>
-            <span className="hidden text-sm text-muted-foreground lg:block">Modo local, API RPG-Atlas não conectada</span>
+            <span className="hidden text-sm text-muted-foreground lg:block">{mode === "local" ? "Modo local, API RPG-Atlas não conectada" : campaignName}</span>
             <SyncIndicator />
           </div>
         </header>

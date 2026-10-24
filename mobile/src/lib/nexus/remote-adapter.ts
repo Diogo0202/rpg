@@ -23,6 +23,8 @@ export function remoteEntityType(type: string): string {
 export function fromRemoteRecord(type: string, record: SyncRecord): SyncRecord {
   const entityType = remoteNames[type] ?? type;
   const data = { ...record.data } as Record<string, JsonValue>;
+  for (const key of ["id", "campaign_id", "owner_id", "created_by", "created_at", "updated_at", "sync_version"]) delete data[key];
+  if (entityType !== "system_templates") { delete data.version; }
   if (entityType === "world_entities") {
     const body = object(data.body);
     data.description = typeof body.description === "string" ? body.description : "";
@@ -55,7 +57,7 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
     if (typeof data.template_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.template_id)) throw new Error("A ficha precisa usar o ID de um modelo aprovado da campanha.");
     if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 120 || !data.values || typeof data.values !== "object" || Array.isArray(data.values)) throw new Error("Nome ou valores de ficha inválidos.");
   } else if (entityType === "character_inventory") {
-    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order"], "Inventário");
+    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], "Inventário");
   } else if (entityType === "world_entities") {
     assertOnlyKeys(data, ["kind", "name", "description", "tags", "body"], "Entidade");
     const body = object(data.body);
@@ -87,6 +89,9 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
   } else if (entityType === "campaign_sessions") {
     assertOnlyKeys(data, ["title", "summary", "status", "played_on", "sequence", "session_date"], "Sessão");
     if (typeof data.session_date === "string" && data.played_on === undefined) data.played_on = data.session_date;
+    if (data.sequence === undefined) throw new Error("A sessão precisa de um número de sequência calculado pelo armazenamento da campanha.");
+    if (!Number.isSafeInteger(data.sequence) || Number(data.sequence) < 1) throw new Error("Sequência da sessão inválida.");
+    data.status ??= "planned";
     delete data.session_date;
   } else if (entityType === "campaign_events") {
     assertOnlyKeys(data, ["session_id", "faction_id", "title", "description", "occurred_on", "status", "body"], "Evento");

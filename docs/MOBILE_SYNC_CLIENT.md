@@ -1,6 +1,6 @@
 # Cliente offline do RPG-Atlas
 
-O diretório `frontend/lib/mobile-sync/` é um cliente TypeScript independente de React e Next. Pode ser copiado para um projeto Vite ou Lovable. Ele fala com a API FastAPI definida em `docs/MOBILE_SYNC_CONTRACT.md` e grava a base confirmada, a projeção local e a outbox no IndexedDB `rpg-nexus-mobile-v1`.
+O diretório `mobile/src/lib/mobile-sync/` é um cliente TypeScript independente de React e Next, usado apenas pelo app mobile. A aplicação web (`frontend/`) não tem modo offline e não inclui cópia deste módulo. Ele fala com a API FastAPI definida em `docs/MOBILE_SYNC_CONTRACT.md` e grava a base confirmada, a projeção local e a outbox no IndexedDB `rpg-nexus-mobile-v1`.
 
 ## Exports
 
@@ -77,10 +77,10 @@ O endpoint de capacidades entrega a lista gravável para a campanha e o papel au
 
 ## Verificação local
 
-Na pasta `frontend`, rode os dois arquivos diretamente, sem alterar `package.json`:
+Na raiz do repositório, rode `npm run test:mobile`. Ele executa os dois arquivos de `mobile/tests/`:
 
 ```powershell
-node --experimental-strip-types --test tests/mobile-sync.test.mjs tests/mobile-sync-indexeddb.test.mjs
+node --experimental-strip-types --test mobile/tests/mobile-sync.test.mjs mobile/tests/mobile-sync-indexeddb.test.mjs
 ```
 
 O primeiro arquivo simula dois aparelhos contra um coordenador em memória para testar mescla de campos, conflito no mesmo campo, exclusão de marcador, reload, repetição idempotente e isolamento por conta. O segundo abre Chromium/Playwright e exercita IndexedDB real, escrita concorrente, persistência após recarga e limpeza por conta. Ele pula com uma justificativa se Playwright ou Chromium não estiver disponível. Nenhum pacote é baixado pelo teste.

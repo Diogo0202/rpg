@@ -7,16 +7,18 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Annotated, Any, Awaitable, Callable, Literal
 from uuid import UUID, uuid4, uuid5
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 from app.routes.sheets import _current_user_id, _get_template, _request
 from app.services.sheet_creation import approved_template_draft, prepare_sheet_creation
 from app.services import ai_provider
+from app.models import TemplateDraft
+from app.services.sheet_calculations import calculate_sheet
 
 router = APIRouter(prefix="/api/v1/campaigns/{campaign_id}/ai", tags=["ai-assistance"])
 LOGGER = logging.getLogger(__name__)
@@ -194,7 +196,7 @@ async def ai_config(campaign_id: UUID, request: Request, authorization: str | No
         enabled = bool(os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
     except ai_provider.AIUnavailable:
         pass
-    return {"enabled": enabled, "model": "gpt-5.4-mini-2026-03-17", "budget_monthly_usd": 30}
+    return {"enabled": False, "tutor_enabled": enabled, "mode": "math_tutor", "model": "gpt-5.4-mini-2026-03-17", "budget_monthly_usd": 30}
 
 
 @router.get("/context")
@@ -282,19 +284,25 @@ async def _generation_inputs(campaign_id: UUID, actor: Actor, payload: ProposalC
     return _bounded(data), template, version
 
 
-async def _generate(row: dict, actor: Actor, context: dict, template: dict | None, operation_id: str) -> dict:
-    # Client keys are scoped to a proposal, while the financial ledger is global.
-    operation_id = str(uuid5(UUID(row["id"]), operation_id))
+async def _paid_generation(campaign_id: str, actor: Actor, kind: str, context: dict, template: dict | None,
+                           operation_id: str, check: Callable[[dict], Awaitable[None]] | None = None) -> dict:
+    """Reserve, dispatch, generate, validate and settle one paid AI call.
+
+    Shared by proposals and drafts so both follow the same ledger rules: a
+    timed-out paid request is marked uncertain, never refunded blindly.
+    """
     try:
         settings = ai_provider.provider_settings()
-        ai_provider.build_request(row["kind"], context, template, settings)
+        ai_provider.build_request(kind, context, template, settings)
     except ai_provider.AIUnavailable as error:
         raise HTTPException(503, "IA desativada ou configuração incompleta.") from error
     except ai_provider.AIProviderError as error:
         raise HTTPException(422, "O pedido excede os limites da IA ou possui campos inválidos.") from error
-    reserve = await _service("POST", "rpc/ai_budget_reserve", payload={"p_campaign_id": row["campaign_id"], "p_user_id": actor.id, "p_operation_id": operation_id, "p_reserve_micro": settings.reserve_micro})
+    reserve = await _service("POST", "rpc/ai_budget_reserve", payload={"p_campaign_id": campaign_id, "p_user_id": actor.id, "p_operation_id": operation_id, "p_reserve_micro": settings.reserve_micro})
     if not isinstance(reserve, dict) or not reserve.get("admitted"):
         reason = reserve.get("reason") if isinstance(reserve, dict) else None
+        if reason == "duplicate":
+            raise HTTPException(409, "Esta operação já foi enviada. Nenhuma nova chamada foi feita. O cálculo sem IA continua disponível.")
         status = 429 if reason in {"budget", "busy", "rate"} else 503
         raise HTTPException(status, "Orçamento ou limite de geração indisponível. Aguarde antes de tentar novamente.", headers={"Retry-After": "60"} if status == 429 else None)
     dispatched = False
@@ -304,23 +312,16 @@ async def _generate(row: dict, actor: Actor, context: dict, template: dict | Non
         if await _service("POST", "rpc/ai_budget_dispatch", payload={"p_operation_id": operation_id}) is not True:
             raise HTTPException(503, "A reserva da geração não pôde ser confirmada.")
         dispatched = True
-        generated = await ai_provider.generate_proposal(row["kind"], context, template)
+        generated = await ai_provider.generate_proposal(kind, context, template)
         known_usage = {"input_tokens": generated.input_tokens, "output_tokens": generated.output_tokens}
-        result = ai_provider.validate_result(row["kind"], generated.result, template)
-        if row["kind"] == "npc":
-            allowed_ids = {item["id"] for item in context.get("items", []) if item.get("kind") == "entity"}
-            if any(item.get("target_id") not in allowed_ids for item in result.get("relationships", [])):
-                raise HTTPException(422, "A IA sugeriu uma relação fora do contexto selecionado.")
-            await _validate_relationships(row["campaign_id"], actor, result.get("relationships", []))
+        result = ai_provider.validate_result(kind, generated.result, template)
+        if check is not None:
+            await check(result)
         if await _service("POST", "rpc/ai_budget_settle", payload={"p_operation_id": operation_id, "p_actual_micro": settings.cost_micro(generated.input_tokens, generated.output_tokens), "p_input_tokens": generated.input_tokens, "p_output_tokens": generated.output_tokens}) is not True:
             raise HTTPException(503, "Não foi possível confirmar o consumo da geração.")
         settled = True
-        await _service("PATCH", "ai_proposal_contents", params={"request_id": f"eq.{row['id']}"}, payload={"context": context, "result": _bounded(result)})
-        rows = await _service("PATCH", "ai_requests", params={"id": f"eq.{row['id']}", "version": f"eq.{row['version']}", "status": "eq.generating"}, payload={"status": "pending"})
-        if not rows:
-            raise HTTPException(409, "A proposta mudou durante a geração.")
-        LOGGER.info("ai_generation status=success kind=%s input_tokens=%d output_tokens=%d", row["kind"], generated.input_tokens, generated.output_tokens)
-        return {"request": rows[0]}
+        LOGGER.info("ai_generation status=success kind=%s input_tokens=%d output_tokens=%d", kind, generated.input_tokens, generated.output_tokens)
+        return result
     except (Exception, asyncio.CancelledError) as error:
         # A timed-out paid request is financially uncertain; never refund it blindly.
         try:
@@ -334,6 +335,91 @@ async def _generate(row: dict, actor: Actor, context: dict, template: dict | Non
         except Exception:
             LOGGER.warning("ai_generation settlement=unavailable")
         raise
+
+
+async def _generate(row: dict, actor: Actor, context: dict, template: dict | None, operation_id: str) -> dict:
+    # Client keys are scoped to a proposal, while the financial ledger is global.
+    operation_id = str(uuid5(UUID(row["id"]), operation_id))
+
+    async def check_relationships(result: dict) -> None:
+        if row["kind"] != "npc":
+            return
+        allowed_ids = {item["id"] for item in context.get("items", []) if item.get("kind") == "entity"}
+        if any(item.get("target_id") not in allowed_ids for item in result.get("relationships", [])):
+            raise HTTPException(422, "A IA sugeriu uma relação fora do contexto selecionado.")
+        await _validate_relationships(row["campaign_id"], actor, result.get("relationships", []))
+
+    result = await _paid_generation(row["campaign_id"], actor, row["kind"], context, template, operation_id, check_relationships)
+    await _service("PATCH", "ai_proposal_contents", params={"request_id": f"eq.{row['id']}"}, payload={"context": context, "result": _bounded(result)})
+    rows = await _service("PATCH", "ai_requests", params={"id": f"eq.{row['id']}", "version": f"eq.{row['version']}", "status": "eq.generating"}, payload={"status": "pending"})
+    if not rows:
+        raise HTTPException(409, "A proposta mudou durante a geração.")
+    return {"request": rows[0]}
+
+
+class DraftCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["npc", "enemy", "item"]
+    brief: str = Field(min_length=3, max_length=1000)
+    system_key: str | None = Field(default=None, pattern=r"^[a-z0-9-]{1,80}$")
+    threat: Literal["baixa", "média", "alta", "chefe"] | None = None
+    idempotency_key: UUID
+
+
+class TutorRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expression: StrictStr = Field(min_length=1, max_length=120)
+    values: dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")], Annotated[StrictInt | StrictFloat, Field(ge=-1_000_000, le=1_000_000)]] = Field(default_factory=dict, max_length=20)
+    explain: StrictBool = False
+    idempotency_key: UUID | None = None
+
+
+@router.post("/tutor")
+async def math_tutor(campaign_id: UUID, payload: TutorRequest, request: Request, authorization: str | None = Header(None)) -> dict:
+    actor = await _actor(campaign_id, request, authorization)
+    if not actor.player:
+        raise HTTPException(403, "Participação de jogador ou narrador necessária.")
+    if "nexus_result" in payload.values:
+        raise HTTPException(422, "O nome nexus_result é reservado ao cálculo.")
+    try:
+        template = TemplateDraft(name="Tutor matemático", fields=[
+            *[{"id": key, "label": key, "kind": "number"} for key in payload.values],
+            {"id": "nexus_result", "label": "Resultado", "kind": "formula", "expression": payload.expression},
+        ])
+        answer = calculate_sheet(template, payload.values)["nexus_result"]
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
+    result = {"expression": payload.expression, "values": payload.values, "result": answer, "explanation": None}
+    if payload.explain:
+        if payload.idempotency_key is None:
+            raise HTTPException(422, "A explicação exige um identificador de operação.")
+        operation_id = str(uuid5(campaign_id, f"math_tutor:{actor.id}:{payload.idempotency_key}"))
+        context = {"expression": payload.expression, "values": payload.values, "server_result": answer}
+        try:
+            explanation = await _paid_generation(str(campaign_id), actor, "math_tutor", context, None, operation_id)
+        except ai_provider.AIProviderError as error:
+            raise HTTPException(502, "Não foi possível obter a explicação. O cálculo continua disponível sem IA.") from error
+        result["explanation"] = explanation["explanation"]
+    return result
+
+
+@router.post("/drafts")
+async def create_draft(campaign_id: UUID, payload: DraftCreate, request: Request, authorization: str | None = Header(None)) -> dict:
+    """Instant NPC, enemy or item for the master to review; nothing is stored until they save it."""
+    actor = await _actor(campaign_id, request, authorization)
+    _manager(actor)
+    context = _bounded({"brief": payload.brief, "system": payload.system_key, "threat": payload.threat, "items": []})
+    operation_id = str(uuid5(campaign_id, f"draft:{actor.id}:{payload.idempotency_key}"))
+    try:
+        result = await _paid_generation(str(campaign_id), actor, payload.kind, context, None, operation_id)
+    except ai_provider.AIProviderError as error:
+        message = "A IA recusou o pedido." if error.code == "refusal" else "A IA devolveu um resultado inválido. Tente de novo ou use o gerador procedural."
+        raise HTTPException(502, message) from error
+    if payload.kind == "npc":
+        result["relationships"] = []  # drafts carry no context, so no entity may be referenced
+    return {"kind": payload.kind, "result": result}
 
 
 async def _validate_relationships(campaign_id: UUID | str, actor: Actor, relationships: list) -> None:
@@ -371,6 +457,10 @@ async def create_proposal(campaign_id: UUID, payload: ProposalCreate, request: R
         raise HTTPException(503, "IA desativada ou configuração incompleta.") from error
     context = await _checked_context(campaign_id, actor, payload)
     data, template, target_version = await _generation_inputs(campaign_id, actor, payload, context)
+    try:
+        ai_provider.build_request(payload.kind, data, template)
+    except ai_provider.AIProviderError as error:
+        raise HTTPException(422, "A IA atua somente como tutor matemático. As propostas anteriores continuam disponíveis para revisão.") from error
     # All implicit inputs are shown to managers in the task form; selected source
     # revisions must match the preview hash before any paid request is admitted.
     proposal_id = str(uuid4())

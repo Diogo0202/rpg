@@ -1,8 +1,16 @@
 # Assistência de IA para a campanha
 
-Implementação em 19/10/2026. A integração fica desativada por padrão e não substitui o wizard manual nem o gerador procedural.
+## Política atual, 23/10/2026
 
-## Fluxos
+Novas chamadas ao provedor aceitam somente `math_tutor`. O wizard manual e os geradores procedurais continuam disponíveis. A integração permanece com `AI_ENABLED=false`; esta entrega não criou chave nem fez chamadas pagas.
+
+`POST /api/v1/campaigns/{campaign_id}/ai/tutor` exige participação autenticada na campanha. O corpo contém `expression` (até 120 caracteres), `values` (até 20 números com nomes válidos) e `explain` (padrão `false`). O servidor calcula o resultado por AST e o devolve mesmo quando a IA está desativada. Para explicação paga, o cliente envia também `idempotency_key` UUID e confirma a ação no formulário. O contexto enviado contém somente a expressão, os números e o resultado do servidor; notas, lore e segredos da campanha não entram nessa chamada.
+
+O endpoint de configuração devolve `mode: "math_tutor"`, `enabled: false` para os formulários antigos e `tutor_enabled` conforme a configuração privada. A saída estruturada do provedor contém apenas `explanation`. Uma operação financeira repetida recebe HTTP 409, sem novo despacho pago; não existe repetição automática após falha.
+
+Criação e refinamento pagos de fichas, sessões ou NPCs ficam bloqueados no adaptador do provedor. Propostas já armazenadas conservam as rotas de consulta, edição e revisão do narrador, com suas permissões anteriores. Os contratos abaixo registram essa implementação histórica, iniciada em 19/10/2026; eles não significam que a geração narrativa esteja ativa.
+
+## Fluxos históricos de propostas
 
 - **Ficha:** o jogador escolhe um modelo aprovado, descreve o conceito e os campos que quer desenvolver. A proposta pode criar uma ficha ou atualizar uma ficha própria. O narrador revisa os valores em controles de formulário e compara os valores anteriores antes de aprovar. Fórmulas e rolagens não entram nas sugestões editáveis.
 - **Sessão:** o narrador pede uma preparação nova ou seleciona uma sessão existente. A resposta contém resumo, cenas, pistas, conflitos e consequências. A aprovação guarda a preparação em área privada.

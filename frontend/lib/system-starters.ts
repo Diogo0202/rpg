@@ -1,4 +1,4 @@
-import type { SheetField, SheetTemplate } from "./sheet-template.ts";
+import type { MetaCurrency, SheetField, SheetTemplate } from "./sheet-template.ts";
 
 /**
  * Proveniência: contratos estruturados no RPG Atlas, checkout local
@@ -62,8 +62,9 @@ function makeStarter(
   label: string,
   templateName: string,
   seeds: FieldSeed[],
+  metaCurrencies: MetaCurrency[] = [],
 ): SystemStarter {
-  seeds=[field("sistema","Sistema","text",label),field("ativo_na_sessao","Ativo na sessão","checkbox",true),...seeds];
+  seeds=[field("sistema","Sistema","text",label),field("ativo_na_sessao","Ativo na sessão","checkbox",true),...seeds,number("experiencia","Experiência disponível")];
   const values: Record<string, StarterValue> = {};
   for (const seed of seeds) if (seed.initial !== undefined) values[seed.id] = seed.initial;
   return {
@@ -73,10 +74,14 @@ function makeStarter(
       name: templateName,
       version: 1,
       fields: seeds.map(({ initial: _initial, ...definition }) => definition),
+      experience_field: "experiencia",
+      meta_currencies: metaCurrencies,
     },
     values,
   };
 }
+
+const willpower: MetaCurrency = { id: "vontade", label: "Força de Vontade", field: "vontade_superficial", mode: "track", max_field: "vontade_max" };
 
 const v5Attributes: Array<[string, string]> = [
   ["forca", "Força"], ["destreza", "Destreza"], ["vigor", "Vigor"],
@@ -120,7 +125,9 @@ const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", 
   collection("disciplinas", "Disciplinas"), collection("especialidades", "Especialidades"),
   collection("vantagens", "Vantagens"), collection("defeitos", "Defeitos"),
   text("ambicao", "Ambição"), text("desejo", "Desejo"), text("apoiadores", "Apoiadores"),
-]);
+  { ...select("compulsao_atual", "Compulsão atual", ["Nenhuma", "Fome", "Dominação", "Destruição", "Paranoia", "Compulsão do clã"]), initial: "Nenhuma", private: true },
+  { ...text("segredos", "Segredos"), private: true },
+], [willpower]);
 
 const hunterCreeds = ["Empreendedor", "Devoto", "Inquisitivo", "Marcial", "Clandestino"];
 const hunterArchetypes = [
@@ -147,7 +154,7 @@ const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular",
   number("vontade_superficial","Dano superficial na Vontade"),number("vontade_agravada","Dano agravado na Vontade"),
   collection("arquetipos", "Arquétipos"), collection("vantagens", "Vantagens"),
   collection("especialidades", "Especialidades"), text("notas", "Notas"),
-]);
+], [willpower]);
 
 const oneRingLineages = [
   "Anões do Povo de Durin", "Bardeses", "Elfos de Lindon", "Hobbits do Condado", "Homens de Bri", "Patrulheiros do Norte",
@@ -161,7 +168,26 @@ const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel modular", [
   number("vigor_marcha", "Vigor (Endurance)"), number("esperanca", "Esperança"),
   number("sombra", "Sombra"), number("carga", "Carga"), collection("rituais", "Rituais"),
   text("ambicao", "Ambição"), text("desejo", "Desejo"), text("notas", "Notas"),
-]);
+], [{ id: "esperanca", label: "Esperança", field: "esperanca", mode: "pool" }]);
+
+// V5 creation arithmetic: numbers only, no rules text. Attributes 4/3/3/3/2/2/2/2/1;
+// skills follow one of three distributions (the rest stay at 0).
+const v5Limits: Record<string, [number, number]> = {
+  ...Object.fromEntries(v5Attributes.map(([id]) => [id, [1, 5] as [number, number]])),
+  ...Object.fromEntries(v5Skills.map(([id]) => [id, [0, 5] as [number, number]])),
+  fome: [0, 5], humanidade: [0, 10], manchas: [0, 10], geracao: [4, 16], potencia_sangue: [0, 10], recursos: [0, 5],
+  saude_superficial: [0, 15], saude_agravada: [0, 15], vontade_superficial: [0, 15], vontade_agravada: [0, 15], experiencia: [0, 9999],
+};
+vampire.template.fields = vampire.template.fields.map((item) => v5Limits[item.id] ? { ...item, min: v5Limits[item.id][0], max: v5Limits[item.id][1] } : item);
+vampire.template.creation_rules = [
+  { type: "group_distribution", id: "atributos", label: "Atributos", fields: v5Attributes.map(([id]) => id),
+    options: [{ label: "Distribuição de atributos", counts: { 4: 1, 3: 3, 2: 4, 1: 1 } }] },
+  { type: "group_distribution", id: "habilidades", label: "Habilidades", fields: v5Skills.map(([id]) => id), options: [
+    { label: "Pau para toda obra", counts: { 3: 1, 2: 8, 1: 10 } },
+    { label: "Equilibrado", counts: { 3: 3, 2: 5, 1: 7 } },
+    { label: "Especialista", counts: { 4: 1, 3: 3, 2: 3, 1: 3 } },
+  ] },
+];
 
 export const SYSTEM_STARTERS: SystemStarter[] = [vampire, hunter, oneRing];
 
@@ -181,8 +207,8 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
     skills: ["atletismo", "briga", "conducao", "furtividade", "ladroagem", "oficios", "sobrevivencia", "armas_brancas", "armas_de_fogo", "etiqueta", "empatia", "intimidacao", "lideranca", "manha", "performance", "persuasao", "subterfugio", "trato_com_animais", "academicos", "ciencia", "consciencia", "financas", "investigacao", "medicina", "ocultismo", "percepcao", "tecnologia"],
     traits: ["disciplinas", "especialidades", "vantagens", "defeitos"],
-    resources: ["fome", "humanidade", "manchas", "geracao", "potencia_sangue", "recursos", "saude_max", "vontade_max", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada"],
-    story: ["ambicao", "desejo", "apoiadores"],
+    resources: ["fome", "humanidade", "manchas", "geracao", "potencia_sangue", "recursos", "saude_max", "vontade_max", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada", "experiencia", "compulsao_atual"],
+    story: ["ambicao", "desejo", "apoiadores", "segredos"],
     identities: { cla: "clan", predador: "predator" },
   },
   hunter: {
@@ -190,7 +216,7 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
     skills: ["atletismo", "briga", "furtividade", "persuasao", "subterfugio", "empatia", "investigacao", "ocultismo", "tecnologia"],
     traits: ["vantagens", "especialidades"],
-    resources: ["saude_max", "vontade_max", "desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada"],
+    resources: ["saude_max", "vontade_max", "desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada", "experiencia"],
     story: ["ambicao", "notas"],
     identities: { credo: "creed" },
   },
@@ -199,7 +225,7 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     attributes: ["forca", "coracao", "espirito"],
     skills: ["awe", "athletics", "awareness", "hunting", "song", "travel"],
     traits: ["rituais"],
-    resources: ["vigor_marcha", "esperanca", "sombra", "carga"],
+    resources: ["vigor_marcha", "esperanca", "sombra", "carga", "experiencia"],
     story: ["ambicao", "desejo", "notas"],
     identities: { linhagem: "lineage" },
   },

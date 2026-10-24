@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { characterNameField, creationGroups, creationStepLabel, fieldOptions, identityFields, isFieldActive, reconcileDependentValues, validateFields } from "../lib/sheet-creation";
+import { characterNameField, creationGroups, creationStepLabel, fieldOptions, identityFields, isFieldActive, masterGrantedFieldIds, reconcileDependentValues, validateFields } from "../lib/sheet-creation";
 import type { FieldValue, SheetField, SheetTemplate, StoredTemplate } from "../lib/sheet-template";
 import styles from "./sheet-creation-wizard.module.css";
 import { AiSheetRequest } from "./ai-assistance-panel";
+import { PortraitPicker } from "./portrait-picker";
+import { checkCreation, type CreationReport } from "../lib/sheet-adjustments";
 
 type Props = {
   campaignId: string;
@@ -17,6 +19,8 @@ type Props = {
   calculated: Record<string, unknown>;
   busy: boolean;
   canCreate: boolean;
+  /** Campaign managers may set XP and pool currencies at creation; players start them at zero. */
+  canGrantResources: boolean;
   loading: boolean;
   loadError: string;
   feedback: string;
@@ -26,20 +30,44 @@ type Props = {
   onValueChange: (id: string, value: FieldValue | undefined) => void;
   onSave: () => Promise<void>;
   onOpenEditor?: () => void;
+  viewerId: string;
+  portraitPath: string | null;
+  onPortraitChange: (path: string) => void;
 };
 
-type WizardStep = { key: string; title: string; fields: SheetField[]; kind: "template" | "identity" | "group" | "review" };
+type WizardStep = { key: string; title: string; fields: SheetField[]; kind: "template" | "identity" | "group" | "portrait" | "review" };
 
 export function SheetCreationWizard(props: Props) {
   const {
-    campaignId, templates, templateId, template, values, name, calculated, busy, canCreate, loading,
+    campaignId, templates, templateId, template, values, name, calculated, busy, canCreate, canGrantResources, loading,
     loadError, feedback, calculationError, onChooseTemplate, onNameChange, onValueChange,
-    onSave, onOpenEditor,
+    onSave, onOpenEditor, viewerId, portraitPath, onPortraitChange,
   } = props;
+  const masterGranted = useMemo(() => canGrantResources ? new Set<string>() : masterGrantedFieldIds(template), [canGrantResources, template]);
+
+  // A player's sheet starts with master-granted resources at zero, or the database refuses it.
+  useEffect(() => {
+    for (const id of masterGranted) if (typeof values[id] === "number" && values[id] !== 0) onValueChange(id, 0);
+  }, [masterGranted]); // eslint-disable-line react-hooks/exhaustive-deps
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [collectionDrafts, setCollectionDrafts] = useState<Record<string, string>>({});
   const [dependencyAnnouncement, setDependencyAnnouncement] = useState("");
+  const [report, setReport] = useState<CreationReport | null>(null);
+  const [reportError, setReportError] = useState("");
+  const valuesKey = JSON.stringify(values);
+
+  // The backend is the source of truth for limits and creation rules; ask it as the draft changes.
+  useEffect(() => {
+    if (!templateId || !canCreate) { setReport(null); return; }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      checkCreation(campaignId, templateId, values, controller.signal)
+        .then((next) => { if (!controller.signal.aborted) { setReport(next); setReportError(""); } })
+        .catch((problem) => { if (!controller.signal.aborted) { setReport(null); setReportError(problem instanceof Error ? problem.message : "Não foi possível conferir as regras."); } });
+    }, 400);
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [campaignId, templateId, canCreate, valuesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = useMemo(() => creationGroups(template).map((group) => ({
     ...group,
     fields: group.fields.filter((field) => isFieldActive(template, field, values)),
@@ -50,10 +78,14 @@ export function SheetCreationWizard(props: Props) {
     { key: "template", title: "Modelo", fields: [], kind: "template" },
     { key: "identity", title: "Nome e identidade", fields: identities, kind: "identity" },
     ...groups.map((group) => ({ key: group.step, title: creationStepLabel(group.step), fields: group.fields, kind: "group" as const })),
+    { key: "portrait", title: "Retrato", fields: [], kind: "portrait" },
     { key: "review", title: "Revisão", fields: [], kind: "review" },
   ];
   const step = steps[Math.min(stepIndex, steps.length - 1)];
   const isLast = step.kind === "review";
+  const stepFieldIds = new Set(step.fields.map((field) => field.id));
+  const stepViolations = (report?.violations ?? []).filter((violation) => isLast || violation.fields.some((id) => stepFieldIds.has(id)));
+  const rulesBlockFinish = report !== null && !report.valid;
 
   function clearError(key: string) {
     setErrors((current) => {
@@ -92,7 +124,10 @@ export function SheetCreationWizard(props: Props) {
       if (!name.trim()) nextErrors.$name = "Informe o nome do personagem.";
       else if (name.trim().length > 120) nextErrors.$name = "O nome deve ter até 120 caracteres.";
     }
+    if (step.kind === "portrait" && !portraitPath) nextErrors.$portrait = "Envie uma foto do personagem para continuar.";
+    if (step.kind === "group" && stepViolations.length) nextErrors.$rules = stepViolations.map((violation) => violation.message).join(" ");
     setErrors(nextErrors);
+    if (nextErrors.$rules && Object.keys(nextErrors).length === 1) { document.getElementById("sheet-rules")?.focus(); return; }
     const firstInvalid = step.kind === "identity" && nextErrors.$name ? "$name" : Object.keys(nextErrors)[0];
     if (firstInvalid) {
       document.getElementById(firstInvalid === "$name" ? "sheet-character-name" : `sheet-field-${firstInvalid}`)?.focus();
@@ -130,6 +165,9 @@ export function SheetCreationWizard(props: Props) {
     if (field.kind === "roll") {
       return <div className={`${styles.field} ${styles.readonly}`} key={field.id}><span className={styles.label}>{field.label}<span className={styles.readonlyTag}>Prévia</span></span><output>{field.expression || "Expressão definida no modelo"}</output><small>Os dados não são rolados durante a criação.</small></div>;
     }
+    if (masterGranted.has(field.id)) {
+      return <div className={`${styles.field} ${styles.readonly}`} key={field.id}><span className={styles.label}>{field.label}<span className={styles.readonlyTag}>Concedido pelo Mestre</span></span><output>0</output><small>Começa em zero. O Mestre concede durante a crônica.</small></div>;
+    }
     if (field.kind === "checkbox") {
       return <div className={styles.field} key={field.id}><label className={styles.checkRow} htmlFor={inputId}><input {...common} type="checkbox" checked={value === true} onChange={(event: ChangeEvent<HTMLInputElement>) => changeField(field, event.target.checked)} />{label}</label>{errorNode}</div>;
     }
@@ -156,7 +194,7 @@ export function SheetCreationWizard(props: Props) {
         changeField(field, text.split("\n").map((item) => item.trim()).filter(Boolean));
       }} />{errorNode}</div>;
     }
-    return <label className={styles.field} key={field.id}>{label}<input {...common} type={field.kind === "number" ? "number" : "text"} value={typeof value === "number" || typeof value === "string" ? value : ""} onChange={(event) => changeField(field, field.kind === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)} />{errorNode}</label>;
+    return <label className={styles.field} key={field.id}>{label}<input {...common} type={field.kind === "number" ? "number" : "text"} min={field.kind === "number" ? field.min ?? undefined : undefined} max={field.kind === "number" ? field.max ?? undefined : undefined} value={typeof value === "number" || typeof value === "string" ? value : ""} onChange={(event) => changeField(field, field.kind === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)} />{errorNode}</label>;
   }
 
   const identityFieldErrors = errors;
@@ -203,6 +241,18 @@ export function SheetCreationWizard(props: Props) {
 
       {step.kind === "group" && <div className={styles.fieldGrid}>{step.fields.map(renderField)}</div>}
 
+      {(step.kind === "group" || isLast) && (stepViolations.length > 0 || (isLast && (report?.field_errors.length ?? 0) > 0) || reportError) &&
+        <div id="sheet-rules" tabIndex={-1} className={styles.rules} role="status" aria-live="polite">
+          <strong>{reportError ? "Regras não conferidas" : "Regras de criação"}</strong>
+          {reportError ? <p>{reportError} O servidor confere de novo ao salvar.</p> : <ul>
+            {stepViolations.map((violation) => <li key={violation.rule_id}>{violation.message}</li>)}
+            {isLast && report?.field_errors.map((error) => <li key={error}>{error}</li>)}
+          </ul>}
+        </div>}
+
+      {step.kind === "portrait" && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={name}
+        disabled={busy} error={errors.$portrait} onChange={(path) => { onPortraitChange(path); clearError("$portrait"); }} />}
+
       {step.kind === "review" && <div className={styles.review}>
         <div className={styles.reviewName}><span>PERSONAGEM</span><strong>{name.trim() || "Nome não informado"}</strong><small>{template.name}</small></div>
         {steps.filter((item) => item.kind === "identity" || item.kind === "group").map((item) => {
@@ -216,7 +266,7 @@ export function SheetCreationWizard(props: Props) {
 
       <footer className={styles.actions}>
         <button type="button" className={styles.back} disabled={busy || stepIndex === 0} onClick={back}>Voltar</button>
-        {isLast ? <button type="button" className={styles.finish} disabled={busy || !canCreate || !templateId || !name.trim()} onClick={() => void onSave()}>{busy ? "Salvando…" : "Concluir e importar para a mesa"}</button> : <button type="button" className={styles.next} disabled={busy || (step.kind === "template" && (!templateId || loading))} onClick={advance}>Continuar <span aria-hidden="true">→</span></button>}
+        {isLast ? <button type="button" className={styles.finish} disabled={busy || !canCreate || !templateId || !name.trim() || !portraitPath || rulesBlockFinish} onClick={() => void onSave()}>{busy ? "Salvando…" : "Concluir e importar para a mesa"}</button> : <button type="button" className={styles.next} disabled={busy || (step.kind === "template" && (!templateId || loading))} onClick={advance}>Continuar <span aria-hidden="true">→</span></button>}
       </footer>
       {!canCreate && isLast && <p className={styles.permissionHint}>Seu papel nesta campanha não permite criar fichas.</p>}
     </article>

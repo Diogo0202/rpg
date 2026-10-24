@@ -36,9 +36,14 @@ export interface OutboxEntry {
   mutation: SyncMutation; state: MutationStatus; createdAt: number; attempts: number;
   nextAttemptAt: number; lastError?: string; acceptedCursor?: string;
 }
+export interface SheetAdjustmentIntent {
+  operation_id: string; sheet_id: string; field_id: string; delta: number;
+  reason?: string; created_at: number; state: "queued" | "inflight" | "invalid" | "denied";
+  last_error?: string;
+}
 export interface SyncState {
   schema: "rpg-nexus-mobile-v1"; partition: SyncPartition; cursor: string | null;
-  records: Record<string, SyncRecord>; outbox: OutboxEntry[]; lease?: { owner: string; until: number }; updatedAt: number;
+  records: Record<string, SyncRecord>; outbox: OutboxEntry[]; adjustments?: SheetAdjustmentIntent[]; lease?: { owner: string; until: number }; updatedAt: number;
 }
 export interface SyncPage { protocol_version: 1; campaign_id: string; cursor: string; has_more: boolean; changes: SyncChangeEvent[] }
 export interface SnapshotPage {
@@ -51,6 +56,7 @@ export interface SyncTransport {
   push(campaignId: string, body: { protocol_version: 1; device_id: string; mutations: SyncMutation[] }): Promise<{ cursor?: string; results: SyncResult[] }>;
   changes(campaignId: string, cursor: string, limit?: number): Promise<SyncPage>;
   snapshot(campaignId: string, entityType: string, afterId?: string, limit?: number): Promise<SnapshotPage>;
+  adjustSheet?(sheetId: string, input: { operation_id: string; field_id: string; delta: number; reason?: string }): Promise<unknown>;
 }
 export interface SyncCampaign { id: string; owner_id: string; name: string; description?: string | null; updated_at?: string }
 export interface SyncCapabilities { protocol_version: 1; campaign_id: string; entity_fields: Record<string, string[]>; role: "owner" | "master" | "player" | "guest" }

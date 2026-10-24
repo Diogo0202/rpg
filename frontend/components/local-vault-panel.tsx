@@ -27,6 +27,7 @@ type StoredCopy = { id: string; createdAt: string; updatedAt: string; backup: Sh
 type RemoteTemplate = { id: string; name: string; version: number; schema: unknown };
 type RemoteSheet = { id: string; name: string; template_id: string; values: unknown; effects: unknown };
 type RemoteInventory = {
+  custom_values?: unknown;
   sheet_id: string; name: string; category: string; quantity: number; resource_cost: number;
   damage_bonus: number; protection: number; notes: string; acquired: boolean; equipped: boolean; sort_order: number;
 };
@@ -72,7 +73,7 @@ function makeRemoteBackup(sheet: RemoteSheet, template: RemoteTemplate, inventor
       name: item.name, category: item.category, quantity: item.quantity,
       resource_cost: item.resource_cost, damage_bonus: item.damage_bonus,
       protection: item.protection, notes: item.notes, acquired: item.acquired,
-      equipped: item.equipped, sort_order: item.sort_order,
+      equipped: item.equipped, sort_order: item.sort_order, ...(item.custom_values===undefined?{}:{custom_values:item.custom_values}),
     })),
   });
 }
@@ -213,7 +214,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
     if (!template) { setNotice("O modelo aprovado desta ficha não está disponível nesta campanha."); return; }
     try {
       const inventoryResult = await createClient().from("character_inventory")
-        .select("sheet_id, name, category, quantity, resource_cost, damage_bonus, protection, notes, acquired, equipped, sort_order")
+        .select("sheet_id, name, category, quantity, resource_cost, damage_bonus, protection, notes, acquired, equipped, sort_order, custom_values")
         .eq("sheet_id", sheet.id).eq("campaign_id",campaignId).order("sort_order");
       if(liveContext.current.key!==requestedKey||liveContext.current.campaignId!==campaignId)return;
       if (inventoryResult.error) throw new Error("Não foi possível ler o equipamento conforme as permissões da campanha.");

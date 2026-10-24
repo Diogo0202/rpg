@@ -5,13 +5,14 @@ import { setTimeout as sleep } from "node:timers/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTestDatabase } from "./test-db.mjs";
-import { SyncEngine, MemorySyncStore, FastApiSyncTransport } from "../frontend/lib/mobile-sync/index.ts";
+import { SyncEngine, MemorySyncStore, FastApiSyncTransport } from "../mobile/src/lib/mobile-sync/index.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const interactive = process.env.MOBILE_SYNC_UI_FIXTURE === "1";
 const owner = crypto.randomUUID(), player = crypto.randomUUID(), newOwner = crypto.randomUUID(), outsider = crypto.randomUUID();
 const campaign = crypto.randomUUID(), template = crypto.randomUUID();
 const actors = new Set([owner, player, outsider]);
-const { db } = await createTestDatabase({ through: "20261018200000_mobile_sync.sql" });
+const { db } = await createTestDatabase();
 const checked = [];
 const listen = (server) => new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve(server.address().port)));
 const close = (server) => new Promise((resolve) => server.close(resolve));
@@ -21,6 +22,8 @@ const schema = { name: "Modelo de teste", version: 1, fields: [
   { id: "nome", label: "Nome", kind: "text", required: true, options: [], expression: null, character_name: true },
   { id: "vigor", label: "Vigor", kind: "number", required: true, options: [], expression: null },
   { id: "vida", label: "Vida", kind: "formula", required: false, options: [], expression: "vigor + 3" },
+] , inventory_schema: [
+  { id: "peso", label: "Peso", kind: "number", min: 0, max: 10 },
 ] };
 actors.add(newOwner);
 for (const id of actors) await db.query("insert into auth.users(id,aud,role,email) values($1,'authenticated','authenticated',$2)", [id, `${id}@example.test`]);
@@ -39,15 +42,35 @@ const rpcArguments = {
   mobile_sync_changes: ["p_campaign_id", "p_cursor", "p_limit"],
 };
 const quote = (name) => `"${name.replaceAll('"', '""')}"`;
+const fixtureEmails = new Map([["owner@example.test", owner], ["player@example.test", player], ["outsider@example.test", outsider]]);
+const fixtureTokens = new Map();
+for (const [email, id] of fixtureEmails) {
+  const encoded = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  fixtureTokens.set(`${encoded({ alg: "HS256", typ: "JWT" })}.${encoded({ sub: id, email, role: "authenticated", aud: "authenticated", exp: Math.floor(Date.now() / 1000) + 14400 })}.fixture-only-not-a-valid-signature`, id);
+}
+let stopFixture;
 const bridge = createServer(async (req, res) => {
-  const respond = (status, body) => { res.writeHead(status, { "content-type": "application/json" }); res.end(JSON.stringify(body)); };
-  const actor = req.headers.authorization?.replace(/^Bearer test:/, "");
-  if (!actors.has(actor)) return respond(401, { message: "test session required" });
   const url = new URL(req.url, "http://localhost");
-  if (url.pathname === "/auth/v1/user") return respond(200, { id: actor });
+  const respond = (status, body) => { res.writeHead(status, {
+    "content-type": "application/json", "cache-control": "no-store",
+    ...(interactive ? { "access-control-allow-origin": "http://127.0.0.1:4183", "access-control-allow-methods": "GET,POST,DELETE,OPTIONS", "access-control-allow-headers": "authorization,apikey,content-type,x-client-info,x-supabase-api-version" } : {}),
+  }); res.end(status === 204 ? undefined : JSON.stringify(body)); };
+  if (interactive && req.method === "OPTIONS") return respond(204);
+  if (interactive && url.pathname === "/__fixture/stop" && req.method === "DELETE") { respond(200, { stopped: true }); stopFixture?.(); return; }
   try {
     let text = ""; for await (const chunk of req) text += chunk;
     const body = text ? JSON.parse(text) : null;
+    if (interactive && url.pathname === "/auth/v1/token" && req.method === "POST") {
+      const id = fixtureEmails.get(body?.email);
+      if (!id || body?.password !== "fixture-only") return respond(400, { msg: "Invalid fixture credentials" });
+      const token = [...fixtureTokens].find(([, actor]) => actor === id)[0];
+      return respond(200, { access_token: token, refresh_token: "fixture-refresh-only", token_type: "bearer", expires_in: 14400, user: { id, aud: "authenticated", role: "authenticated", email: body.email, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() } });
+    }
+    const token = req.headers.authorization?.replace(/^Bearer /, "");
+    const actor = token?.startsWith("test:") ? token.slice(5) : fixtureTokens.get(token);
+    if (!actors.has(actor)) return respond(401, { message: "test session required" });
+    if (url.pathname === "/auth/v1/user") return respond(200, { id: actor, aud: "authenticated", role: "authenticated", email: [...fixtureEmails].find(([, id]) => id === actor)?.[0], app_metadata: {}, user_metadata: {} });
+    if (interactive && url.pathname === "/auth/v1/logout") return respond(204);
     const result = await db.transaction(async (tx) => {
       await tx.exec("set local role authenticated");
       await tx.query("select set_config('request.jwt.claim.sub',$1,true)", [actor]);
@@ -82,11 +105,12 @@ const apiPort = await listen(reservation); await close(reservation);
 let output = "";
 const api = spawn(path.join(root, "backend/.venv/Scripts/python.exe"), ["-m", "uvicorn", "app.main:app", "--app-dir", "backend", "--host", "127.0.0.1", "--port", String(apiPort), "--no-access-log"], {
   cwd: root,
-  env: { ...process.env, SUPABASE_URL: `http://127.0.0.1:${bridgePort}`, SUPABASE_PUBLISHABLE_KEY: "test-publishable-key", SUPABASE_SERVICE_ROLE_KEY: "", API_CONCURRENCY_BACKEND: "process", VERCEL: "", AWS_LAMBDA_FUNCTION_NAME: "", K_SERVICE: "", WEB_CONCURRENCY: "1" },
+  env: { ...process.env, SUPABASE_URL: `http://127.0.0.1:${bridgePort}`, SUPABASE_PUBLISHABLE_KEY: "test-publishable-key", SUPABASE_SERVICE_ROLE_KEY: "", API_CONCURRENCY_BACKEND: "process", VERCEL: "", AWS_LAMBDA_FUNCTION_NAME: "", K_SERVICE: "", WEB_CONCURRENCY: "1", CORS_ORIGINS: "http://127.0.0.1:4183" },
   stdio: ["ignore", "pipe", "pipe"], windowsHide: true,
 });
 for (const stream of [api.stdout, api.stderr]) stream.on("data", (chunk) => { output = (output + chunk).slice(-12000); });
 const baseUrl = `http://127.0.0.1:${apiPort}`;
+let mobile;
 try {
   let ready = false;
   for (let index = 0; index < 100; index++) {
@@ -95,6 +119,15 @@ try {
     await sleep(100);
   }
   assert(ready, `API did not start: ${output}`);
+  if (interactive) {
+    mobile = spawn(process.execPath, [path.join(root, "mobile/node_modules/vite/bin/vite.js"), "dev", "--host", "127.0.0.1", "--port", "4183", "--strictPort"], {
+      cwd: path.join(root, "mobile"), windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, VITE_NEXUS_API_URL: baseUrl, VITE_SUPABASE_URL: `http://127.0.0.1:${bridgePort}`, VITE_SUPABASE_PUBLISHABLE_KEY: "test-publishable-key" },
+    });
+    for (const stream of [mobile.stdout, mobile.stderr]) stream.on("data", (chunk) => { output = (output + chunk).slice(-12000); });
+    console.log(JSON.stringify({ fixture: "local only; fake Auth plus actual FastAPI/PostgreSQL", app: "http://127.0.0.1:4183", api: baseUrl, auth: `http://127.0.0.1:${bridgePort}`, accounts: [...fixtureEmails.keys()], password: "fixture-only", stop: `DELETE http://127.0.0.1:${bridgePort}/__fixture/stop` }));
+    await new Promise((resolve) => { stopFixture = resolve; });
+  } else {
   const transport = (actorId) => new FastApiSyncTransport({ baseUrl, getAccessToken: async () => `test:${actorId}`, maxAttempts: 1 });
   const wire = transport(player), caps = await wire.capabilities(campaign);
   assert.equal(caps.role, "player"); assert(caps.entity_fields.character_sheets);
@@ -115,11 +148,14 @@ try {
   const inventoryCreate = await left.enqueue({ entityType: "character_inventory", entityId: inventoryId, action: "create", changes: [
     field(["sheet_id"], undefined, sheetId), field(["name"], undefined, "Corda de seda"),
     field(["category"], undefined, "equipment"), field(["quantity"], undefined, 1),
+    field(["custom_values"], undefined, { peso: 2 }),
   ] });
-  assert.equal((await left.sync()).applied, 1);
+  assert.equal((await left.sync()).applied, 1, JSON.stringify(await left.readState()));
   const inventoryReplay = await wire.push(campaign, { protocol_version: 1, device_id: left.partition.deviceId, mutations: [inventoryCreate] });
   assert.equal(inventoryReplay.results[0].status, "duplicate");
   assert.equal((await db.query("select count(*)::integer as count from public.character_inventory where id=$1", [inventoryId])).rows[0].count, 1);
+  assert.deepEqual((await db.query("select custom_values from public.character_inventory where id=$1", [inventoryId])).rows[0].custom_values, { peso: 2 });
+  assert.deepEqual((await left.getRecord("character_inventory", inventoryId)).data.custom_values, { peso: 2 });
   checked.push("inventory creation and duplicate receipt preserve one row");
 
   await right.pull(); await left.pull();
@@ -190,11 +226,13 @@ try {
   assert.equal(Object.keys((await right.readState()).records).length, 0);
   checked.push("RLS isolation and revoked membership clear confirmed cache, preserving denied drafts");
   console.log(JSON.stringify({ passed: true, checks: checked, scope: "local PGlite/PostgreSQL with Auth/Storage fixture; actual FastAPI and TypeScript transport; no hosted Supabase" }, null, 2));
+  }
 } catch (error) {
   console.error(error);
   console.error(output.slice(-2500));
   process.exitCode = 1;
 } finally {
+  if (mobile) { mobile.kill(); await new Promise((resolve) => mobile.exitCode !== null ? resolve() : mobile.once("exit", resolve)); }
   api.kill();
   await new Promise((resolve) => api.exitCode !== null ? resolve() : api.once("exit", resolve));
   await close(bridge); await db.close();

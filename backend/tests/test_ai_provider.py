@@ -91,7 +91,7 @@ def test_context_size_is_limited_before_network(monkeypatch):
     _config(monkeypatch)
     with pytest.raises(provider.AIProviderError) as error:
         import asyncio
-        asyncio.run(provider.generate_proposal("npc", {"text": "x" * provider.MAX_INPUT_BYTES}))
+        asyncio.run(provider.generate_proposal("math_tutor", {"text": "x" * provider.MAX_INPUT_BYTES}))
     assert error.value.code == "input_too_large"
 
 
@@ -138,7 +138,7 @@ def test_bad_provider_responses_fail_closed(monkeypatch, payload, code):
     monkeypatch.setattr(provider.httpx, "AsyncClient", lambda **_: _Client(payload, captured))
     with pytest.raises(provider.AIProviderError) as error:
         import asyncio
-        asyncio.run(provider.generate_proposal("session", {"goal": "test"}))
+        asyncio.run(provider.generate_proposal("math_tutor", {"expression": "2+2", "values": {}, "server_result": 4}))
     assert error.value.code == code
     body = captured["json"]
     assert body["store"] is False
@@ -151,12 +151,12 @@ def test_bad_provider_responses_fail_closed(monkeypatch, payload, code):
 def test_success_returns_validated_result_and_usage(monkeypatch):
     _config(monkeypatch)
     payload = {"status": "completed", "usage": {"input_tokens": 5, "output_tokens": 7}, "output": [
-        {"content": [{"type": "output_text", "text": json.dumps({"title": "Night", "summary": "A test", "scenes": [{"title": "Door", "description": "Locked", "clues": [], "conflicts": [], "consequences": []}], "questions": []})}]}
+        {"content": [{"type": "output_text", "text": json.dumps({"explanation": "Somar 2 e 2 resulta em 4."})}]}
     ]}
     captured = {}
     monkeypatch.setattr(provider.httpx, "AsyncClient", lambda **_: _Client(payload, captured))
     import asyncio
-    result = asyncio.run(provider.generate_proposal("session", {"goal": "test"}))
+    result = asyncio.run(provider.generate_proposal("math_tutor", {"expression": "2+2", "values": {}, "server_result": 4}))
     assert result.input_tokens == 5 and result.output_tokens == 7
     assert result.model == provider.MODEL
     assert captured["json"]["store"] is False

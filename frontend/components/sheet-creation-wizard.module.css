@@ -131,3 +131,8 @@
   .finish { flex: 1 1 100%; order: -1; }
   .reviewGroup p { font-size: 11px; }
 }
+
+.rules { display: grid; gap: 6px; margin: 16px 0 0; padding: 12px 14px; background: #f5e8e4; color: #8e3028; font-size: 14px; line-height: 1.45; }
+.rules:focus-visible { outline: 3px solid var(--accent, #b84a31); outline-offset: 2px; }
+.rules ul { margin: 0; padding-left: 18px; }
+.rules p { margin: 0; }

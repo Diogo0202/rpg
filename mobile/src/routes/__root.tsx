@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/nexus/AppShell";
 import { NexusProvider } from "@/lib/nexus/store";
 import { setupServiceWorker } from "@/lib/pwa";
+import { applyThemeMode, readThemeMode } from "@/lib/theme";
 
 function NotFoundComponent() {
   return (
@@ -23,7 +24,12 @@ function NotFoundComponent() {
       <div className="parchment max-w-md p-6 text-center">
         <h1 className="text-5xl font-bold text-ink">404</h1>
         <p className="mt-2 text-sm text-ink-muted">Esta página não existe no RPG-Atlas Mobile.</p>
-        <Link to="/" className="tap mt-4 inline-flex items-center justify-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground">Voltar à Mesa</Link>
+        <Link
+          to="/"
+          className="tap mt-4 inline-flex items-center justify-center rounded-lg bg-primary px-4 font-semibold text-primary-foreground"
+        >
+          Voltar à Mesa
+        </Link>
       </div>
     </div>
   );
@@ -39,10 +45,25 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="parchment max-w-md p-6 text-center">
         <h1 className="text-xl font-semibold text-ink">Esta tela não carregou</h1>
-        <p className="mt-2 text-sm text-ink-muted">Seus dados locais continuam no aparelho. Tente novamente.</p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Seus dados locais continuam no aparelho. Tente novamente.
+        </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button onClick={() => { router.invalidate(); reset(); }} className="tap rounded-lg bg-primary px-4 font-semibold text-primary-foreground">Tentar de novo</button>
-          <a href="/" className="tap inline-flex items-center rounded-lg border border-ink/30 px-4 font-semibold text-ink">Mesa</a>
+          <button
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
+            className="tap rounded-lg bg-primary px-4 font-semibold text-primary-foreground"
+          >
+            Tentar de novo
+          </button>
+          <a
+            href="/"
+            className="tap inline-flex items-center rounded-lg border border-ink/30 px-4 font-semibold text-ink"
+          >
+            Mesa
+          </a>
         </div>
       </div>
     </div>
@@ -58,18 +79,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "apple-mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-title", content: "RPG-Atlas" },
       { title: "RPG-Atlas Mobile" },
-      { name: "description", content: "Mesa, fichas, dados e mundo do RPG-Atlas no celular, com modo local offline." },
+      {
+        name: "description",
+        content: "Mesa, fichas, dados e mundo do RPG-Atlas no celular, com modo local offline.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/manifest.webmanifest" },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
+      { rel: "icon", type: "image/png", href: "/icons/icon-192.png" },
       { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap",
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -94,7 +121,12 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  useEffect(() => { void setupServiceWorker(); }, []);
+  useEffect(() => {
+    void setupServiceWorker();
+  }, []);
+  useEffect(() => {
+    applyThemeMode(readThemeMode());
+  }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <NexusProvider>
@@ -106,4 +138,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

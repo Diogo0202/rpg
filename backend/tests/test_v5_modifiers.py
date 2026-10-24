@@ -103,3 +103,44 @@ def test_server_reserved_damage_effect_ids_remain_rejected_for_both_requests(cli
     }
     assert client.post("/api/v1/v5/roll", json=payload).status_code == 422
     assert client.post("/api/v1/v5/probabilities", json=payload).status_code == 422
+
+
+def test_sheet_probability_reads_authorized_state_and_applies_effects(monkeypatch, client):
+    calls = []
+
+    async def read_sheet(method, path, authorization, *, params):
+        calls.append((method, path, authorization, params))
+        return [{
+            "values": {"fome": 2, "vigor": 3, "autocontrole": 2, "resolucao": 2,
+                       "saude_superficial": 6, "saude_agravada": 0},
+            "effects": [{"id": "condition", "label": "Condição", "delta": -1,
+                         "applies_to_tags": ["fisico"]}],
+        }]
+
+    monkeypatch.setattr("app.routes.v5._request", read_sheet)
+    sheet_id = "10000000-0000-4000-8000-000000000001"
+    response = client.post(
+        f"/api/v1/v5/sheets/{sheet_id}/probabilities",
+        headers={"Authorization": "Bearer user-token"},
+        json={"pool": 5, "difficulty": 3, "context_tags": ["fisico"]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["modifier_preview"]["adjusted_pool"] == 2
+    assert [item["id"] for item in body["modifier_preview"]["applied"]] == ["condition", "__damage_health_full"]
+    assert body["hunger_dice"] == 2
+    assert calls == [("GET", "character_sheets", "Bearer user-token", {
+        "select": "id,values,effects", "id": f"eq.{sheet_id}", "limit": "1",
+    })]
+
+
+def test_sheet_probability_hides_unreadable_sheet_and_rejects_client_effects(monkeypatch, client):
+    async def invisible_sheet(*args, **kwargs):
+        return []
+
+    monkeypatch.setattr("app.routes.v5._request", invisible_sheet)
+    url = "/api/v1/v5/sheets/10000000-0000-4000-8000-000000000001/probabilities"
+    assert client.post(url, headers={"Authorization": "Bearer user-token"}, json={"pool": 5, "difficulty": 3}).status_code == 404
+    assert client.post(url, headers={"Authorization": "Bearer user-token"}, json={
+        "pool": 5, "difficulty": 3, "hunger": 0, "effects": [{"id": "fake", "label": "Falso", "delta": 10}],
+    }).status_code == 422

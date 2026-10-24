@@ -13,8 +13,10 @@ import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sh
 import { createCampaignSheet } from "../lib/sheet-api";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
+import { PortraitPicker } from "./portrait-picker";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
-type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[] };
+type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
+const SHEET_COLUMNS = "id, name, template_id, owner_id, values, version, effects, portrait_path";
 const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
 const identityLabels = { race: "Raça", subrace: "Sub-raça", clan: "Clã", predator: "Predador", creed: "Credo", lineage: "Linhagem", origin: "Origem", archetype: "Arquétipo" };
 
@@ -58,6 +60,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [calculationError, setCalculationError] = useState("");
+  const [portraitPath, setPortraitPath] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +70,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       setLoadError("");
       const [templateResult, sheetResult] = await Promise.all([
         supabase.from("system_templates").select("id, name, version, schema").eq("campaign_id", campaignId).eq("status", "approved").order("name"),
-        supabase.from("character_sheets").select("id, name, template_id, owner_id, values, version, effects").eq("campaign_id", campaignId).order("name"),
+        supabase.from("character_sheets").select(SHEET_COLUMNS).eq("campaign_id", campaignId).order("name"),
       ]);
       if (!active) return;
       if (templateResult.error || sheetResult.error) {
@@ -103,6 +106,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setSheetId("");
     setSheetName("");
     setSheetVersion(0);
+    setPortraitPath(null);
     setValues({});
     setCalculated({});
     setRollResults({});
@@ -121,6 +125,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setSheetId(stored.id);
     setSheetName(stored.name);
     setSheetVersion(stored.version);
+    setPortraitPath(stored.portrait_path ?? null);
     const nameField = characterNameField(source.schema);
     setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
     setCalculated({});
@@ -194,6 +199,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     if (!templateId) { setFeedback("Selecione um modelo salvo antes de gravar a ficha."); return; }
     const name = sheetName.trim();
     if (!name || name.length > 120) { setFeedback("Informe um nome de ficha com até 120 caracteres."); return; }
+    if (!sheetId && !portraitPath) { setFeedback("Envie o retrato do personagem antes de criar a ficha."); return; }
     setBusy(true);
     const revision = editorRevision.current;
     const selection = selectedCharacterId.current;
@@ -203,9 +209,9 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       const supabase = createClient();
       if (sheetId) {
         const { data, error } = await supabase.from("character_sheets")
-          .update({ name, values: payloadValues, version: sheetVersion + 1, updated_at: new Date().toISOString() })
+          .update({ name, values: payloadValues, portrait_path: portraitPath, version: sheetVersion + 1, updated_at: new Date().toISOString() })
           .eq("id", sheetId).eq("campaign_id", campaignId).eq("version", sheetVersion)
-          .select("id, name, template_id, owner_id, values, version, effects").maybeSingle();
+          .select(SHEET_COLUMNS).maybeSingle();
         if (error || !data) throw new Error(error?.message ?? "A ficha mudou em outra sessão. Reabra antes de salvar.");
         setSheets((current) => current.map((item) => item.id === data.id ? data as StoredSheet : item));
         if (!isCurrent()) return;
@@ -217,7 +223,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("Entre na campanha para salvar esta ficha.");
         const data = await createCampaignSheet(api, sessionData.session.access_token, campaignId, {
-          template_id: templateId, name, values: payloadValues,
+          template_id: templateId, name, values: payloadValues, portrait_path: portraitPath as string,
         }) as StoredSheet;
         data.effects ??= [];
         setSheets((current) => [...current, data]);
@@ -528,10 +534,11 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         key={templateId || "no-template"}
         campaignId={campaignId}
         templates={templates} templateId={templateId} template={template} values={values}
-        name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets}
+        name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets} canGrantResources={canManageTemplates}
         loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
         onChooseTemplate={chooseTemplate} onNameChange={changeCharacterName} onValueChange={setValue}
         onSave={saveSheet} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
+        viewerId={viewerId} portraitPath={portraitPath} onPortraitChange={setPortraitPath}
       /> : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
       <div className="sheet-builder-column">
         <article className="sheet-template-card">
@@ -555,6 +562,8 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           <label className="sheet-name">Nome do personagem
             <input value={sheetName} maxLength={120} onChange={(event) => changeCharacterName(event.target.value)} placeholder="Nome da ficha" />
           </label>
+          {templateId && canEditSheets && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
+            required={!sheetId} disabled={busy} onChange={(path) => { setPortraitPath(path); setFeedback(sheetId ? "Novo retrato enviado. Salve a ficha para aplicá-lo." : ""); }} />}
           <div className="actions">
             <button className="primary" type="button" onClick={saveSheet} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
             <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>

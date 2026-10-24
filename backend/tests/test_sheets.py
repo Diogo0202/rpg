@@ -30,6 +30,7 @@ def test_modular_sheet_payload_and_field_validation() -> None:
         template_id=UUID("00000000-0000-0000-0000-000000000001"),
         name="Mara Vale",
         values={"character_name": "Mara Vale", "strength": 3, "clan": "Brujah", "active": True, "inventory": []},
+        portrait_path="00000000-0000-0000-0000-000000000001/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003.webp",
     )
     assert sheet.values["strength"] == 3
     fields = _template_fields({"schema": TEMPLATE_SCHEMA})

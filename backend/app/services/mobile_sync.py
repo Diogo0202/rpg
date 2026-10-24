@@ -21,7 +21,7 @@ FORBIDDEN_KEYS = {"__proto__", "prototype", "constructor"}
 # belong here. Field sets exclude server-managed identity and audit columns.
 ENTITY_FIELDS: dict[str, frozenset[str]] = {
     "campaigns": frozenset({"name", "description"}),
-    "character_inventory": frozenset({"sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order"}),
+    "character_inventory": frozenset({"sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"}),
     "system_templates": frozenset({"name", "schema", "page_references"}),
     "character_sheets": frozenset({"template_id", "name", "values"}),
     "world_entities": frozenset({"kind", "name", "body"}),
@@ -186,7 +186,7 @@ def allowed_record_fields(entity_type: str) -> frozenset[str]:
         "campaigns": frozenset({"id", "owner_id", "name", "description", "created_at", "updated_at"}),
         "system_templates": frozenset({"id", "campaign_id", "owner_id", "source_id", "name", "version", "status", "schema", "page_references", "created_at", "approved_at"}),
         "character_sheets": frozenset({"id", "campaign_id", "template_id", "owner_id", "name", "values", "effects", "version", "updated_at"}),
-        "character_inventory": frozenset({"id", "sheet_id", "campaign_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "version", "updated_at"}),
+        "character_inventory": frozenset({"id", "sheet_id", "campaign_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values", "version", "updated_at"}),
         "world_entities": frozenset({"id", "campaign_id", "kind", "name", "body", "created_by", "version", "created_at", "updated_at"}),
         "world_relations": frozenset({"id", "campaign_id", "from_entity_id", "to_entity_id", "relation_type", "notes", "created_by"}),
         "maps": frozenset({"id", "campaign_id", "name", "document", "grid_kind", "isometric", "created_by", "version", "updated_at"}),
