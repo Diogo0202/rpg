@@ -160,3 +160,5 @@
   .markerItem { flex-wrap: wrap; }
   .markerActions { flex-direction: row; margin-left: auto; }
 }
+
+.readOnly { display: grid; gap: .75rem; }

@@ -10,6 +10,8 @@ export type SelectDependency = {
 };
 
 export type SheetField = {
+  min?: number | null;
+  max?: number | null;
   id: string;
   label: string;
   kind: FieldKind;

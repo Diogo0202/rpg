@@ -20,11 +20,7 @@ values ('30000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-0000000
                      {"id":"clan","kind":"select","options":["Brujah"]},
                      {"id":"active","kind":"checkbox","required":true},
                      {"id":"items","kind":"collection"},
-                     {"id":"pool","kind":"formula"}]}'::jsonb),
-       ('30000000-0000-0000-0000-000000000002', '20000000-0000-0000-0000-000000000001',
-        '10000000-0000-0000-0000-000000000003', 'Field Count Template', 'approved',
-        jsonb_build_object('fields', (select jsonb_agg(jsonb_build_object('id', 'f'||g, 'kind', 'number'))
-                                      from generate_series(1,201) g)));
+                     {"id":"pool","kind":"formula"}]}'::jsonb);
 
 insert into public.character_sheets (campaign_id, template_id, owner_id, name, values)
 values ('20000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000001',
@@ -84,10 +80,15 @@ select throws_ok($$insert into public.character_sheets(campaign_id,template_id,o
 select throws_ok($$insert into public.character_sheets(campaign_id,template_id,owner_id,name,values)
   values ('20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','Unknown',jsonb_build_object('name','ok','active',true,'unknown',1))$$,
   'P0001', 'unknown field id: unknown', 'rejects unknown field id');
-select throws_ok($$insert into public.character_sheets(campaign_id,template_id,owner_id,name,values)
-  values ('20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000001','Too Many',
-    (select jsonb_object_agg('f'||g, g) from generate_series(1,201) g))$$,
-  'P0001', 'template fields must have unique ids and at most 200 fields', 'rejects oversized model before accepting more than 200 values');
+-- An approved model with more than 200 fields is rejected when it is written,
+-- so no sheet can be bound to it.
+reset role;
+select throws_ok($$insert into public.system_templates (campaign_id, owner_id, name, status, schema)
+  values ('20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'Field Count Template', 'approved',
+    jsonb_build_object('fields', (select jsonb_agg(jsonb_build_object('id', 'f'||g, 'kind', 'number')) from generate_series(1,201) g)))$$,
+  'P0001', 'template fields must have unique ids and at most 200 fields', 'rejects an approved model with more than 200 fields');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 
 reset role;
 set local role authenticated;

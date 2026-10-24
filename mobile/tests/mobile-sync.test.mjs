@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { SyncEngine } from "../lib/mobile-sync/engine.ts";
-import { MemoryCoordinator, MemorySyncStore } from "../lib/mobile-sync/store.ts";
-import { applyChanges, fieldValuesEqual } from "../lib/mobile-sync/merge.ts";
-import { FastApiSyncTransport, SyncHttpError, parseRetryAfter } from "../lib/mobile-sync/transport.ts";
+import { SyncEngine } from "../src/lib/mobile-sync/engine.ts";
+import { MemoryCoordinator, MemorySyncStore } from "../src/lib/mobile-sync/store.ts";
+import { applyChanges, fieldValuesEqual } from "../src/lib/mobile-sync/merge.ts";
+import { FastApiSyncTransport, SyncHttpError, parseRetryAfter } from "../src/lib/mobile-sync/transport.ts";
 
 const deviceUuid = (name) => `00000000-0000-4000-8000-${String([...name].reduce((sum, char) => sum + char.charCodeAt(0), 0)).padStart(12, "0")}`;
 const allowed = { map_pins: ["label", "x", "y", "notes"], character_inventory: ["name", "quantity", "notes"] };
@@ -12,7 +12,7 @@ const config = (accountId, campaignId, deviceId, now = () => 1000) => ({ account
 const change = (path, before, after) => ({ path: [path], before: { exists: true, value: before }, after: { exists: true, value: after } });
 
 class MemorySyncServer {
-  records = new Map(); receipts = new Map(); events = []; revision = 0;
+  records = new Map(); receipts = new Map(); adjustmentReceipts = new Map(); events = []; revision = 0;
   seed(type, id, data, version = 1) { const record = { entity_type: type, id, version, data: structuredClone(data) }; this.records.set(`${type}/${id}`, record); this.event({ entity_type: type, entity_id: id, action: "create", record }); return record; }
   event(event) { this.events.push({ revision: ++this.revision, version: event.version ?? event.record?.version ?? 0, ...structuredClone(event) }); }
   async push(campaignId, body) {
@@ -57,11 +57,86 @@ class MemorySyncServer {
     const has_more = [...this.records.values()].filter((r) => r.entity_type === entityType && !r.deleted && (!afterId || r.id > afterId)).length > records.length;
     return { protocol_version: 1, campaign_id: campaignId, cursor: String(this.revision), records: structuredClone(records), has_more, next_after_id: has_more ? records.at(-1)?.id : null };
   }
+  async adjustSheet(sheetId, input) {
+    const prior = this.adjustmentReceipts.get(input.operation_id);
+    if (prior) {
+      assert.deepEqual(prior.input, input);
+      return structuredClone(prior.response);
+    }
+    const record = this.records.get(`character_sheets/${sheetId}`);
+    if (!record) throw Object.assign(new Error("sheet missing"), { status: 404 });
+    const current = Number(record.data.values[input.field_id] ?? 0);
+    record.data.values[input.field_id] = current + input.delta;
+    record.version++;
+    const response = { sheet: { id: sheetId, version: record.version, ...structuredClone(record.data) }, event: { operation_id: input.operation_id, delta: input.delta } };
+    this.adjustmentReceipts.set(input.operation_id, { input: structuredClone(input), response: structuredClone(response) });
+    return response;
+  }
 }
 
 function client(server, account = "acct-a", device = "device-a", sharedStore = new MemorySyncStore()) {
   return new SyncEngine(config(account, "camp-a", device), sharedStore, server);
 }
+
+async function adjustmentClient(transport, store = new MemorySyncStore()) {
+  const local = client(transport, "acct-a", "device-a", store);
+  await local.applyRemote({ entity_type: "character_sheets", entity_id: "00000000-0000-4000-8000-000000000240", version: 1, action: "upsert", record: { entity_type: "character_sheets", id: "00000000-0000-4000-8000-000000000240", version: 1, data: { name: "Mara", values: { health: 10 } } } });
+  return local;
+}
+
+test("atomic adjustment retries the same receipt after a lost acknowledgement", async () => {
+  const server = new MemorySyncServer(), id = "00000000-0000-4000-8000-000000000240";
+  server.seed("character_sheets", id, { name: "Mara", values: { health: 10 } });
+  let lost = true;
+  const transport = { adjustSheet: async (...args) => {
+    const response = await server.adjustSheet(...args);
+    if (lost) { lost = false; throw new Error("ACK lost"); }
+    return response;
+  } };
+  const local = await adjustmentClient(transport);
+  const intent = await local.enqueueSheetAdjustment(id, "health", -2);
+  assert.equal((await local.getRecord("character_sheets", id)).data.values.health, 8);
+  assert.equal((await local.sync()).applied, 0);
+  assert.equal((await local.readState()).adjustments[0].operation_id, intent.operation_id);
+  assert.equal((await local.sync()).applied, 1);
+  assert.equal(server.records.get(`character_sheets/${id}`).data.values.health, 8);
+  assert.equal((await local.getRecord("character_sheets", id)).data.values.health, 8);
+  assert.equal((await local.readState()).adjustments.length, 0);
+});
+
+test("adjustment receipts must match the operation before removing its offline intent", async () => {
+  const local = await adjustmentClient({ adjustSheet: async () => ({ sheet: { id: "wrong-sheet", version: 2, values: { health: 8 } } }) });
+  await local.enqueueSheetAdjustment("00000000-0000-4000-8000-000000000240", "health", -2);
+  assert.equal((await local.sync()).applied, 0);
+  const state = await local.readState();
+  assert.equal(state.adjustments.length, 1);
+  assert.equal(state.adjustments[0].state, "queued");
+});
+
+test("a live database lease prevents duplicate adjustment dispatch from another tab", async () => {
+  const store = new MemorySyncStore();
+  let started, finish;
+  const start = new Promise((resolve) => { started = resolve; });
+  const wait = new Promise((resolve) => { finish = resolve; });
+  let calls = 0;
+  const transport = { adjustSheet: async (id, input) => { calls++; started(); await wait; return { sheet: { id, version: 2, values: { health: 8 } }, event: { operation_id: input.operation_id } }; } };
+  const first = await adjustmentClient(transport, store), second = client(transport, "acct-a", "device-a", store);
+  await first.enqueueSheetAdjustment("00000000-0000-4000-8000-000000000240", "health", -2);
+  const sending = first.sync();
+  await start;
+  try {
+    assert.equal((await second.sync()).blocked, true);
+    assert.equal(calls, 1);
+  } finally { finish(); await sending; }
+});
+
+test("revoking membership stops offline adjustments while retaining them for export", async () => {
+  const local = await adjustmentClient({ changes: async () => { throw Object.assign(new Error("revoked"), { status: 403 }); } });
+  await local.enqueueSheetAdjustment("00000000-0000-4000-8000-000000000240", "health", -2);
+  await assert.rejects(() => local.pull());
+  assert.equal((await local.readState()).adjustments[0].state, "denied");
+  assert.equal((await local.exportPendingDrafts()).adjustments.length, 1);
+});
 
 test("two replicas merge independent fields and preserve same-field edits as conflict", async () => {
   const server = new MemorySyncServer(); server.seed("map_pins", "00000000-0000-4000-8000-000000000101", { label: "Gate", notes: "old" });
@@ -106,6 +181,26 @@ test("a late older tombstone cannot replace a newer snapshot record", async () =
   await local.applyRemote({ entity_type: "map_pins", entity_id: newer.id, version: 2, action: "delete", tombstone: true });
   const record = await local.getRecord("map_pins", newer.id);
   assert.equal(record.deleted, undefined); assert.equal(record.version, 4); assert.equal(record.data.label, "Current");
+});
+
+test("offline sheet deltas persist in the account partition and retry after a lost reply exactly once", async () => {
+  const sheetId = "00000000-0000-4000-8000-000000000333";
+  const server = new MemorySyncServer();
+  server.seed("character_sheets", sheetId, { name: "Mara", template_id: deviceUuid("template"), values: { health: 5 } });
+  const shared = new MemorySyncStore(), baseClient = client(server, "acct-a", "device-a", shared);
+  const base = structuredClone(server.records.get(`character_sheets/${sheetId}`));
+  await baseClient.applyRemote({ entity_type: "character_sheets", entity_id: sheetId, version: base.version, action: "upsert", record: base });
+  const intent = await baseClient.enqueueSheetAdjustment(sheetId, "health", -2, "damage");
+  assert.equal((await baseClient.getRecord("character_sheets", sheetId)).data.values.health, 3);
+  assert.equal((await client(server, "acct-b", "device-b", shared).readState()).adjustments.length, 0);
+  let dropReply = true;
+  const flaky = { push: server.push.bind(server), changes: server.changes.bind(server), snapshot: server.snapshot.bind(server), adjustSheet: async (...args) => { const result = await server.adjustSheet(...args); if (dropReply) { dropReply = false; throw Object.assign(new Error("reply lost"), { status: 0 }); } return result; } };
+  const retry = client(flaky, "acct-a", "device-a", shared);
+  await retry.sync();
+  assert.equal((await retry.readState()).adjustments[0].operation_id, intent.operation_id);
+  await retry.sync();
+  assert.equal(server.records.get(`character_sheets/${sheetId}`).data.values.health, 3);
+  assert.equal((await retry.readState()).adjustments.length, 0);
 });
 
 test("outbox survives engine recreation, partitions accounts, and retries the identical operation ID", async () => {

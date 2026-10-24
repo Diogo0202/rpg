@@ -5,7 +5,7 @@ export async function createCampaignSheet(
   api: string,
   token: string,
   campaignId: string,
-  payload: { template_id: string; name: string; values: Record<string, FieldValue> },
+  payload: { template_id: string; name: string; values: Record<string, FieldValue>; portrait_path?: string },
 ): Promise<Record<string, unknown>> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);

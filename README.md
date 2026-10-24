@@ -25,7 +25,9 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Calculadora de XP e histórico local de estimativas. O cálculo não altera automaticamente os atributos nem o saldo da ficha.
 - Diário com sessões, eventos cronológicos e facções, incluindo relógio de tensão e exportação JSON ou Markdown.
 - Biblioteca do mundo com edição de entidades e relações. O conteúdo original gerado pode ser salvo nela.
-- Mapas gerados podem ser salvos, receber marcadores e ser exportados em JSON ou PNG. Os documentos completos ficam restritos ao narrador.
+- Editor de mapas visto de cima (SVG, só 2D): muros com desenho livre, casas com piso e muros fechados, portas encaixadas no muro (aberta, fechada, trancada, secreta), sombras, objetos e pins de personagem, NPC e item. O kit segue o sistema: medieval no Um Anel, cidade moderna no Vampiro V5 e no Caçador. Mapas gerados abrem como fundo. Exportação em JSON.
+- Pins de personagem usam o retrato enviado na criação da ficha (obrigatório). A foto é recortada em 512×512 WebP no navegador, sem dados de localização, e fica no bucket privado `character-portraits`, legível pelos membros da campanha.
+- Só o narrador edita mapas. Mapas compartilhados chegam aos jogadores pela RPC `get_player_map`, sem pins, sombras e notas marcados como "só Mestre"; cada jogador arrasta apenas o pin da própria ficha (`move_own_pin`).
 - Modo de cena com participantes, iniciativa, rodada e turno, pausa e registro de eventos. Inclui salvamento por versão e atualização manual.
 - Links de playlists do Spotify compartilhados na campanha. Mestre e dono administram os links; participantes podem abri-los no Spotify.
 - Referências musicais por sessão, com tipo de cena, duração, brief e URL HTTPS de áudio opcional. O player começa somente por ação do usuário.
@@ -33,7 +35,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Painel do narrador com fichas ativas, Fome em alerta a partir de 4, Vontade disponível, Humanidade e Manchas. Inclui assinatura Supabase Realtime e atualização manual.
 - Motor de modificadores com condições ativáveis, tags de aplicação e exceção, duração em cenas e motivo visível. Os efeitos acompanham o personagem selecionado nas rolagens da ficha e na previsão V5.
 - Compêndio com Fuse.js, filtros por tipo, nível e tags, detalhes em modal e referências clicáveis na ficha. O acervo inicial contém quatro exemplos originais de homebrew.
-- Interface PWA instalável, com acesso online. O modo offline ainda não está implementado.
+- Site PWA com acesso online e aplicativo complementar em `mobile/`, com IndexedDB, fila offline e sincronização autenticada. O site Next.js não oferece o mesmo modo offline do aplicativo complementar.
 
 O estado atual é um protótipo em desenvolvimento. Os fluxos de gravação têm código e migrations locais; as migrations desta entrega ainda não foram aplicadas ao Supabase de destino. A persistência e o isolamento precisam de testes com contas reais. Os links do Spotify abrem playlists; não há OAuth, controle de reprodução nem sincronização do player. A busca de regras ainda não gera resposta por IA e não há fluxo público de envio de PDFs.
 
@@ -44,7 +46,7 @@ Os efeitos dependem da migration `20261014141000_character_effects.sql`; o paine
 - Interface: Next.js 16, React 19 e TypeScript.
 - API: FastAPI e Pydantic.
 - Autenticação e persistência das campanhas: Supabase com RLS e controle de versão nas alterações concorrentes.
-- Editor de mapa: PixiJS.
+- Editor de mapa: SVG próprio, sem WebGL (`frontend/components/map-editor/`).
 
 ## Requisitos
 
@@ -116,7 +118,15 @@ backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --hos
 
 ## Assistente de IA
 
-Fichas podem receber sugestões baseadas em modelos aprovados. O narrador revisa cada proposta e mantém preparações de sessão e segredos de NPCs em área privada, publicando apenas campos selecionados. A integração OpenAI fica desativada por padrão e tem orçamento compartilhado de US$ 30 por mês. Consulte [fluxos, configuração e testes da IA](docs/AI_ASSISTANCE.md) antes de ativar.
+A política atual restringe novas chamadas de IA ao tutor matemático. O servidor calcula a expressão por AST; pedir uma explicação é uma ação separada, com orçamento compartilhado de US$ 30 por mês. Propostas narrativas antigas continuam disponíveis para revisão, mas sua geração por IA está bloqueada. A integração OpenAI permanece desativada por padrão. Consulte [contrato e limites da IA](docs/AI_ASSISTANCE.md) antes de ativar.
+
+## Sistemas comunitários e inventário
+
+A rota `/marketplace` oferece busca pública de modelos, votos, denúncia e cópia para uma campanha gerenciada pelo solicitante. Denúncias ocultam o modelo imediatamente e seguem para revisão privada de administradores. A cópia entra como `needs_review`; o marketplace não hospeda PDFs públicos.
+
+Modelos aceitam o formato canônico `fields` ou as partições `primitives` e `computed_stats`. A seção opcional `inventory_schema` declara atributos dos itens, com validação no banco e preservação em backups e sincronização. Fórmulas passam pelo parser aritmético, sem execução de código.
+
+Leia a [comparação com a proposta e o procedimento de ativação](docs/NEXUS_LOCAL_FIRST_COMPARISON.md). Monetização e anúncios permanecem desativados por decisão do projeto.
 
 ## Supabase
 

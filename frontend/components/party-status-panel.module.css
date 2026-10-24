@@ -209,6 +209,31 @@
 
 .empty { padding: 1rem 0; }
 
+.grants { display: grid; gap: 0.6rem; margin: 0 0 1rem; padding: 0.85rem; border-radius: 13px; background: rgba(205, 166, 111, 0.08); }
+.grantRow { display: flex; flex-wrap: wrap; align-items: end; gap: 0.6rem; }
+.grantRow label { display: grid; gap: 0.3rem; color: #ece5db; font-size: 0.8rem; }
+.grantRow input { min-height: 2.5rem; width: 6rem; padding: 0.45rem 0.6rem; border: 1px solid #625747; border-radius: 9px; background: #19181b; color: inherit; font: inherit; }
+.grantRow .reason { flex: 1 1 14rem; }
+.grantRow .reason input { width: 100%; }
+.grantRow button { min-height: 2.5rem; padding: 0.5rem 0.8rem; border: 1px solid #b58f5d; border-radius: 10px; background: transparent; color: #f0d6ad; font: inherit; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+.grantRow button:hover:not(:disabled) { background: #453925; }
+.grantRow button:disabled { opacity: 0.5; cursor: not-allowed; }
+.grantRow button:focus-visible, .grantRow input:focus-visible, .pick input:focus-visible { outline: 3px solid #e1b878; outline-offset: 2px; }
+.grantPair { display: inline-flex; gap: 0.35rem; }
+.selectionCount { color: #bcb7b0; font-size: 0.8rem; }
+.results { display: grid; gap: 0.2rem; margin: 0; padding-left: 1.1rem; color: #e9dcc7; font-size: 0.82rem; }
+.pick { display: flex; min-width: 0; align-items: center; gap: 0.55rem; cursor: pointer; }
+.pick input { width: 1.1rem; height: 1.1rem; flex: none; accent-color: #cda66f; }
+.private { margin: 0.65rem 0 0; color: #f0b9b9; font-size: 0.84rem; font-weight: 700; }
+.private span { color: #a9a19a; font-weight: 500; }
+.note { margin: 0.65rem 0 0; color: #ece5db; font-size: 0.82rem; }
+.note summary { cursor: pointer; min-height: 2rem; padding: 0.3rem 0; }
+.note textarea { width: 100%; margin-top: 0.4rem; padding: 0.5rem 0.6rem; border: 1px solid #625747; border-radius: 9px; background: #19181b; color: inherit; font: inherit; resize: vertical; }
+.noteActions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 0.45rem; color: #bcb7b0; }
+.noteActions button { min-height: 2.3rem; padding: 0.4rem 0.75rem; border: 1px solid #b58f5d; border-radius: 9px; background: transparent; color: #f0d6ad; font: inherit; font-weight: 700; cursor: pointer; }
+.noteActions button:disabled { opacity: 0.5; cursor: not-allowed; }
+.cardSelected { border-color: rgba(205, 166, 111, 0.6); background: rgba(205, 166, 111, 0.08); }
+
 @media (max-width: 480px) {
   .toolbar { align-items: flex-start; }
   .refreshButton { min-height: 2.7rem; }

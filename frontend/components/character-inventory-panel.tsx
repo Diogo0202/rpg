@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession } from "../lib/character-session";
 import { createClient } from "../lib/supabase/client";
+import type { SheetField, FieldValue } from "../lib/sheet-template";
 import { ATLAS_EQUIPMENT,filterAtlasEquipment,type AtlasEquipmentCategory,type AtlasEra,type AtlasDamageKind } from "../lib/atlas-equipment";
 
 const categories = { weapon: "Arma", armor: "Armadura", equipment: "Equipamento", clothing: "Roupa", dwelling: "Moradia", vehicle: "Veículo", mount: "Montaria", animal: "Animal" };
 type Category = keyof typeof categories;
-type Item = { id:string;name:string;category:Category;quantity:number;resource_cost:number;damage_bonus:number;protection:number;notes:string;acquired:boolean;equipped:boolean;sort_order:number;version:number };
+type Item = { custom_values?:Record<string,FieldValue>;id:string;name:string;category:Category;quantity:number;resource_cost:number;damage_bonus:number;protection:number;notes:string;acquired:boolean;equipped:boolean;sort_order:number;version:number };
 type Draft = Omit<Item,"id"|"equipped"|"version">;
 const empty: Draft = { name:"",category:"equipment",quantity:1,resource_cost:0,damage_bonus:0,protection:0,notes:"",acquired:false,sort_order:0 };
 
@@ -15,6 +16,7 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
   const { character } = useCharacterSession();
   const selected = useRef(character?.id); selected.current=character?.id;
   const [items,setItems]=useState<Item[]>([]);
+  const [customFields,setCustomFields]=useState<SheetField[]>([]);
   const [draft,setDraft]=useState<Draft>(empty);
   const [editing,setEditing]=useState<Item|null>(null);
   const [query,setQuery]=useState("");
@@ -32,7 +34,7 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
   const [catalogComparison,setCatalogComparison]=useState<string[]>([]);
 
   useEffect(()=>{
-    setItems([]);setEditing(null);setDraft(empty);setComparison([]);setMessage("");
+    setItems([]);setCustomFields([]);setEditing(null);setDraft(empty);setComparison([]);setMessage("");
   },[campaignId,character?.id]);
 
   useEffect(()=>{
@@ -45,6 +47,12 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         if(!active)return;
         if(error)throw error;
         setItems((data??[]) as Item[]);
+        const client=createClient();
+        const {data:sheet,error:sheetError}=await client.from("character_sheets").select("template_id").eq("id",id).eq("campaign_id",campaignId).single();
+        if(sheetError||!sheet)throw new Error("Modelo da ficha indisponível.");
+        const {data:template,error:templateError}=await client.from("system_templates").select("schema").eq("id",sheet.template_id).eq("campaign_id",campaignId).eq("status","approved").single();
+        if(templateError||!template)throw new Error("Modelo aprovado indisponível.");
+        if(active)setCustomFields(Array.isArray(template.schema?.inventory_schema)?template.schema.inventory_schema as SheetField[]:[]);
       }catch{if(active)setMessage("Não foi possível carregar o inventário. Confira a conexão e a migration de inventário.");}
     }
     void load();return()=>{active=false;};
@@ -94,8 +102,9 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         {item.category==="weapon"&&<p>Bônus de dano: +{item.damage_bonus}.</p>}
         {item.category==="armor"&&<p>Proteção: {item.protection}.</p>}
         <p className="inventory-notes">{item.notes}</p>
+        {Object.entries(item.custom_values??{}).map(([key,value])=><p key={key}>{customFields.find(field=>field.id===key)?.label??key}: {Array.isArray(value)?value.join(", "):typeof value==="boolean"?(value?"Sim":"Não"):String(value)}</p>)}
         <div className="actions">
-          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>{setEditing(item);setDraft({name:item.name,category:item.category,quantity:item.quantity,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus,protection:item.protection,notes:item.notes,acquired:item.acquired,sort_order:item.sort_order});}}>Editar {item.name}</button>
+          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>{setEditing(item);setDraft({name:item.name,category:item.category,quantity:item.quantity,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus,protection:item.protection,notes:item.notes,acquired:item.acquired,sort_order:item.sort_order,custom_values:item.custom_values??{}});}}>Editar {item.name}</button>
           <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>createClient().from("character_inventory").delete().eq("id",item.id).eq("sheet_id",character.id).eq("version",item.version).select("id"),"Item removido.")}>Excluir {item.name}</button>
           {item.acquired&&["weapon","armor"].includes(item.category)&&<button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>item.equipped
             ?createClient().from("character_inventory").update({equipped:false}).eq("id",item.id).eq("version",item.version).select("id")
@@ -128,6 +137,14 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         <label>Nome<input required maxLength={160} value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label>
         <label>Categoria<select value={draft.category} onChange={event=>setDraft({...draft,category:event.target.value as Category})}>{Object.entries(categories).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         {([ ["quantity","Quantidade",1,999],["resource_cost","Custo em Recursos",0,10],["damage_bonus","Bônus de dano",0,10],["protection","Proteção",0,10],["sort_order","Ordem na lista",0,9999] ] as const).map(([key,label,min,max])=><label key={key}>{label}<input type="number" required min={min} max={max} value={draft[key]} onChange={event=>setDraft({...draft,[key]:Number(event.target.value)})}/></label>)}
+        {customFields.map(field=><label key={field.id}>{field.label}{field.required?" (obrigatório)":""}
+          {field.kind==="select"?<select required={field.required} value={String(draft.custom_values?.[field.id]??"")} onChange={event=>setDraft({...draft,custom_values:{...draft.custom_values,[field.id]:event.target.value}})}><option value="">Escolha</option>{field.options.map(option=><option key={option}>{option}</option>)}</select>
+            :field.kind==="checkbox"?<input type="checkbox" required={field.required} checked={draft.custom_values?.[field.id]===true} onChange={event=>setDraft({...draft,custom_values:{...draft.custom_values,[field.id]:event.target.checked}})}/>
+            :<input type={field.kind==="number"?"number":"text"} required={field.required} min={field.min??-1000000} max={field.max??1000000} step="any" maxLength={10000} value={Array.isArray(draft.custom_values?.[field.id])?(draft.custom_values?.[field.id] as string[]).join(", "):String(draft.custom_values?.[field.id]??"")} onChange={event=>{
+              const custom={...draft.custom_values};
+              if(event.target.value==="")delete custom[field.id];else custom[field.id]=field.kind==="number"?Number(event.target.value):field.kind==="collection"?event.target.value.split(",").map(value=>value.trim()).filter(Boolean):event.target.value;
+              setDraft({...draft,custom_values:custom});
+            }}/>}</label>)}
         <label>Descrição, traços ou perfil do animal<textarea rows={5} maxLength={4000} value={draft.notes} onChange={event=>setDraft({...draft,notes:event.target.value})}/></label>
         <label className="inline-check"><input type="checkbox" checked={draft.acquired} onChange={event=>setDraft({...draft,acquired:event.target.checked})}/>Adquirido</label>
         <div className="actions"><button type="submit" className="primary" disabled={busy||!canEdit}>Salvar item</button><button className="quiet" type="button" onClick={()=>{setEditing(null);setDraft(empty);}}>Novo item</button></div>

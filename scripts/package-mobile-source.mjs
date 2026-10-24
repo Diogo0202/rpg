@@ -8,13 +8,13 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Explicit source allowlist: never include environment files or working-tree archives.
 const sources = [
   "docs/LOVABLE_MOBILE_BRIEF.md", "docs/MOBILE_SYNC_CONTRACT.md", "docs/MOBILE_SYNC_CLIENT.md",
-  ...["types", "merge", "store", "engine", "transport", "index"].map((name) => `frontend/lib/mobile-sync/${name}.ts`),
+  ...["types", "merge", "store", "engine", "transport", "index"].map((name) => `mobile/src/lib/mobile-sync/${name}.ts`),
   ...["sheet-template", "sheet-creation", "sheet-backup", "system-starters"].map((name) => `frontend/lib/${name}.ts`),
 ];
 const manifest = [];
 for (const source of sources) {
   const content = (await readFile(path.join(root, source), "utf8")).replace(/\r\n/g, "\n");
-  manifest.push({ path: source, target: source.replace(/^frontend\//, "src/"), sha256: createHash("sha256").update(content).digest("hex"), content });
+  manifest.push({ path: source, target: source.replace(/^frontend\//, "src/").replace(/^mobile\//, ""), sha256: createHash("sha256").update(content).digest("hex"), content });
 }
 const folder = path.join(tmpdir(), "rpg-nexus-mobile-delivery");
 await mkdir(folder, { recursive: true });

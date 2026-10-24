@@ -2,13 +2,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
-import type { FieldValue } from "@/lib/sheet-template.ts";
+import type { FieldValue, SheetTemplate } from "@/lib/sheet-template.ts";
 import { creationGroups, creationStepLabel, identityFields, reconcileDependentValues, validateFields, characterNameField } from "@/lib/sheet-creation.ts";
 import { FieldInput } from "@/components/nexus/FieldInput";
 import { Btn, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { computeFormulas, focusSheetError, IDENTITY_LABELS, prepareSheetValues, wizardTransition } from "@/lib/nexus/sheets";
 import { useNexus } from "@/lib/nexus/store";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
+import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
 
 export const Route = createFileRoute("/fichas/nova")({
   head: () => ({
@@ -23,29 +24,40 @@ export const Route = createFileRoute("/fichas/nova")({
 });
 
 function NewSheet() {
-  const [starter, setStarter] = useState<SystemStarter | null>(null);
+  const { mode, list } = useNexus();
+  const [starter, setStarter] = useState<WizardStarter | null>(null);
+  const templates = useMemo(() => {
+    if (mode === "local") return SYSTEM_STARTERS.map((item) => ({ ...item, templateId: null as string | null, systemKey: item.id }));
+    return list<Record<string, JsonValue>>("system_templates")
+      .filter((row) => row.data.status === "approved" && typeof row.data.name === "string" && typeof row.data.version === "number")
+      .map((row) => makeSheetStarter({ id: row.id, name: String(row.data.name), version: Number(row.data.version), schema: row.data.schema ?? {} }))
+      .filter((item): item is NonNullable<typeof item> => item !== null);
+  }, [list, mode]);
   return (
     <>
       <PageHeader title="Nova ficha" subtitle="Assistente guiado. Modelos-base parciais; regras completas dependem das fontes oficiais." />
       <LocalGate>
-        {!starter ? (
+        {starter ? <Wizard starter={starter} onCancel={() => setStarter(null)} /> : templates.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-3">
-            {SYSTEM_STARTERS.map((s) => (
-              <Btn key={s.id} variant="outline" onClick={() => setStarter(s)} className="parchment flex h-auto flex-col items-start p-4 text-left hover:ring-2 hover:ring-ring">
+            {templates.map((s) => (
+              <Btn key={s.id} variant="outline" onClick={() => setStarter(s)} className="parchment flex h-auto flex-col items-start bg-card p-4 text-left hover:ring-2 hover:ring-ring">
                 <p className="font-display text-xl font-semibold text-ink">{s.label}</p>
                 <p className="mt-1 text-sm text-ink-muted">{s.template.name} · {s.template.fields.length} campos</p>
               </Btn>
             ))}
           </div>
-        ) : <Wizard starter={starter} onCancel={() => setStarter(null)} />}
+        ) : <p className="parchment p-4 text-sm text-ink-muted">{mode === "connected" ? "Esta campanha não tem modelos aprovados compatíveis para criar fichas." : "Nenhum modelo local está disponível."}</p>
+        }
       </LocalGate>
     </>
   );
 }
 
-function Wizard({ starter, onCancel }: { starter: SystemStarter; onCancel: () => void }) {
+type WizardStarter = { id: string; label: string; systemKey: string; templateId: string | null; template: SheetTemplate; values: Record<string, FieldValue> };
+
+function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () => void }) {
   const template = starter.template;
-  const { create } = useNexus();
+  const { create, mode } = useNexus();
   const navigate = useNavigate();
   const [values, setValues] = useState<Record<string, FieldValue>>(() => ({ ...starter.values }));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -91,13 +103,13 @@ function Wizard({ starter, onCancel }: { starter: SystemStarter; onCancel: () =>
     }
     setSaving(true);
     try {
-      const stored = { ...prepared.values, ativo_na_sessao: true };
+      const stored = mode === "connected" ? prepared.values : { ...prepared.values, ativo_na_sessao: true };
       const name = prepared.name;
-      const id = await create("character_sheets", {
-        name, system_key: starter.id, template_name: template.name, template_version: template.version,
-        values: stored as Record<string, JsonValue>, effects: [],
-      });
-      toast.success("Ficha salva neste aparelho e selecionada na sessão.");
+      const payload: Record<string, JsonValue> = mode === "connected"
+        ? { template_id: starter.templateId!, name, values: stored as Record<string, JsonValue> }
+        : { name, system_key: starter.systemKey, template_name: template.name, template_version: template.version, values: stored as Record<string, JsonValue>, effects: [] };
+      const id = await create("character_sheets", payload);
+      toast.success(mode === "connected" ? "Ficha na fila local; a API confirma após sincronização." : "Ficha salva neste aparelho e selecionada na sessão.");
       void navigate({ to: "/fichas", search: { ficha: id } });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
@@ -142,7 +154,7 @@ function Wizard({ starter, onCancel }: { starter: SystemStarter; onCancel: () =>
   );
 }
 
-function Review({ starter, values, formulas }: { starter: SystemStarter; values: Record<string, FieldValue>; formulas: ReturnType<typeof computeFormulas> }) {
+function Review({ starter, values, formulas }: { starter: WizardStarter; values: Record<string, FieldValue>; formulas: ReturnType<typeof computeFormulas> }) {
   const shown = starter.template.fields.filter((f) => values[f.id] !== undefined && values[f.id] !== "" && !(Array.isArray(values[f.id]) && (values[f.id] as string[]).length === 0));
   return (
     <div className="space-y-3">

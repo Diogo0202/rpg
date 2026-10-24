@@ -1,0 +1,4 @@
+.page { min-height:100vh; background:var(--paper); color:var(--ink); }
+.header { display:flex; justify-content:space-between; align-items:center; padding:18px clamp(20px,6vw,84px); border-bottom:1px solid var(--line); }
+.brand { color:var(--ink); font-family:Georgia,serif; font-size:22px; text-decoration:none; }
+.homeLink { color:var(--ink); text-decoration:none; border:1px solid var(--ink); padding:9px 13px; }

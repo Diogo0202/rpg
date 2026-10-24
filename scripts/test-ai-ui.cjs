@@ -16,6 +16,7 @@ async function main() {
   const source = path.join(scratch, "entry.tsx");
   const output = path.join(scratch, "bundle");
   fs.mkdirSync(output);
+  fs.copyFileSync(path.join(frontend, "app/globals.css"), path.join(output, "globals.css"));
   fs.writeFileSync(path.join(scratch, "client.cjs"), "exports.createClient=()=>({auth:{getSession:async()=>({data:{session:{access_token:'fixture-only-token'}}})}});");
   fs.writeFileSync(path.join(scratch, "tsx-loader.cjs"), `const ts=require(${JSON.stringify(localRequire.resolve("typescript"))});module.exports=function(s){return ts.transpileModule(s,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText;};`);
   fs.writeFileSync(path.join(scratch, "css-loader.cjs"), `const fs=require('node:fs');const path=require('node:path');module.exports=function(s){const prefix=path.basename(this.resourcePath).replace(/[^a-z]/g,'');const names={};const css=s.replace(/\\.([a-zA-Z_][\\w-]*)/g,(_,n)=>{names[n]=prefix+'_'+n;return '.'+names[n];});fs.writeFileSync(path.join(${JSON.stringify(output)},prefix+'.css'),css);return 'export default '+JSON.stringify(names);};`);
@@ -41,7 +42,7 @@ async function main() {
   try {
     for (const width of [1440, 390]) {
       const context = await browser.newContext({ viewport: { width, height: 960 } });
-      let enabled = true; let failNext = false; let approvals = 0; let publications = []; let generations = []; let refinements = [];
+      let enabled = true; let mathMode = false; let failNext = false; let approvals = 0; let publications = []; let generations = []; let refinements = []; let tutorCalls = [];
       let requests = [{ id: "proposal", kind: "npc", status: "pending", version: 1, brief: "Desenvolver a informante" }];
       let preparations = [];
       const npc = { name: "Informante", description: "Dona do café", motivation: "Preservar o bairro", voice: "Frases curtas", secret: "SEGREDO PRIVADO", hook: "Um bilhete", relationships: [], questions: [] };
@@ -52,7 +53,12 @@ async function main() {
         if (url.origin !== "http://fixture.local") return route.abort();
         const suffix = url.pathname.split("/ai/")[1]; const body = req.postData() ? req.postDataJSON() : null;
         let value = null; let status = 200;
-        if (suffix === "config") value = { enabled, model: "fixture", budget_monthly_usd: 30 };
+        if (suffix === "config") value = mathMode ? { enabled: false, tutor_enabled: enabled, mode: "math_tutor", model: "fixture", budget_monthly_usd: 30 } : { enabled, model: "fixture", budget_monthly_usd: 30 };
+        else if (suffix === "tutor") {
+          tutorCalls.push(body);
+          if (body.explain && failNext) { failNext = false; status = 503; value = { detail: "Falha simulada do tutor." }; }
+          else value = { expression: body.expression, result: 7, explanation: body.explain ? "Multiplique vigor por 2 e some forca." : null };
+        }
         else if (suffix === "context") value = { items: [sourceItem] };
         else if (suffix === "context/preview") value = { context: { items: [{ ...sourceItem, content: { description: "CONTEXTO SELECIONADO" } }] }, context_hash: "a".repeat(64) };
         else if (suffix === "preparations") value = preparations;
@@ -114,10 +120,35 @@ async function main() {
       enabled = false; await page.goto(base + "?mode=sheet");
       await page.getByText("A assistência está desativada. O preenchimento manual continua disponível.", { exact: true }).waitFor();
       assert.equal(await page.getByRole("button", { name: "Solicitar proposta", exact: true }).isDisabled(), true);
+      mathMode = true; enabled = false;
+      await page.goto(base + "?mode=sheet");
+      await page.getByRole("heading", { name: "Tutor matemático", exact: true }).waitFor();
+      await page.getByRole("button", { name: "Calcular sem IA", exact: true }).click();
+      await page.getByText("Resultado:", { exact: false }).waitFor();
+      assert.equal(tutorCalls.at(-1).explain, false);
+      assert.equal(await page.getByRole("button", { name: "Explicar com IA", exact: false }).isDisabled(), true);
+      enabled = true;
+      await page.goto(base + "?mode=sheet");
+      await page.getByRole("button", { name: "Calcular sem IA", exact: true }).click();
+      const explain = page.getByRole("button", { name: "Explicar com IA", exact: false });
+      await explain.waitFor();
+      failNext = true;
+      await explain.click();
+      await page.getByRole("alert").filter({ hasText: "Falha simulada do tutor." }).waitFor();
+      const tutorKey = tutorCalls.at(-1).idempotency_key;
+      assert.equal(await page.getByLabel("Expressão matemática").inputValue(), "forca + vigor * 2");
+      await explain.click();
+      await page.getByText("Multiplique vigor por 2 e some forca.", { exact: true }).waitFor();
+      assert.equal(tutorCalls.at(-1).idempotency_key, tutorKey);
+      await page.goto(base);
+      await page.getByRole("heading", { name: "Tutor e propostas anteriores", exact: true }).waitFor();
+      assert.equal(await page.getByRole("button", { name: "Gerar proposta privada", exact: true }).count(), 0);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+      const tutorScreenshot = path.join(scratch, `tutor-${width}.png`); await page.screenshot({ path: tutorScreenshot, fullPage: true }); screenshots.push(tutorScreenshot);
       await context.close();
     }
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({ result: "passed", viewports: [1440, 390], checks: ["context preview", "refinement preserves edits", "manager approval", "private content", "selected publication", "error preserves form", "idempotent retry", "disabled state", "no overflow", "no browser errors"], screenshots, environment: "Component harness; fake Supabase session and API; no provider calls" }, null, 2));
+    console.log(JSON.stringify({ result: "passed", viewports: [1440, 390], checks: ["historical proposal review", "private content", "selected publication", "error preserves form", "idempotent retry", "disabled state", "math calculation without AI", "math tutor retry", "narrative generation hidden", "no overflow", "no browser errors"], screenshots, environment: "Component harness; fake Supabase session and API; no provider calls" }, null, 2));
   } finally { await browser.close(); await new Promise((resolve) => server.close(resolve)); }
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

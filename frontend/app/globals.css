@@ -196,3 +196,7 @@ nav { display:grid; gap:5px; } .nav { border:0; background:transparent; color:#e
 button:disabled { cursor:not-allowed;opacity:.55; }
 @media(max-width:900px) { .inventory-layout,.world-library-layout { grid-template-columns:1fr; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important; } }
+
+.generation-ai { display: grid; gap: .5rem; margin-top: 1rem; }
+.generation-ai textarea { width: 100%; min-height: 4.5rem; padding: .55rem .7rem; font: inherit; resize: vertical; }
+.generation-secret { margin: .6rem 0; padding: .6rem .8rem; background: rgba(128, 30, 35, .18); line-height: 1.45; }

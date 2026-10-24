@@ -116,3 +116,8 @@ def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, An
             valid = value is None
         if not valid:
             raise ValueError(f"valor incompatível com o campo {field_id}")
+        if kind == "number":
+            minimum, maximum = field.get("min"), field.get("max")
+            if (isinstance(minimum, int) and value < minimum) or (isinstance(maximum, int) and value > maximum):
+                label = field.get("label") or field_id
+                raise ValueError(f"{label} precisa ficar entre {minimum if minimum is not None else '-∞'} e {maximum if maximum is not None else '∞'}")

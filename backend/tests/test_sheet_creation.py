@@ -16,6 +16,7 @@ from app.services.sheet_creation import prepare_sheet_creation
 CAMPAIGN_ID = "00000000-0000-0000-0000-000000000001"
 TEMPLATE_ID = "00000000-0000-0000-0000-000000000002"
 USER_ID = "00000000-0000-0000-0000-000000000003"
+PORTRAIT = f"{CAMPAIGN_ID}/{USER_ID}/00000000-0000-0000-0000-000000000009.webp"
 
 app = FastAPI()
 app.include_router(sheets.router)
@@ -130,7 +131,7 @@ def test_creation_failures_are_reported_before_insert(
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},
-        json={"template_id": TEMPLATE_ID, "name": name, "values": values},
+        json={"template_id": TEMPLATE_ID, "name": name, "values": values, "portrait_path": PORTRAIT},
     )
 
     assert response.status_code == 422
@@ -168,7 +169,7 @@ def test_create_route_loads_approved_db_template_and_inserts_prepared_values(mon
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},
-        json={"template_id": TEMPLATE_ID, "name": "  Mara Vale  ", "values": {"strength": 3}},
+        json={"template_id": TEMPLATE_ID, "name": "  Mara Vale  ", "values": {"strength": 3}, "portrait_path": PORTRAIT},
     )
 
     assert response.status_code == 201
@@ -185,6 +186,59 @@ def test_create_route_loads_approved_db_template_and_inserts_prepared_values(mon
     assert calls[1][3]["values"] == {"character_name": "Mara Vale", "strength": 3}
     assert "pool" not in calls[1][3]["values"]
     assert "check" not in calls[1][3]["values"]
+
+
+@pytest.mark.parametrize(
+    "portrait",
+    [
+        None,
+        "not-a-path.webp",
+        f"00000000-0000-0000-0000-000000000099/{USER_ID}/00000000-0000-0000-0000-000000000009.webp",
+        f"{CAMPAIGN_ID}/00000000-0000-0000-0000-000000000099/00000000-0000-0000-0000-000000000009.webp",
+        f"{CAMPAIGN_ID}/{USER_ID}/00000000-0000-0000-0000-000000000009.png",
+    ],
+)
+def test_create_route_requires_own_portrait_in_this_campaign(monkeypatch: pytest.MonkeyPatch, portrait: str | None) -> None:
+    calls: list[str] = []
+
+    async def current_user_id(authorization: str | None) -> str:
+        return USER_ID
+
+    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
+        calls.append(path)
+        return [template_row(marked_fields())]
+
+    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
+    monkeypatch.setattr(sheets, "_request", request)
+    body: dict[str, Any] = {"template_id": TEMPLATE_ID, "name": "Mara", "values": {"strength": 3}}
+    if portrait is not None:
+        body["portrait_path"] = portrait
+    response = client.post(f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets", headers={"Authorization": "Bearer test-token"}, json=body)
+    assert response.status_code == 422
+    assert "character_sheets" not in calls
+
+
+def test_create_route_persists_the_portrait_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    inserted: dict[str, Any] = {}
+
+    async def current_user_id(authorization: str | None) -> str:
+        return USER_ID
+
+    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
+        if method == "GET":
+            return [template_row(marked_fields())]
+        inserted.update(payload or {})
+        return [{"id": "00000000-0000-0000-0000-000000000004", **(payload or {}), "version": 1}]
+
+    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
+    monkeypatch.setattr(sheets, "_request", request)
+    response = client.post(
+        f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
+        headers={"Authorization": "Bearer test-token"},
+        json={"template_id": TEMPLATE_ID, "name": "Mara", "values": {"strength": 3}, "portrait_path": PORTRAIT},
+    )
+    assert response.status_code == 201
+    assert inserted["portrait_path"] == PORTRAIT
 
 
 def test_create_route_rejects_client_template_schema(monkeypatch: pytest.MonkeyPatch) -> None:

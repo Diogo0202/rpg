@@ -47,6 +47,7 @@ export type SheetBackup = {
 };
 
 export type BackupInventoryItem = {
+  custom_values?: Record<string, string | number | boolean | string[]>;
   name: string;
   category: "weapon" | "armor" | "equipment" | "clothing" | "dwelling" | "vehicle" | "mount" | "animal";
   quantity: number;
@@ -195,13 +196,24 @@ function validateEffects(value: unknown): BackupEffect[] {
   });
 }
 
+function validateCustomItemValues(value: unknown): Record<string, string | number | boolean | string[]> {
+  if (!isPlainObject(value) || Object.keys(value).length > 200) throw new Error("Atributos de item inválidos.");
+  for (const [key, item] of Object.entries(value)) {
+    if (!/^[a-z][a-z0-9_]{1,63}$/.test(key)) throw new Error("Id de atributo inválido.");
+    if (typeof item === "string" && item.length <= 10000 || typeof item === "boolean" || typeof item === "number" && Number.isFinite(item) && Math.abs(item) <= 1000000) continue;
+    if (Array.isArray(item) && item.length <= 200 && item.every((entry) => typeof entry === "string" && entry.length <= 500)) continue;
+    throw new Error("Valor de atributo de item inválido.");
+  }
+  return structuredClone(value) as Record<string, string | number | boolean | string[]>;
+}
+
 function validateInventory(value: unknown): BackupInventoryItem[] {
   if (!Array.isArray(value) || value.length > 500) throw new Error("A lista de equipamento excede 500 itens.");
   const equippedCategories=new Set<string>();
   return value.map((item, index) => {
     const label = `Item ${index + 1}`;
     if (!isPlainObject(item)) throw new Error(`${label} deve ser um objeto.`);
-    exactKeys(item, ["name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order"], label);
+    exactKeys(item, ["name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], label);
     if (!inventoryCategories.has(item.category as BackupInventoryItem["category"])) throw new Error(`${label}: categoria inválida.`);
     if (!Number.isInteger(item.quantity) || (item.quantity as number) < 1 || (item.quantity as number) > 999) throw new Error(`${label}: quantidade deve ficar entre 1 e 999.`);
     for (const field of ["resource_cost", "damage_bonus", "protection"] as const) {
@@ -224,6 +236,7 @@ function validateInventory(value: unknown): BackupInventoryItem[] {
       acquired: item.acquired,
       equipped: item.equipped,
       sort_order: item.sort_order as number,
+      ...(item.custom_values === undefined ? {} : { custom_values: validateCustomItemValues(item.custom_values) }),
     };
   });
 }

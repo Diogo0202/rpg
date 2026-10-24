@@ -1,6 +1,6 @@
 import { fieldValuesEqual, projectRecord, validateChanges } from "./merge.ts";
 import { pendingEntries } from "./store.ts";
-import type { EnqueueInput, JsonValue, OutboxEntry, SyncChange, SyncConfig, SyncMutation, SyncPartition, SyncRecord, SyncResult, SyncState, SyncStore, SyncTransport } from "./types.ts";
+import type { EnqueueInput, JsonValue, OutboxEntry, SheetAdjustmentIntent, SyncChange, SyncConfig, SyncMutation, SyncPartition, SyncRecord, SyncResult, SyncState, SyncStore, SyncTransport } from "./types.ts";
 
 const entityKey = (type: string, id: string) => JSON.stringify([type, id]);
 const copy = <T>(value: T): T => structuredClone(value);
@@ -90,7 +90,109 @@ export class SyncEngine {
       if (mutation.entity_type !== entityType || mutation.entity_id !== entityId) continue;
       record = projectMutation(record, mutation);
     }
+    if (record && entityType === "character_sheets" && !record.deleted) {
+      const values = record.data.values && typeof record.data.values === "object" && !Array.isArray(record.data.values)
+        ? copy(record.data.values as Record<string, JsonValue>) : {};
+      for (const intent of state.adjustments ?? []) if (intent.sheet_id === entityId && intent.state !== "invalid" && intent.state !== "denied") {
+        const before = values[intent.field_id];
+        if (before === undefined || typeof before === "number") values[intent.field_id] = (typeof before === "number" ? before : 0) + intent.delta;
+      }
+      record.data.values = values;
+    }
     return record;
+  }
+
+  async enqueueSheetAdjustment(sheetId: string, fieldId: string, delta: number, reason?: string): Promise<SheetAdjustmentIntent> {
+    if (!isUuid(sheetId) || !/^[a-z][a-z0-9_]{1,63}$/.test(fieldId) || !Number.isSafeInteger(delta) || delta === 0 || Math.abs(delta) > 1000 || (reason !== undefined && reason.length > 200))
+      throw new Error("Invalid sheet adjustment");
+    const opId = this.makeId();
+    if (!isUuid(opId)) throw new Error("operationId generator must return a UUID");
+    return this.store.update(this.partition, (state) => {
+      const key = entityKey("character_sheets", sheetId), record = state.records[key];
+      if (!record || record.deleted) throw new Error("sheet is not in the local campaign cache");
+      const intent: SheetAdjustmentIntent = { operation_id: opId, sheet_id: sheetId, field_id: fieldId, delta, ...(reason ? { reason } : {}), created_at: this.now(), state: "queued" };
+      (state.adjustments ??= []).push(intent);
+      state.updatedAt = this.now();
+      return { result: intent, state };
+    });
+  }
+
+  private async syncSheetAdjustments(): Promise<SyncReport | null> {
+    const pending = await this.store.update(this.partition, (state) => {
+      if (state.lease && state.lease.until > this.now()) return { result: null, state };
+      for (const item of state.adjustments ?? []) if (item.state === "inflight") item.state = "queued";
+      const ready = (state.adjustments ?? []).filter((intent) => intent.state === "queued").slice(0, this.maxBatch);
+      if (ready.length && this.transport.adjustSheet) state.lease = { owner: this.leaseOwner, until: this.now() + 120000 };
+      return { result: copy(ready), state };
+    });
+    if (pending === null) return { sent: 0, applied: 0, conflicts: [], blocked: true };
+    if (!pending.length) return null;
+    if (!this.transport.adjustSheet) return { sent: 0, applied: 0, conflicts: [], blocked: true, reason: "network" };
+    const heartbeat = setInterval(() => {
+      void this.store.update(this.partition, (state) => {
+        if (state.lease?.owner === this.leaseOwner) state.lease.until = this.now() + 120000;
+        return { result: undefined, state };
+      }).catch(() => undefined);
+    }, 30000);
+    try {
+    let applied = 0;
+    for (const intent of pending) {
+      const claimed = await this.store.update(this.partition, (state) => {
+        const item = state.adjustments?.find((candidate) => candidate.operation_id === intent.operation_id);
+        if (!item || item.state !== "queued") return { result: false, state };
+        item.state = "inflight";
+        return { result: true, state };
+      });
+      if (!claimed) continue;
+      try {
+        const response = await this.transport.adjustSheet(intent.sheet_id, {
+          operation_id: intent.operation_id, field_id: intent.field_id, delta: intent.delta,
+          ...(intent.reason ? { reason: intent.reason } : {}),
+        });
+        const body = response && typeof response === "object" ? response as { sheet?: Record<string, unknown>; event?: { operation_id?: string } } : {};
+        const sheet = body.sheet;
+        if (!sheet || sheet.id !== intent.sheet_id || !Number.isSafeInteger(sheet.version) || Number(sheet.version) < 1 ||
+            (sheet.campaign_id !== undefined && sheet.campaign_id !== this.partition.campaignId) || !sheet.values || typeof sheet.values !== "object" || Array.isArray(sheet.values) || body.event?.operation_id !== intent.operation_id)
+          throw new Error("Invalid adjustment receipt; operation kept for retry");
+        await this.store.update(this.partition, (state) => {
+          const item = state.adjustments?.find((candidate) => candidate.operation_id === intent.operation_id);
+          if (!item) return { result: undefined, state };
+          if (sheet && sheet.id === intent.sheet_id && Number.isSafeInteger(sheet.version) && sheet.values && typeof sheet.values === "object" && !Array.isArray(sheet.values)) {
+            const key = entityKey("character_sheets", intent.sheet_id), prior = state.records[key];
+            if (!prior || Number(sheet.version) >= prior.version) {
+              const { id: _id, campaign_id: _campaignId, owner_id: _ownerId, created_by: _createdBy, created_at: _createdAt, updated_at: _updatedAt, version: _version, ...data } = sheet;
+              state.records[key] = { entity_type: "character_sheets", id: intent.sheet_id, version: Number(sheet.version), data: data as Record<string, JsonValue> };
+            }
+          }
+          state.adjustments = (state.adjustments ?? []).filter((candidate) => candidate.operation_id !== intent.operation_id);
+          state.updatedAt = this.now();
+          return { result: undefined, state };
+        });
+        applied++;
+      } catch (error) {
+        const status = httpStatus(error), message = error instanceof Error ? error.message : "adjustment failed";
+        await this.store.update(this.partition, (state) => {
+          const item = state.adjustments?.find((candidate) => candidate.operation_id === intent.operation_id);
+          if (item) {
+            item.state = status === 403 ? "denied" : status === 401 ? "queued" : status === 422 || status === 409 ? "invalid" : "queued";
+            item.last_error = message;
+          }
+          if (status === 403) { state.records = {}; state.cursor = null; }
+          return { result: undefined, state };
+        });
+        if (status === 403) await this.markRevoked(message);
+        const reason = status === 403 ? "revoked" : status === 401 ? "reauth_required" : status === 429 || status === 503 ? "retry_later" : status === 0 ? "network" : undefined;
+        return { sent: applied + 1, applied, conflicts: [], blocked: status === 401 || status === 403 || status === 422 || status === 409, ...(reason ? { reason } : {}) };
+      }
+    }
+    return { sent: pending.length, applied, conflicts: [], blocked: false };
+    } finally {
+      clearInterval(heartbeat);
+      await this.store.update(this.partition, (state) => {
+        if (state.lease?.owner === this.leaseOwner) state.lease = undefined;
+        return { result: undefined, state };
+      });
+    }
   }
 
   async enqueue(input: EnqueueInput): Promise<SyncMutation> {
@@ -178,6 +280,7 @@ export class SyncEngine {
         entry.state = "denied";
         entry.lastError = message;
       }
+      for (const intent of state.adjustments ?? []) { intent.state = "denied"; intent.last_error = message; }
       state.updatedAt = this.now();
       return { result: undefined, state };
     });
@@ -231,7 +334,7 @@ export class SyncEngine {
   }
 
   async sync(): Promise<SyncReport> {
-    let state = await this.store.read(this.partition);
+    const state = await this.store.read(this.partition);
     const claimed = await this.store.update(this.partition, (current) => {
       if (current.lease && current.lease.until > this.now()) return { result: null, state: current };
       if (current.lease && current.lease.until <= this.now()) {
@@ -251,7 +354,11 @@ export class SyncEngine {
       return { result: ready.map((entry) => copy(entry.mutation)), state: current };
     });
     if (claimed === null) return { sent: 0, applied: 0, conflicts: state.outbox.filter((e) => e.state === "conflict").map((e) => e.mutation.operation_id), blocked: true };
-    if (!claimed.length) return { sent: 0, applied: 0, conflicts: state.outbox.filter((e) => e.state === "conflict").map((e) => e.mutation.operation_id), blocked: state.outbox.some((e) => ["conflict", "denied", "invalid", "dependency_failed"].includes(e.state)) };
+    if (!claimed.length) {
+      const adjustment = await this.syncSheetAdjustments();
+      if (adjustment) return adjustment;
+      return { sent: 0, applied: 0, conflicts: state.outbox.filter((e) => e.state === "conflict").map((e) => e.mutation.operation_id), blocked: state.outbox.some((e) => ["conflict", "denied", "invalid", "dependency_failed"].includes(e.state)) };
+    }
     const mutations = claimed;
     const ids = new Set(mutations.map((mutation) => mutation.operation_id));
     const heartbeat = setInterval(() => {
@@ -314,7 +421,14 @@ export class SyncEngine {
       return { result: undefined, state: current };
     });
     const after = await this.store.read(this.partition);
-    return { sent: mutations.length, applied, conflicts: after.outbox.filter((e) => e.state === "conflict").map((e) => e.mutation.operation_id), blocked: after.outbox.some((e) => e.state === "conflict" || e.state === "denied") };
+    const adjustment = await this.syncSheetAdjustments();
+    return {
+      sent: mutations.length + (adjustment?.sent ?? 0), applied: applied + (adjustment?.applied ?? 0),
+      conflicts: after.outbox.filter((e) => e.state === "conflict").map((e) => e.mutation.operation_id),
+      blocked: after.outbox.some((e) => e.state === "conflict" || e.state === "denied") || (adjustment?.blocked ?? false),
+      ...(adjustment?.reason ? { reason: adjustment.reason } : {}),
+      ...(adjustment?.retryAt ? { retryAt: adjustment.retryAt } : {}),
+    };
   }
 
   async resolveConflict(operationId: string, changes: SyncChange[]): Promise<SyncMutation> {
@@ -354,10 +468,8 @@ export class SyncEngine {
 
   async logout(): Promise<void> { await this.store.clearAccount(this.partition.accountId); }
 
-  async exportPendingDrafts(): Promise<{ format: "rpg-nexus-mobile-v1-pending-drafts"; account_id: string; campaign_id: string; operations: SyncMutation[] }> {
+  async exportPendingDrafts(): Promise<{ format: "rpg-nexus-mobile-v1-pending-drafts"; account_id: string; campaign_id: string; operations: SyncMutation[]; adjustments: SheetAdjustmentIntent[] }> {
     const state = await this.store.read(this.partition);
-    return { format: "rpg-nexus-mobile-v1-pending-drafts", account_id: this.partition.accountId, campaign_id: this.partition.campaignId, operations: state.outbox.map((entry) => copy(entry.mutation)) };
+    return { format: "rpg-nexus-mobile-v1-pending-drafts", account_id: this.partition.accountId, campaign_id: this.partition.campaignId, operations: state.outbox.map((entry) => copy(entry.mutation)), adjustments: copy(state.adjustments ?? []) };
   }
 }
-
-

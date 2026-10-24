@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+import { narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content";
 
 type MapCell = { x: number; y: number; kind: "room" | "corridor" | "wall" };
 type GeneratedMap = { seed: number | string; width: number; height: number; layers: Array<{ id: string; cells?: MapCell[] }> };
-type GeneratedEntry = { kind: string; name: string; summary: string; details: Record<string, unknown>; seed: number; system?: { name: string; fields: Record<string, unknown> } | null };
+type GeneratedEntry = { kind: string; name: string; summary: string; details: Record<string, unknown>; seed: number; system?: { name: string; fields: Record<string, unknown> } | null; ai?: boolean };
 
 const apiBase = process.env.NEXT_PUBLIC_API_URL;
 
@@ -23,6 +24,40 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [mapName,setMapName]=useState("");
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [brief, setBrief] = useState("");
+  const [threat, setThreat] = useState<"baixa" | "média" | "alta" | "chefe">("média");
+  const [secret, setSecret] = useState("");
+
+  useEffect(() => {
+    if (!apiBase || !canManage) return;
+    let active = true;
+    authHeaders().then((headers) => fetch(`${apiBase}/api/v1/campaigns/${campaignId}/ai/config`, { headers }))
+      .then((response) => response.ok ? response.json() : { enabled: false })
+      .then((config: { enabled?: boolean }) => { if (active) setAiEnabled(config.enabled === true); })
+      .catch(() => { if (active) setAiEnabled(false); });
+    return () => { active = false; };
+  }, [campaignId, canManage]);
+
+  /** AI drafts reuse the campaign budget; nothing is stored until "Salvar no mundo". */
+  async function generateWithAi() {
+    if (brief.trim().length < 3) { setMessage("Descreva em poucas palavras o que você quer gerar."); return; }
+    setLoading(true); setMessage(""); setSecret("");
+    try {
+      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
+      const response = await fetch(`${apiBase}/api/v1/campaigns/${campaignId}/ai/drafts`, {
+        method: "POST", headers: await authHeaders(),
+        body: JSON.stringify({ kind, brief: brief.trim(), threat: kind === "enemy" ? threat : null, idempotency_key: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => null) as { result?: Record<string, unknown>; detail?: string } | null;
+      if (!response.ok || !payload?.result) throw new Error(typeof payload?.detail === "string" ? payload.detail : "A IA não gerou o conteúdo.");
+      const { name, description, secret: hidden, questions: _questions, relationships: _relationships, ...details } = payload.result;
+      setSecret(typeof hidden === "string" ? hidden : "");
+      setEntry({ kind, name: String(name ?? "Sem nome"), summary: String(description ?? ""), details, seed: 0, system: null, ai: true });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Falha ao gerar com IA.");
+    } finally { setLoading(false); }
+  }
 
   async function saveGenerated(target:"map"|"entry") {
     if(!canManage)return;
@@ -31,7 +66,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
       const client=createClient();
       const result=target==="map"&&map
         ?await client.from("maps").insert({campaign_id:campaignId,name:mapName.trim()||`Mapa ${map.seed}`,document:map,created_by:viewerId}).select("id").single()
-        :entry?await client.from("world_entities").insert({campaign_id:campaignId,kind:entry.kind==="item"?"item":"npc",name:entry.name,created_by:viewerId,body:{description:entry.summary,generated:entry,role:entry.kind==="enemy"?"antagonist":"neutral",source:"Gerador original RPG-Atlas"}}).select("id").single():null;
+        :entry?await client.from("world_entities").insert({campaign_id:campaignId,kind:entry.kind==="item"?"item":"npc",name:entry.name,created_by:viewerId,body:{description:entry.summary,generated:publicGeneratedEntry(entry),role:entry.kind==="enemy"?"antagonist":"neutral",source:entry.ai?"Rascunho de IA revisado pelo narrador":"Gerador original RPG-Atlas"}}).select("id").single():null;
       if(!result||result.error||!result.data)throw new Error("Falha ao gravar. Confira suas permissões e as migrations.");
       setMessage(target==="map"?"Mapa salvo. Abra Mapas para editar seus marcadores.":"Conteúdo salvo na biblioteca do mundo.");
     } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gravar.");}
@@ -107,6 +142,15 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
           </select>
           <button className="quiet" type="button" onClick={generateEntry} disabled={loading}>Gerar</button>
         </div>
+        {canManage && <div className="generation-ai">
+          <label htmlFor="generation-brief">Pedido para a IA{aiEnabled ? "" : " (desativada nesta instalação)"}</label>
+          <textarea id="generation-brief" rows={3} maxLength={1000} value={brief} disabled={!aiEnabled} onChange={(event) => setBrief(event.target.value)}
+            placeholder={kind === "item" ? "Ex.: um objeto que a Segunda Inquisição procura" : kind === "enemy" ? "Ex.: caçador que segue a coterie pelo metrô" : "Ex.: dona de um bar que guarda segredos do Príncipe"} />
+          {kind === "enemy" && <label htmlFor="generation-threat">Ameaça<select id="generation-threat" value={threat} disabled={!aiEnabled} onChange={(event) => setThreat(event.target.value as typeof threat)}>
+            <option value="baixa">Baixa</option><option value="média">Média</option><option value="alta">Alta</option><option value="chefe">Chefe</option>
+          </select></label>}
+          <button className="primary" type="button" onClick={() => void generateWithAi()} disabled={loading || !aiEnabled}>{loading ? "Gerando…" : "Gerar com IA"}</button>
+        </div>}
         {message && <p className="auth-message" role="status">{message}</p>}
       </article>
 
@@ -120,9 +164,11 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
           ) : <p className="generator-empty">Gere um mapa para ver salas e passagens conectadas.</p>}
         </article>
         <article className="generation-card">
-          <div className="panel-title"><h3>Conteúdo da cena</h3>{entry && <small>Seed {entry.seed}</small>}</div>
+          <div className="panel-title"><h3>Conteúdo da cena</h3>{entry && <small>{entry.ai ? "Rascunho de IA" : `Seed ${entry.seed}`}</small>}</div>
+          {entry?.ai && secret && <p className="generation-secret"><strong>Segredo (só para você):</strong> {secret} Ele não é salvo no mundo, porque os jogadores leem a biblioteca.</p>}
+          {entry && !entry.ai && Object.keys(narratorOnlyDetails(entry.details)).length > 0 && <div className="generation-secret"><strong>Só para você (não é salvo no mundo, porque os jogadores leem a biblioteca):</strong><dl className="generated-details">{Object.entries(narratorOnlyDetails(entry.details)).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl></div>}
           {entry ? (
-            <><h2 className="generated-name">{entry.name}</h2><p>{entry.summary}</p><dl className="generated-details">{Object.entries(entry.details).filter(([key, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl><button className="primary" type="button" disabled={loading||!canManage} onClick={()=>void saveGenerated("entry")}>Salvar no mundo</button></>
+            <><h2 className="generated-name">{entry.name}</h2><p>{entry.summary}</p><dl className="generated-details">{Object.entries(publicGeneratedEntry(entry).details).filter(([key, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl><button className="primary" type="button" disabled={loading||!canManage} onClick={()=>void saveGenerated("entry")}>Salvar no mundo</button></>
           ) : <p className="generator-empty">O resultado aparece aqui e pode ser repetido pela seed.</p>}
         </article>
       </div>

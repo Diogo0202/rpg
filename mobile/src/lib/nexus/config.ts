@@ -19,7 +19,7 @@ export const REMOTE_BOOTSTRAP_ENTITIES = [
 export const LOCAL_ENTITY_FIELDS: Record<string, string[]> = {
   campaign_state: ["current_session_id", "scene"],
   character_sheets: ["name", "system_key", "template_name", "template_version", "template_fields", "values", "effects"],
-  character_inventory: ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order"],
+  character_inventory: ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"],
   world_entities: ["kind", "name", "description", "tags"],
   maps: ["name", "columns", "rows", "description"],
   map_pins: ["map_id", "label", "x", "y", "note"],

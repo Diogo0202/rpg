@@ -4,15 +4,14 @@ import { BookOpen, Dices, Map, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Btn, btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { useNexus } from "@/lib/nexus/store";
-import { LOCAL_CAMPAIGN_NAME } from "@/lib/nexus/config";
 import { starterById, type SheetData } from "@/lib/nexus/sheets";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Mesa — RPG-Atlas Mobile" },
+      { title: "RPG-Atlas Mobile" },
       { name: "description", content: "Campanha, sessão atual e personagens da mesa no RPG-Atlas Mobile." },
-      { property: "og:title", content: "Mesa — RPG-Atlas Mobile" },
+      { property: "og:title", content: "RPG-Atlas Mobile" },
       { property: "og:description", content: "Campanha, sessão atual e personagens da mesa no RPG-Atlas Mobile." },
     ],
   }),
@@ -23,9 +22,10 @@ type CampaignState = { current_session_id?: string; scene?: string };
 type Session = { title: string; session_date: string; summary?: string };
 
 function Mesa() {
+  const { mode, campaignName } = useNexus();
   return (
     <>
-      <PageHeader title="Mesa" subtitle={<>{LOCAL_CAMPAIGN_NAME} · <Tag tone="warn">dados demonstrativos, sem sessão autenticada</Tag></>} />
+      <PageHeader title="Mesa" subtitle={<>{campaignName} · <Tag tone={mode === "local" ? "warn" : "forest"}>{mode === "local" ? "dados demonstrativos, sem sessão autenticada" : "campanha da conta autenticada"}</Tag></>} />
       <LocalGate><MesaBody /></LocalGate>
     </>
   );
@@ -92,7 +92,7 @@ function MesaBody() {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Link to="/fichas/nova" className={btn({ variant: "outline" })}><Plus className="size-4" aria-hidden />Ficha</Link>
           <Link to="/dados" className={btn({ variant: "outline" })}><Dices className="size-4" aria-hidden />Rolar</Link>
-          <Link to="/mundo" className={btn({ variant: "outline" })}><Map className="size-4" aria-hidden />Mapas</Link>
+          <Link to="/mundo" className={btn({ variant: "outline" })}><Map className="size-4" aria-hidden />Mundo</Link>
           <Link to="/mais/diario" className={btn({ variant: "outline" })}><BookOpen className="size-4" aria-hidden />Diário</Link>
         </div>
       </Panel>

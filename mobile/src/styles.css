@@ -94,6 +94,24 @@
   --sidebar-ring: oklch(0.82 0.14 85);
   --shadow-parchment: 0 1px 0 oklch(1 0 0 / 40%) inset, 0 10px 24px -14px oklch(0.1 0.03 160 / 70%);
   --gradient-forest: radial-gradient(120% 80% at 50% -10%, oklch(0.3 0.05 155), var(--background) 60%, var(--forest-deep));
+  --parchment-border: oklch(0.78 0.06 80);
+  --field-background: oklch(0.97 0.02 88);
+}
+
+:root.dark {
+  --background: oklch(0.15 0.025 160);
+  --foreground: oklch(0.94 0.02 88);
+  --card: oklch(0.225 0.025 160);
+  --card-foreground: oklch(0.94 0.02 88);
+  --ink: oklch(0.94 0.02 88);
+  --ink-muted: oklch(0.76 0.025 88);
+  --parchment-deep: oklch(0.29 0.025 160);
+  --popover: oklch(0.225 0.025 160);
+  --popover-foreground: oklch(0.94 0.02 88);
+  --input: oklch(0.47 0.035 160);
+  --field-background: oklch(0.18 0.02 160);
+  --parchment-border: oklch(0.4 0.035 160);
+  --shadow-parchment: 0 1px 0 oklch(1 0 0 / 8%) inset, 0 10px 24px -14px oklch(0.05 0.02 160 / 85%);
 }
 
 @layer base {
@@ -124,7 +142,7 @@
 @utility parchment {
   background-color: var(--card);
   color: var(--card-foreground);
-  border: 1px solid oklch(0.78 0.06 80);
+  border: 1px solid var(--parchment-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-parchment);
 }
@@ -140,7 +158,7 @@
   width: 100%;
   border-radius: var(--radius-md);
   border: 1px solid var(--input);
-  background-color: oklch(0.97 0.02 88);
+  background-color: var(--field-background);
   color: var(--ink);
   padding: 0.5rem 0.75rem;
   font-size: 1rem;

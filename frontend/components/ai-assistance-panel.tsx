@@ -6,12 +6,13 @@ import { aiStatusLabel, buildPublicationFields, contextBinding, publicationField
 import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sheet-creation";
 import { characterNameField, type FieldValue, type SheetTemplate } from "../lib/sheet-template";
 import styles from "./ai-assistance-panel.module.css";
+import { MathTutor } from "./math-tutor";
 
 type ContextItem = { kind: "session" | "event" | "entity" | "sheet"; id: string; title: string; entity_kind?: string; content?: Record<string, unknown> };
 type RequestMeta = { id: string; kind: "sheet" | "session" | "npc"; status: string; version: number; brief: string; target_id?: string | null; template_id?: string | null };
 type Detail = { request: RequestMeta; result: Record<string, unknown> | null; template: SheetTemplate | null; original?: Record<string, unknown> | null };
 type Preparation = { id: string; kind: "session" | "npc"; title: string; body: Record<string, unknown>; version: number; target_id?: string | null };
-type Config = { enabled: boolean; model: string; budget_monthly_usd: number };
+type Config = { enabled: boolean; model: string; budget_monthly_usd: number; mode?: string; tutor_enabled?: boolean };
 type Preview = { context: { items: ContextItem[] }; context_hash: string };
 type Operation = { signature: string; id: string } | null;
 
@@ -69,6 +70,7 @@ export function AiSheetRequest({ campaignId, templateId, targetId }: { campaignI
     } catch (error) { if (alive.current) setMessage(error instanceof Error ? error.message : "Não foi possível enviar o pedido."); }
     finally { if (alive.current) setBusy(false); }
   }
+  if (config?.mode === "math_tutor") return <MathTutor enabled={config.tutor_enabled === true} send={(body) => request(campaignId, "tutor", body)} />;
   return <section className={styles.card} aria-label="Assistência de ficha">
     <h3>Pedir ajuda à IA</h3><p>Você acompanha o pedido. O resultado completo fica com o narrador até a aprovação.</p>
     {config && !config.enabled && <p className={styles.disabled}>A assistência está desativada. O preenchimento manual continua disponível.</p>}
@@ -206,11 +208,12 @@ export function AiAssistancePanel({ campaignId, canManage }: { campaignId: strin
     });
   }
   return <section className={styles.panel} aria-labelledby="ai-panel-title">
-    <header><p className={styles.eyebrow}>ASSISTENTE DE CAMPANHA</p><h2 id="ai-panel-title">Assistente IA</h2><p>Propostas revisadas pelo narrador. Segredos permanecem na preparação privada.</p></header>
-    {config && <p className={config.enabled ? styles.enabled : styles.disabled}>{config.enabled ? `Ativo · ${config.model} · teto do projeto: US$ ${config.budget_monthly_usd}/mês` : "A assistência está desativada. As ferramentas manuais continuam disponíveis."}</p>}
+    {config?.mode === "math_tutor" && <MathTutor enabled={config.tutor_enabled === true} send={(body) => request(campaignId, "tutor", body)} />}
+    <header><p className={styles.eyebrow}>ASSISTENTE DE CAMPANHA</p><h2 id="ai-panel-title">{config?.mode === "math_tutor" ? "Tutor e propostas anteriores" : "Assistente IA"}</h2><p>Propostas anteriores continuam privadas e exigem revisão do narrador.</p></header>
+    {config && <p className={config.enabled ? styles.enabled : styles.disabled}>{config.mode === "math_tutor" ? `IA restrita a explicações matemáticas · teto compartilhado: US$ ${config.budget_monthly_usd}/mês` : config.enabled ? `Ativo · ${config.model} · teto do projeto: US$ ${config.budget_monthly_usd}/mês` : "A assistência está desativada. As ferramentas manuais continuam disponíveis."}</p>}
     <button type="button" className="quiet" disabled={busy} onClick={() => void action(refresh)}>Atualizar assistência</button>
     {message && <p role="status" className={styles.message}>{message}</p>}
-    {canManage && <section className={styles.card}><h3>Preparar conteúdo</h3><form onSubmit={(event) => void generate(event)}>
+    {canManage && config?.mode !== "math_tutor" && <section className={styles.card}><h3>Preparar conteúdo</h3><form onSubmit={(event) => void generate(event)}>
       <label>Tipo<select aria-label="Tipo" value={kind} onChange={(event) => { setKind(event.target.value as "session" | "npc"); setTarget(""); setSelected([]); setPreview(null); }}><option value="session">Próxima sessão</option><option value="npc">Personalidade e vínculos de NPC</option></select></label>
       <label>Destino<select aria-label="Destino" value={target} onChange={(event) => {
         const id = event.target.value; const refKind = kind === "npc" ? "entity" : "session";

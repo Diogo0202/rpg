@@ -20,11 +20,17 @@ function validateSupabaseConfig(urlValue: string, key: string): string | null {
   return null;
 }
 
-export function accessTokenProvider(client: Pick<SupabaseClient, "auth">): AccessTokenProvider {
+export function accessTokenProvider(
+  client: Pick<SupabaseClient, "auth">,
+  expectedAccountId: string,
+): AccessTokenProvider {
+  if (!expectedAccountId) throw new Error("An expected account ID is required for API access.");
   return async (refresh = false) => {
     const response = refresh ? await client.auth.refreshSession() : await client.auth.getSession();
     if (response.error) throw response.error;
-    return response.data.session?.access_token ?? null;
+    const session = response.data.session;
+    if (!session || session.user.id !== expectedAccountId) return null;
+    return session.access_token ?? null;
   };
 }
 

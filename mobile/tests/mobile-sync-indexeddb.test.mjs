@@ -7,7 +7,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const sourcePath = join(here, "../lib/mobile-sync/store.ts");
+const sourcePath = join(here, "../src/lib/mobile-sync/store.ts");
+const transportPath = join(here, "../src/lib/mobile-sync/transport.ts");
+const mergePath = join(here, "../src/lib/mobile-sync/merge.ts");
 const require = createRequire(import.meta.url);
 
 async function loadPlaywright() {
@@ -78,6 +80,50 @@ test("IndexedDB persists partitions and serializes writes across store instances
     }, dbName);
     assert.equal(persisted.schema, "rpg-nexus-mobile-v1"); assert.equal(persisted.operationId, "stable-operation"); assert.equal(persisted.leaseOwner, "tab-two"); assert.equal(persisted.afterClear, 0);
     assert.match(persisted.deviceId, /^[0-9a-f-]{36}$/i); assert.notEqual(persisted.deviceId, persisted.resetDeviceId);
+    await page.close();
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await browser.close();
+  }
+});
+
+test("FastApiSyncTransport calls the browser's native fetch without Illegal invocation", async (t) => {
+  const playwright = await loadPlaywright();
+  if (!playwright) { t.skip("Playwright is not installed in this environment"); return; }
+  let browser;
+  try { browser = await playwright.chromium.launch({ headless: true }); }
+  catch (error) { t.skip(`Chromium unavailable: ${error.message}`); return; }
+  const ts = require("typescript");
+  const compilerOptions = { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS };
+  const mergeJs = ts.transpileModule(await readFile(mergePath, "utf8"), { compilerOptions }).outputText;
+  const transportJs = ts.transpileModule(await readFile(transportPath, "utf8"), { compilerOptions }).outputText;
+  const html = `<!doctype html><meta charset="utf-8"><script>(()=>{
+    const mergeModule={exports:{}}; new Function('module','exports',${JSON.stringify(mergeJs)})(mergeModule,mergeModule.exports);
+    const transportModule={exports:{}}; new Function('module','exports','require',${JSON.stringify(transportJs)})(transportModule,transportModule.exports,()=>mergeModule.exports);
+    window.FastApiSyncTransport=transportModule.exports.FastApiSyncTransport; window.transportExportKeys=Object.keys(transportModule.exports);
+  })()</script>`;
+  const seen = [];
+  const campaignId = "00000000-0000-4000-8000-000000000001";
+  const ownerId = "00000000-0000-4000-8000-000000000002";
+  const server = createServer((request, response) => {
+    if (request.url === "/") { response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); response.end(html); return; }
+    seen.push({ url: request.url, authorization: request.headers.authorization });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ protocol_version: 1, campaigns: [{ id: campaignId, owner_id: ownerId, name: "Campanha Chromium" }] }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  try {
+    const page = await browser.newPage();
+    await page.goto(`http://127.0.0.1:${address.port}/`);
+    const moduleCheck = await page.evaluate(() => ({ keys: window.transportExportKeys, type: typeof window.FastApiSyncTransport }));
+    assert.deepEqual(moduleCheck, { keys: ["SyncHttpError", "FastApiSyncTransport", "parseRetryAfter", "checkedBaseUrl"], type: "function" });
+    const result = await page.evaluate(async (baseUrl) => {
+      const transport = new window.FastApiSyncTransport({ baseUrl, getAccessToken: async () => "test-access-token" });
+      return await transport.listCampaigns();
+    }, `http://127.0.0.1:${address.port}`);
+    assert.equal(result[0].id, campaignId);
+    assert.deepEqual(seen, [{ url: "/api/v1/sync/campaigns", authorization: "Bearer test-access-token" }]);
     await page.close();
   } finally {
     await new Promise((resolve) => server.close(resolve));

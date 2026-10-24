@@ -1,13 +1,15 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import * as AlertDialog from "@radix-ui/react-alert-dialog";
 import { BookOpen, Bot, Library, Music2, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { SheetImport } from "@/components/nexus/SheetImport";
+import { ConnectionPanel } from "@/components/nexus/ConnectionPanel";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
-import { connectionStatus } from "@/lib/nexus/config";
 import { useNexus, outboxSummary } from "@/lib/nexus/store";
 import { SYSTEM_STARTERS } from "@/lib/system-starters";
 import type { JsonValue } from "@/lib/mobile-sync";
+import { readThemeMode, saveThemeMode, type ThemeMode } from "@/lib/theme";
 
 export const Route = createFileRoute("/mais")({
   head: () => ({
@@ -63,14 +65,19 @@ function MaisHome() {
       <PageHeader title="Mais" subtitle="Recursos salvos neste aparelho" />
       <nav aria-label="Recursos adicionais" className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
         {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-          <Btn key={id} variant={section === id ? "ink" : "outline"} onClick={() => setSection(id)}>
+          <Btn
+            key={id}
+            variant={section === id ? "ink" : "outline"}
+            className={section === id ? undefined : "parchment text-ink"}
+            onClick={() => setSection(id)}
+          >
             <Icon className="size-4" aria-hidden />
             {label}
           </Btn>
         ))}
         <Link
           to="/mais/diario"
-          className="tap col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink/30 text-sm font-semibold text-ink sm:col-span-5"
+          className="tap parchment col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-ink/30 text-sm font-semibold text-ink sm:col-span-5"
         >
           <BookOpen className="size-4" aria-hidden />
           Abrir Diário
@@ -234,7 +241,7 @@ function MusicPanel() {
                   href={spotifyUrl(item.data.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="break-all text-sm text-secondary underline"
+                  className="break-all text-sm text-ink underline"
                 >
                   Abrir no Spotify
                 </a>
@@ -273,28 +280,77 @@ function MusicPanel() {
   );
 }
 
-function LibraryPanel() {
+export function LibraryPanel() {
+  const { mode, list } = useNexus();
   const [imported, setImported] = useState("");
+  const templates =
+    mode === "local"
+      ? SYSTEM_STARTERS.map((starter) => ({
+          id: starter.id,
+          name: starter.label,
+          version: starter.template.version,
+          system: starter.label,
+        }))
+      : list<Record<string, JsonValue>>("system_templates")
+          .filter(
+            (row) =>
+              row.data.status === "approved" &&
+              typeof row.data.name === "string" &&
+              row.data.name.trim().length > 0 &&
+              typeof row.data.version === "number" &&
+              Number.isSafeInteger(row.data.version) &&
+              row.data.version >= 1,
+          )
+          .map((row) => {
+            const schema = row.data.schema;
+            const systemKey =
+              schema && typeof schema === "object" && !Array.isArray(schema)
+                ? (schema as Record<string, JsonValue>).system_key
+                : undefined;
+            const knownSystem =
+              typeof systemKey === "string"
+                ? SYSTEM_STARTERS.find((starter) => starter.id === systemKey)?.label
+                : undefined;
+            return {
+              id: row.id,
+              name: row.data.name as string,
+              version: row.data.version as number,
+              system:
+                knownSystem ??
+                (typeof systemKey === "string" && systemKey.trim()
+                  ? systemKey
+                  : "Sistema não informado"),
+            };
+          });
   return (
     <Panel title="Biblioteca">
       <p className="mb-3 text-sm text-ink-muted">
-        Modelos de ficha disponíveis para criar em Fichas.
+        {mode === "connected"
+          ? "Modelos aprovados disponíveis nesta campanha."
+          : "Modelos-base parciais disponíveis neste aparelho."}
       </p>
-      <ul className="mb-4 grid gap-2 sm:grid-cols-3">
-        {SYSTEM_STARTERS.map((starter) => (
-          <li key={starter.id} className="parchment-inset p-3">
-            <p className="font-semibold text-ink">{starter.label}</p>
-            <p className="text-xs text-ink-muted">
-              Modelo local · versão {starter.template.version}
-            </p>
-          </li>
-        ))}
-      </ul>
+      {templates.length ? (
+        <ul className="mb-4 grid gap-2 sm:grid-cols-3">
+          {templates.map((template) => (
+            <li key={template.id} className="parchment-inset p-3">
+              <p className="font-semibold text-ink">{template.name}</p>
+              <p className="text-xs text-ink-muted">Sistema: {template.system}</p>
+              <p className="text-xs text-ink-muted">
+                {mode === "connected" ? "Aprovado" : "Modelo local"} · versão {template.version}
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="parchment-inset mb-4 p-3 text-sm text-ink-muted">
+          Nenhum modelo aprovado disponível nesta campanha.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <SheetImport onImported={setImported} />
         {imported && (
           <Link
-            className="text-sm font-semibold text-secondary underline"
+            className="text-sm font-semibold text-ink underline"
             to="/fichas"
             search={{ ficha: imported }}
           >
@@ -303,17 +359,24 @@ function LibraryPanel() {
         )}
       </div>
       <p className="mt-2 text-xs text-ink-muted">
-        Os modelos são os três modelos incluídos no app. Catálogo remoto não está conectado.
+        {mode === "connected"
+          ? "A criação de fichas continua sujeita à validação do modelo aprovado no servidor."
+          : "Os perfis locais são parciais e não incluem regras oficiais completas. Consulte as fontes oficiais do sistema."}
       </p>
     </Panel>
   );
 }
 
-function SettingsPanel() {
+export function SettingsPanel() {
   const { state, engine, wipeLocal, refresh, ready } = useNexus();
   const [busy, setBusy] = useState(false);
-  const status = connectionStatus();
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readThemeMode);
   const summary = outboxSummary(state);
+  const changeTheme = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    if (!saveThemeMode(mode)) toast.error("O tema mudou, mas a preferência não pôde ser salva.");
+  };
   const backup = async () => {
     if (!engine) return;
     const data = await engine.exportPendingDrafts();
@@ -321,7 +384,7 @@ function SettingsPanel() {
     const href = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = href;
-    link.download = `rpg-nexus-pendencias-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `rpg-atlas-pendencias-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
   };
@@ -329,25 +392,9 @@ function SettingsPanel() {
     if (!ready || busy) return;
     setBusy(true);
     try {
-      if (summary.total > 0) {
-        await backup();
-        if (
-          !window.confirm(
-            `Foi solicitada a exportação de ${summary.total} operação(ões) pendente(s). Confirme que o arquivo foi salvo antes de apagar os dados deste aparelho.`,
-          )
-        )
-          return;
-      } else if (
-        !window.confirm(
-          "Apagar todos os dados locais deste aparelho? Esta ação não pode ser desfeita.",
-        )
-      )
-        return;
       await wipeLocal();
       await refresh();
-      toast.success(
-        "Partição local apagada. Dados demonstrativos podem voltar ao reiniciar esta prévia.",
-      );
+      toast.success("Cópias locais da conta apagadas neste aparelho.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha na operação local.");
     } finally {
@@ -355,42 +402,93 @@ function SettingsPanel() {
     }
   };
   return (
-    <div className="space-y-4">
-      <Panel title="Conexão">
-        <Tag tone="warn">Apenas local</Tag>
-        <p className="mt-2 text-sm text-ink">
-          API configurada: {status.apiUrlConfigured ? "sim" : "não"}. Supabase Auth:{" "}
-          {status.supabaseUrlConfigured ? "sim" : "não"}. Sessão autenticada: não.
-        </p>
-        <p className="mt-1 text-xs text-ink-muted">{status.pendingReason}</p>
-      </Panel>
-      <Panel title="Backup e limpeza">
-        <p className="mb-3 text-sm text-ink">
-          Há {summary.total} operação(ões) na fila. Exportar baixa um JSON com as operações
-          pendentes.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Btn
-            variant="outline"
-            disabled={!engine}
-            onClick={() =>
-              void backup().catch((e) =>
-                toast.error(e instanceof Error ? e.message : "Falha ao exportar."),
-              )
-            }
-          >
-            Exportar pendências
-          </Btn>
-          <Btn variant="danger" disabled={!ready || busy} onClick={() => void clear()}>
-            {busy ? "Aguarde…" : "Apagar cofre e sair"}
-          </Btn>
-        </div>
-        <p className="mt-2 text-xs text-ink-muted">
-          A limpeza apaga a partição local e encerra o estado atual. Como esta prévia semeia dados
-          demonstrativos quando inicia vazia, eles podem voltar após reiniciar o app. Login remoto
-          ainda não está implementado.
-        </p>
-      </Panel>
-    </div>
+    <AlertDialog.Root open={confirmClear} onOpenChange={setConfirmClear}>
+      <div className="space-y-4">
+        <ConnectionPanel />
+        <Panel title="Aparência">
+          <p className="mb-3 text-sm text-ink-muted">
+            Escolha a iluminação das fichas neste aparelho.
+          </p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Tema do aplicativo">
+            <Btn
+              variant={themeMode === "standard" ? "forest" : "outline"}
+              aria-pressed={themeMode === "standard"}
+              onClick={() => changeTheme("standard")}
+            >
+              Padrão
+            </Btn>
+            <Btn
+              variant={themeMode === "dark" ? "forest" : "outline"}
+              aria-pressed={themeMode === "dark"}
+              onClick={() => changeTheme("dark")}
+            >
+              Escuro
+            </Btn>
+          </div>
+        </Panel>
+        <Panel title="Backup e limpeza">
+          <p className="mb-3 text-sm text-ink">
+            Há {summary.total} operação(ões) pendentes na campanha aberta. A exportação solicita ao
+            navegador um arquivo JSON desta fila.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Btn
+              variant="outline"
+              disabled={!engine}
+              onClick={() =>
+                void backup().catch((e) =>
+                  toast.error(e instanceof Error ? e.message : "Falha ao exportar."),
+                )
+              }
+            >
+              Exportar pendências da campanha aberta
+            </Btn>
+            <AlertDialog.Trigger asChild>
+              <Btn variant="danger" disabled={!ready || busy}>
+                {busy ? "Aguarde…" : "Apagar cópias locais"}
+              </Btn>
+            </AlertDialog.Trigger>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">
+            Dados confirmados no servidor permanecem na campanha. Pendências exportadas usam um
+            formato próprio de recuperação da fila.
+          </p>
+        </Panel>
+      </div>
+      <AlertDialog.Portal>
+        <AlertDialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+        <AlertDialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(92vw,30rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-card p-5 text-card-foreground shadow-xl focus:outline-none">
+          <AlertDialog.Title className="text-lg font-semibold">
+            Apagar cópias locais?
+          </AlertDialog.Title>
+          <AlertDialog.Description className="mt-2 text-sm text-ink-muted">
+            Esta ação remove todas as campanhas desta conta neste aparelho, incluindo operações
+            pendentes. O contador e a exportação acima cobrem somente a campanha aberta. Exporte
+            cada fila que deseja preservar antes de confirmar; o clique de exportação não confirma
+            que o navegador gravou o arquivo.
+          </AlertDialog.Description>
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <AlertDialog.Cancel asChild>
+              <Btn type="button" variant="outline" disabled={busy}>
+                Cancelar
+              </Btn>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action asChild>
+              <Btn
+                type="button"
+                variant="danger"
+                disabled={busy}
+                onClick={() => {
+                  setConfirmClear(false);
+                  void clear();
+                }}
+              >
+                Confirmar e apagar
+              </Btn>
+            </AlertDialog.Action>
+          </div>
+        </AlertDialog.Content>
+      </AlertDialog.Portal>
+    </AlertDialog.Root>
   );
 }

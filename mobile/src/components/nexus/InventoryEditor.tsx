@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { SheetField, FieldValue } from "@/lib/sheet-template.ts";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createSheetBackup, type BackupInventoryItem } from "@/lib/sheet-backup.ts";
@@ -9,7 +10,12 @@ import { Btn, Empty, Panel } from "./ui";
 const blank: BackupInventoryItem = { name: "", category: "equipment", quantity: 1, resource_cost: 0, damage_bonus: 0, protection: 0, notes: "", acquired: true, equipped: false, sort_order: 0 };
 
 export function InventoryEditor({ sheetId }: { sheetId: string }) {
-  const { list, create, update, remove } = useNexus();
+  const { list, get, create, update, remove } = useNexus();
+  const sheet = get("character_sheets",sheetId);
+  const templateId = sheet?.data.template_id;
+  const template = typeof templateId==="string"?get("system_templates",templateId):undefined;
+  const schema = template?.data.schema as {inventory_schema?:SheetField[]}|undefined;
+  const customFields = Array.isArray(schema?.inventory_schema)?schema.inventory_schema:[];
   const items = list<InventoryData>("character_inventory").filter((item) => item.data.sheet_id === sheetId).sort((a,b) => a.data.sort_order - b.data.sort_order);
   const [draft, setDraft] = useState<BackupInventoryItem | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -33,7 +39,9 @@ export function InventoryEditor({ sheetId }: { sheetId: string }) {
   return <Panel title="Inventário" actions={<Btn variant="outline" onClick={() => { setEditing(null); setError(""); setDraft({ ...blank, sort_order: items.length }); }}><Plus className="size-4" aria-hidden />Adicionar item</Btn>}>
     {items.length === 0 ? <Empty>Nenhum item.</Empty> : <ul className="divide-y divide-border">
       {items.map((item) => <li key={item.id} className="flex items-center justify-between gap-2 py-3">
-        <div className="min-w-0"><p className="break-words font-semibold text-ink">{item.data.name} × {item.data.quantity}</p><p className="text-xs text-ink-muted">{INVENTORY_CATEGORIES.find((c) => c.id === item.data.category)?.label} · {item.data.equipped ? "Equipado" : item.data.acquired ? "Adquirido" : "Não adquirido"}</p></div>
+        <div className="min-w-0"><p className="break-words font-semibold text-ink">{item.data.name} × {item.data.quantity}</p><p className="text-xs text-ink-muted">{INVENTORY_CATEGORIES.find((c) => c.id === item.data.category)?.label} · {item.data.equipped ? "Equipado" : item.data.acquired ? "Adquirido" : "Não adquirido"}</p>
+          {Object.entries(item.data.custom_values??{}).map(([key,value])=><p className="break-words text-xs text-ink-muted" key={key}>{customFields.find(field=>field.id===key)?.label??key}: {Array.isArray(value)?value.join(", "):typeof value==="boolean"?(value?"Sim":"Não"):String(value)}</p>)}
+        </div>
         <div className="flex shrink-0"><Btn size="icon" variant="ghost" className="w-11" aria-label={`Editar ${item.data.name}`} title="Editar item" onClick={() => { const {sheet_id, ...data} = item.data; setDraft(data); setEditing(item.id); setError(""); }}><Pencil className="size-4" /></Btn>
         <Btn size="icon" variant="ghost" className="w-11" aria-label={`Excluir ${item.data.name}`} title="Excluir item" onClick={async () => { if (!window.confirm(`Excluir ${item.data.name}?`)) return; try { await remove("character_inventory", item.id); } catch(e) { toast.error(e instanceof Error ? e.message : "Falha ao excluir."); } }}><Trash2 className="size-4" /></Btn></div>
       </li>)}
@@ -44,6 +52,14 @@ export function InventoryEditor({ sheetId }: { sheetId: string }) {
         <label className="text-sm font-semibold text-ink">Categoria<select className="field-input mt-1" value={draft.category} onChange={(e) => { set("category", e.target.value as BackupInventoryItem["category"]); set("equipped", false); }}>{INVENTORY_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
         {([ ["quantity", "Quantidade", 1, 999], ["resource_cost", "Custo em recursos", 0, 10], ["damage_bonus", "Bônus de dano", 0, 10], ["protection", "Proteção", 0, 10], ["sort_order", "Ordem", 0, 9999] ] as const).map(([key, label, min, max]) => <label key={key} className="text-sm font-semibold text-ink">{label}<input type="number" className="field-input mt-1" min={min} max={max} step={1} required value={draft[key]} onChange={(e) => set(key, Number(e.target.value))} /></label>)}
       </div>
+      {customFields.map(field=><label key={field.id} className="block text-sm font-semibold text-ink">{field.label}{field.required?" (obrigatório)":""}
+        {field.kind==="select"?<select className="field-input mt-1" required={field.required} value={String(draft.custom_values?.[field.id]??"")} onChange={event=>set("custom_values",{...draft.custom_values,[field.id]:event.target.value})}><option value="">Escolha</option>{field.options.map(option=><option key={option}>{option}</option>)}</select>
+          :field.kind==="checkbox"?<input type="checkbox" required={field.required} checked={draft.custom_values?.[field.id]===true} onChange={event=>set("custom_values",{...draft.custom_values,[field.id]:event.target.checked})}/>
+          :<input className="field-input mt-1" type={field.kind==="number"?"number":"text"} required={field.required} min={field.min??-1000000} max={field.max??1000000} step="any" maxLength={10000} value={Array.isArray(draft.custom_values?.[field.id])?(draft.custom_values?.[field.id] as string[]).join(", "):String(draft.custom_values?.[field.id]??"")} onChange={event=>{
+            const custom:Record<string,FieldValue>={...draft.custom_values};
+            if(event.target.value==="")delete custom[field.id];else custom[field.id]=field.kind==="number"?Number(event.target.value):field.kind==="collection"?event.target.value.split(",").map(value=>value.trim()).filter(Boolean):event.target.value;
+            set("custom_values",custom);
+          }}/>}</label>)}
       <label className="block text-sm font-semibold text-ink">Observações<textarea className="field-input mt-1" value={draft.notes} maxLength={4000} onChange={(e) => set("notes", e.target.value)} /></label>
       <div className="flex flex-wrap gap-4">
         <label className="tap flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={draft.acquired} onChange={(e) => { set("acquired", e.target.checked); if (!e.target.checked) set("equipped", false); }} />Adquirido</label>

@@ -100,16 +100,17 @@ Evidências: [motor de probabilidade](backend/app/services/v5_probability.py), [
 
 - **MAP-01 | 75% | Em processo:** geração procedural de mapas táticos com salas, corredores e paredes, disponível por rota autenticada.
 - **MAP-02 | 75% | Em processo:** repetição de mapas por seed e configuração de dimensões e quantidade de salas pela API. A interface ainda usa dimensões e quantidade fixas.
-- **MAP-03 | 75% | Em processo:** prévia do mapa gerado, salvamento e edição de marcadores no painel Mapas. A demonstração PixiJS permanece separada.
-- **MAP-04 | 50% | Em processo:** componente PixiJS isolado com grade, salas de demonstração e token arrastável. O painel Mapas opera documentos salvos com Canvas, sem integrar esse componente.
-- **MAP-05 | 50% | Em processo:** componente isolado permite ocultar/revelar névoa geral; essa ação ainda não está ligada aos documentos salvos. Revelação por área ou jogador pendente.
-- **MAP-06 | 75% | Em processo:** mapas e até 100 marcadores normalizados salvos por campanha, com nome, grade, cor e descrição, controle de versão e acesso do narrador. Falta testar a gravação e o isolamento no banco.
-- **MAP-07 | 0% | Não implementada:** edição persistida de paredes, camadas, grupos e luz por célula.
-- **MAP-08 | 0% | Não implementada:** visão individual do jogador e linha de visão com bloqueio por paredes.
-- **MAP-09 | 0% | Não implementada:** sincronização ao vivo de tokens e alterações do mapa entre participantes.
-- **MAP-10 | 50% | Em processo:** exportação PNG do terreno com marcadores e JSON do documento. Importação, WebP, PDF e UVTT pendentes.
+- **MAP-03 | 75% | Em processo:** editor visto de cima em SVG no painel Mapas, com zoom, arrasto e pinça. Mapas gerados (v1) abrem como fundo somente leitura. Testado no navegador com dados falsos em `/dev/map-editor` (só em `next dev`; 404 em produção): casa, porta, sombra, objetos, pins de NPC/item/personagem, desfazer e prévia do jogador. Falta o teste com Supabase real (login, envio de foto, RPCs).
+- **MAP-04 | 75% | Em processo:** ferramentas de muro (desenho livre, ímã nas pontas e na grade, Shift em 15°), casa (retângulo ou polígono), porta presa ao muro, sombra, objeto, pin e borracha, com desfazer/refazer. O demo PixiJS foi removido.
+- **MAP-05 | 50% | Em processo:** sombras desenhadas pelo narrador, com opacidade e opção "só Mestre". Névoa revelada por jogador pendente.
+- **MAP-06 | 75% | Em processo:** documento v2 com até 2000 estruturas e 300 pins, validado no banco (`20261023100000_map_editor_portraits.sql`) e coberto por pgTAP local. Falta aplicar e testar no Supabase remoto.
+- **MAP-07 | 75% | Em processo:** kits por sistema: medieval (O Um Anel) e cidade moderna (Vampiro V5, Caçador) para muros, pisos, portas, objetos e ícones de NPC/item; camadas ocultáveis. Luz por célula pendente.
+- **MAP-08 | 50% | Em processo:** visão do jogador redigida pela RPC `get_player_map`; cada jogador move só o pin da própria ficha. Linha de visão com bloqueio por paredes pendente.
+- **MAP-09 | 50% | Em processo:** jogadores recebem invalidação por `map_notifications` (Realtime) e recarregam o mapa. Edição simultânea de vários narradores pendente.
+- **MAP-10 | 25% | Em processo:** exportação JSON do documento. PNG foi retirado com o editor novo; importação, WebP, PDF e UVTT pendentes.
+- **MAP-11 | 75% | Em processo:** pins de personagem com o retrato obrigatório enviado na criação da ficha (bucket privado `character-portraits`, 512×512 WebP). Fichas antigas, restauração de backup e o app mobile ainda não exigem foto e mostram iniciais.
 
-Evidências: [gerador de mapas](backend/app/services/tactical_maps.py), [painel de geração](frontend/components/generation-panel.tsx) e [mapa PixiJS](frontend/components/tactical-map.tsx).
+Evidências: [gerador de mapas](backend/app/services/tactical_maps.py), [editor](frontend/components/map-editor/map-editor.tsx), [renderizador SVG](frontend/components/map-editor/map-canvas.tsx), [kits](frontend/lib/map-kits.ts) e [migration](supabase/migrations/20261023100000_map_editor_portraits.sql).
 
 ## Geração de NPCs, inimigos e itens
 

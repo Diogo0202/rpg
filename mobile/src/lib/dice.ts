@@ -118,8 +118,9 @@ export function rollExpression(input: string, modifier = 0, label?: string): Dic
 export function rollPool(size: number, hunger = 0, label?: string): DiceRoll {
   if (!Number.isInteger(size) || size < 1 || size > 30)
     throw new Error("A parada deve ter de 1 a 30 dados.");
-  if (!Number.isFinite(hunger)) throw new Error("Dados de fome inválidos.");
-  const h = Math.max(0, Math.min(size, Math.floor(hunger)));
+  if (!Number.isInteger(hunger) || hunger < 0 || hunger > Math.min(size, 5))
+    throw new Error("Dados de fome inválidos.");
+  const h = hunger;
   const rolls = Array.from({ length: size }, () => randomInt(10));
   const base = rolls.filter((r) => r >= 6).length;
   const tens = rolls.filter((r) => r === 10).length;

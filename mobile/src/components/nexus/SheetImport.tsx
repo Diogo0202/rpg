@@ -2,19 +2,19 @@ import { useRef, useState } from "react";
 import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { parseBackupText, type SheetBackup } from "@/lib/sheet-backup.ts";
-import { sheetFromBackup } from "@/lib/nexus/sheets";
+import { importedSheetInput } from "@/lib/nexus/sheet-import";
 import { useNexus } from "@/lib/nexus/store";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
 import { Btn } from "./ui";
 
 export function SheetImport({ onImported }: { onImported: (id: string) => void }) {
   const input = useRef<HTMLInputElement>(null);
-  const { create, remove } = useNexus();
+  const { create, remove, mode, list } = useNexus();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const importDocs = async (docs: SheetBackup[]) => {
     // Validate every document and normalize before creating anything.
-    const prepared = docs.map((doc) => ({ doc, sheet: sheetFromBackup(doc) }));
+    const prepared = docs.map((doc) => ({ doc, sheet: importedSheetInput(doc, mode, list<Record<string, JsonValue>>("system_templates")) }));
     const created: [string, string][] = [];
     try {
       let first = "";
