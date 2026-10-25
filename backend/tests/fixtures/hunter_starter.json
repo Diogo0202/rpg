@@ -1,0 +1,765 @@
+{
+  "name": "Caçador modular",
+  "version": 2,
+  "fields": [
+    {
+      "id": "sistema",
+      "label": "Sistema",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "ativo_na_sessao",
+      "label": "Ativo na sessão",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "nome",
+      "label": "Nome",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "character_name": true
+    },
+    {
+      "id": "conceito",
+      "label": "Conceito",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "credo",
+      "label": "Credo",
+      "kind": "select",
+      "options": [
+        "Empreendedor",
+        "Devoto",
+        "Inquisitivo",
+        "Marcial",
+        "Clandestino"
+      ],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "identity_kind": "creed"
+    },
+    {
+      "id": "impulso",
+      "label": "Ímpeto",
+      "kind": "select",
+      "options": [
+        "Curiosidade",
+        "Expiação",
+        "Ganância",
+        "Inveja",
+        "Juramento",
+        "Orgulho",
+        "Vingança"
+      ],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity"
+    },
+    {
+      "id": "celula",
+      "label": "Célula",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "ambicao",
+      "label": "Ambição",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "desejo",
+      "label": "Desejo",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "pilares",
+      "label": "Pilares",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "redencao",
+      "label": "Redenção",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "forca",
+      "label": "Força",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "destreza",
+      "label": "Destreza",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "vigor",
+      "label": "Vigor",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "carisma",
+      "label": "Carisma",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "manipulacao",
+      "label": "Manipulação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "autocontrole",
+      "label": "Autocontrole",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "inteligencia",
+      "label": "Inteligência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "raciocinio",
+      "label": "Raciocínio",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "resolucao",
+      "label": "Determinação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "armas_brancas",
+      "label": "Armas Brancas",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "armas_de_fogo",
+      "label": "Armas de Fogo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "atletismo",
+      "label": "Atletismo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "briga",
+      "label": "Briga",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ciencia",
+      "label": "Ciência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "conducao",
+      "label": "Condução",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "trato_com_animais",
+      "label": "Empatia com Animais",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "academicos",
+      "label": "Erudição",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "etiqueta",
+      "label": "Etiqueta",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "financas",
+      "label": "Finanças",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "furtividade",
+      "label": "Furtividade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "intimidacao",
+      "label": "Intimidação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "investigacao",
+      "label": "Investigação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ladroagem",
+      "label": "Ladroagem",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "lideranca",
+      "label": "Liderança",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "manha",
+      "label": "Manha",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "medicina",
+      "label": "Medicina",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ocultismo",
+      "label": "Ocultismo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "oficios",
+      "label": "Ofícios",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "percepcao",
+      "label": "Percepção",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "persuasao",
+      "label": "Persuasão",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "politica",
+      "label": "Política",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "empatia",
+      "label": "Sagacidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "sobrevivencia",
+      "label": "Sobrevivência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "subterfugio",
+      "label": "Subterfúgio",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "tecnologia",
+      "label": "Tecnologia",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "saude_max",
+      "label": "Vitalidade máxima",
+      "kind": "formula",
+      "options": [],
+      "expression": "vigor + 3",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_max",
+      "label": "Força de Vontade máxima",
+      "kind": "formula",
+      "options": [],
+      "expression": "autocontrole + resolucao",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "desespero",
+      "label": "Desespero",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "recursos",
+      "label": "Recursos",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "saude_superficial",
+      "label": "Dano superficial na Vitalidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "saude_agravada",
+      "label": "Dano agravado na Vitalidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_superficial",
+      "label": "Dano superficial na Vontade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_agravada",
+      "label": "Dano agravado na Vontade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "arquetipos",
+      "label": "Arquétipos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "vantagens",
+      "label": "Vantagens",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "especialidades",
+      "label": "Especialidades",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "defeitos",
+      "label": "Defeitos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "triunfos",
+      "label": "Triunfos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "distincoes",
+      "label": "Distinções",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "notas",
+      "label": "Notas",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "experiencia",
+      "label": "Experiência disponível",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    }
+  ],
+  "experience_field": "experiencia",
+  "meta_currencies": [
+    {
+      "id": "vontade",
+      "label": "Força de Vontade",
+      "field": "vontade_superficial",
+      "mode": "track",
+      "max_field": "vontade_max"
+    }
+  ],
+  "creation_rules": [
+    {
+      "type": "group_distribution",
+      "id": "atributos",
+      "label": "Atributos",
+      "fields": [
+        "forca",
+        "destreza",
+        "vigor",
+        "carisma",
+        "manipulacao",
+        "autocontrole",
+        "inteligencia",
+        "raciocinio",
+        "resolucao"
+      ],
+      "options": [
+        {
+          "label": "Distribuição de atributos",
+          "counts": {
+            "1": 1,
+            "2": 4,
+            "3": 3,
+            "4": 1
+          }
+        }
+      ]
+    },
+    {
+      "type": "group_distribution",
+      "id": "habilidades",
+      "label": "Habilidades",
+      "fields": [
+        "armas_brancas",
+        "armas_de_fogo",
+        "atletismo",
+        "briga",
+        "ciencia",
+        "conducao",
+        "trato_com_animais",
+        "academicos",
+        "etiqueta",
+        "financas",
+        "furtividade",
+        "intimidacao",
+        "investigacao",
+        "ladroagem",
+        "lideranca",
+        "manha",
+        "medicina",
+        "ocultismo",
+        "oficios",
+        "percepcao",
+        "performance",
+        "persuasao",
+        "politica",
+        "empatia",
+        "sobrevivencia",
+        "subterfugio",
+        "tecnologia"
+      ],
+      "options": [
+        {
+          "label": "Especialista",
+          "counts": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 1
+          },
+          "rest": 0
+        },
+        {
+          "label": "Pau para toda obra",
+          "counts": {
+            "1": 10,
+            "2": 8,
+            "3": 1
+          },
+          "rest": 0
+        },
+        {
+          "label": "Equilibrado",
+          "counts": {
+            "1": 7,
+            "2": 5,
+            "3": 3
+          },
+          "rest": 0
+        }
+      ]
+    }
+  ],
+  "system_key": "hunter"
+}

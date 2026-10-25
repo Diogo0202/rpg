@@ -40,7 +40,7 @@ def creation_report(template: dict[str, Any], values: dict[str, Any]) -> tuple[l
         minimum, maximum = field.get("min"), field.get("max")
         if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
             errors.append(f"{field['label']} precisa ficar entre {minimum if minimum is not None else '-∞'} e {maximum if maximum is not None else '∞'}")
-    return errors, evaluate_creation_rules(draft.creation_rules, values)
+    return errors, evaluate_creation_rules(draft.creation_rules, values, {field.id: field.label for field in draft.fields})
 
 
 def prepare_sheet_creation(
@@ -83,7 +83,7 @@ def prepare_sheet_creation(
         )
     }
     calculate_sheet(draft, calculation_inputs)
-    violations = evaluate_creation_rules(draft.creation_rules, normalized_values)
+    violations = evaluate_creation_rules(draft.creation_rules, normalized_values, {field.id: field.label for field in draft.fields})
     if violations:
         raise ValueError("; ".join(violation.message for violation in violations))
 

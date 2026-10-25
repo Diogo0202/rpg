@@ -31,6 +31,9 @@ describe("remote model adapters", () => {
       schema: { name: "Modelo aprovado", fields: [{ id: "nome", label: "Nome", kind: "text", required: true, options: [], expression: null, character_name: true }] },
     });
     expect(starter).toMatchObject({ templateId: "00000000-0000-4000-8000-000000000005", template: { name: "Modelo aprovado", version: 3 } });
+    const rules = [{ type: "select_grants", id: "cla_disciplinas", label: "Disciplinas do clã", field: "cla", fields: ["disc_rapidez"], cases: [{ equals: "Brujah", add: { disc_rapidez: 1 } }] }];
+    const ruled = makeSheetStarter({ id: "00000000-0000-4000-8000-000000000006", name: "V5", version: 1, schema: { fields: [{ id: "cla", label: "Clã", kind: "select", options: ["Brujah"] }], creation_rules: rules } });
+    expect(ruled?.template.creation_rules).toEqual(rules);
     expect(makeSheetStarter({ id: "id", name: "Unsupported", version: 1, schema: { rules_profile_version: 1, fields: [] } })).toBeNull();
     expect(toRemoteCreate("character_sheets", { template_id: "00000000-0000-4000-8000-000000000005", name: "Mara", values: { nome: "Mara" } })).toEqual({
       entityType: "character_sheets", data: { template_id: "00000000-0000-4000-8000-000000000005", name: "Mara", values: { nome: "Mara" } },

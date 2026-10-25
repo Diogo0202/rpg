@@ -1,0 +1,1449 @@
+{
+ "template": {
+  "name": "Vampiro V3 essencial",
+  "version": 1,
+  "fields": [
+   {
+    "id": "sistema",
+    "label": "Sistema",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "other"
+   },
+   {
+    "id": "ativo_na_sessao",
+    "label": "Ativo na sessão",
+    "kind": "checkbox",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "other"
+   },
+   {
+    "id": "nome",
+    "label": "Nome",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "creation_step": "identity",
+    "character_name": true
+   },
+   {
+    "id": "conceito",
+    "label": "Conceito",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "natureza",
+    "label": "Natureza",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "comportamento",
+    "label": "Comportamento",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "seita",
+    "label": "Seita",
+    "kind": "select",
+    "options": [
+     "Camarilla",
+     "Sabá",
+     "Independente",
+     "Anarquista",
+     "Sem seita"
+    ],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "cronica",
+    "label": "Crônica",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "cla",
+    "label": "Clã",
+    "kind": "select",
+    "options": [
+     "Assamita",
+     "Brujah",
+     "Gangrel",
+     "Giovanni",
+     "Lasombra",
+     "Malkaviano",
+     "Nosferatu",
+     "Ravnos",
+     "Seguidores de Set",
+     "Toreador",
+     "Tremere",
+     "Tzimisce",
+     "Ventrue",
+     "Caitiff"
+    ],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity",
+    "identity_kind": "clan"
+   },
+   {
+    "id": "predador",
+    "label": "Tipo de predador (opcional, da casa)",
+    "kind": "select",
+    "options": [
+     "Gato de Beco",
+     "Ensacador",
+     "Sanguessuga",
+     "Talhador",
+     "Consensualista",
+     "Criador",
+     "Osíris",
+     "Homem-Areia",
+     "Rainha da Cena",
+     "Sereia",
+     "Assassino de Beira de Estrada",
+     "Extorsionista",
+     "Ladrão de Túmulos"
+    ],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity",
+    "identity_kind": "predator"
+   },
+   {
+    "id": "forca",
+    "label": "Força",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "destreza",
+    "label": "Destreza",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "vigor",
+    "label": "Vigor",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "carisma",
+    "label": "Carisma",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "manipulacao",
+    "label": "Manipulação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "aparencia",
+    "label": "Aparência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "percepcao",
+    "label": "Percepção",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "inteligencia",
+    "label": "Inteligência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "raciocinio",
+    "label": "Raciocínio",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "attributes"
+   },
+   {
+    "id": "prontidao",
+    "label": "Prontidão",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "esportes",
+    "label": "Esportes",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "briga",
+    "label": "Briga",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "esquiva",
+    "label": "Esquiva",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "empatia",
+    "label": "Empatia",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "expressao",
+    "label": "Expressão",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "intimidacao",
+    "label": "Intimidação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "lideranca",
+    "label": "Liderança",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "manha",
+    "label": "Manha",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "labia",
+    "label": "Lábia",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "empatia_animais",
+    "label": "Empatia com Animais",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "oficios",
+    "label": "Ofícios",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "conducao",
+    "label": "Condução",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "etiqueta",
+    "label": "Etiqueta",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "armas_de_fogo",
+    "label": "Armas de Fogo",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "armas_brancas",
+    "label": "Armas Brancas",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "performance",
+    "label": "Performance",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "seguranca",
+    "label": "Segurança",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "furtividade",
+    "label": "Furtividade",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "sobrevivencia",
+    "label": "Sobrevivência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "academicos",
+    "label": "Acadêmicos",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "computador",
+    "label": "Computador",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "financas",
+    "label": "Finanças",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "investigacao",
+    "label": "Investigação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "direito",
+    "label": "Direito",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "linguistica",
+    "label": "Linguística",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "medicina",
+    "label": "Medicina",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "ocultismo",
+    "label": "Ocultismo",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "politica",
+    "label": "Política",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "ciencia",
+    "label": "Ciência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "skills"
+   },
+   {
+    "id": "disc_animalismo",
+    "label": "Animalismo",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_auspicios",
+    "label": "Auspícios",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_rapidez",
+    "label": "Rapidez",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_quimerismo",
+    "label": "Quimerismo",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_dominacao",
+    "label": "Dominação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_fortitude",
+    "label": "Fortitude",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_necromancia",
+    "label": "Necromancia",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_ofuscacao",
+    "label": "Ofuscação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_obtenebracao",
+    "label": "Obtenebração",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_potencia",
+    "label": "Potência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_presenca",
+    "label": "Presença",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_metamorfose",
+    "label": "Metamorfose",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_quietus",
+    "label": "Quietus",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_serpentis",
+    "label": "Serpentis",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_taumaturgia",
+    "label": "Taumaturgia",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "disc_vicissitude",
+    "label": "Vicissitude",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_aliados",
+    "label": "Aliados",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_contatos",
+    "label": "Contatos",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_fama",
+    "label": "Fama",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_geracao",
+    "label": "Geração",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_rebanho",
+    "label": "Rebanho",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_influencia",
+    "label": "Influência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_mentor",
+    "label": "Mentor",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_recursos",
+    "label": "Recursos",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_lacaios",
+    "label": "Lacaios",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "ant_status",
+    "label": "Status",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "consciencia",
+    "label": "Consciência",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "autocontrole",
+    "label": "Autocontrole",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "coragem",
+    "label": "Coragem",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "humanidade",
+    "label": "Humanidade",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 10,
+    "creation_step": "resources"
+   },
+   {
+    "id": "forca_vontade",
+    "label": "Força de Vontade",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 10,
+    "creation_step": "resources"
+   },
+   {
+    "id": "vontade_gasta",
+    "label": "Força de Vontade gasta",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 10,
+    "creation_step": "resources"
+   },
+   {
+    "id": "pontos_sangue",
+    "label": "Pontos de sangue",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 50,
+    "creation_step": "resources"
+   },
+   {
+    "id": "geracao",
+    "label": "Geração",
+    "kind": "formula",
+    "options": [],
+    "expression": "13 - ant_geracao",
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
+    "id": "notas",
+    "label": "Notas",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "story"
+   },
+   {
+    "id": "segredos",
+    "label": "Segredos",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "private": true,
+    "creation_step": "story"
+   },
+   {
+    "id": "experiencia",
+    "label": "Experiência disponível",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 9999,
+    "creation_step": "resources"
+   }
+  ],
+  "experience_field": "experiencia",
+  "meta_currencies": [
+   {
+    "id": "vontade",
+    "label": "Força de Vontade",
+    "field": "vontade_gasta",
+    "mode": "track",
+    "max_field": "forca_vontade"
+   }
+  ],
+  "creation_rules": [
+   {
+    "type": "priority_points",
+    "id": "criacao_v3",
+    "label": "Criação por prioridades",
+    "freebies": 15,
+    "exact": true,
+    "fields": [
+     "forca",
+     "destreza",
+     "vigor",
+     "carisma",
+     "manipulacao",
+     "aparencia",
+     "percepcao",
+     "inteligencia",
+     "raciocinio",
+     "prontidao",
+     "esportes",
+     "briga",
+     "esquiva",
+     "empatia",
+     "expressao",
+     "intimidacao",
+     "lideranca",
+     "manha",
+     "labia",
+     "empatia_animais",
+     "oficios",
+     "conducao",
+     "etiqueta",
+     "armas_de_fogo",
+     "armas_brancas",
+     "performance",
+     "seguranca",
+     "furtividade",
+     "sobrevivencia",
+     "academicos",
+     "computador",
+     "financas",
+     "investigacao",
+     "direito",
+     "linguistica",
+     "medicina",
+     "ocultismo",
+     "politica",
+     "ciencia",
+     "disc_animalismo",
+     "disc_auspicios",
+     "disc_rapidez",
+     "disc_quimerismo",
+     "disc_dominacao",
+     "disc_fortitude",
+     "disc_necromancia",
+     "disc_ofuscacao",
+     "disc_obtenebracao",
+     "disc_potencia",
+     "disc_presenca",
+     "disc_metamorfose",
+     "disc_quietus",
+     "disc_serpentis",
+     "disc_taumaturgia",
+     "disc_vicissitude",
+     "ant_aliados",
+     "ant_contatos",
+     "ant_fama",
+     "ant_geracao",
+     "ant_rebanho",
+     "ant_influencia",
+     "ant_mentor",
+     "ant_recursos",
+     "ant_lacaios",
+     "ant_status",
+     "consciencia",
+     "autocontrole",
+     "coragem",
+     "humanidade",
+     "forca_vontade"
+    ],
+    "pools": [
+     {
+      "id": "atributos",
+      "label": "Atributos",
+      "base": 1,
+      "cost": 5,
+      "budgets": [
+       7,
+       5,
+       3
+      ],
+      "groups": [
+       {
+        "label": "Físicos",
+        "fields": [
+         "forca",
+         "destreza",
+         "vigor"
+        ]
+       },
+       {
+        "label": "Sociais",
+        "fields": [
+         "carisma",
+         "manipulacao",
+         "aparencia"
+        ]
+       },
+       {
+        "label": "Mentais",
+        "fields": [
+         "percepcao",
+         "inteligencia",
+         "raciocinio"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "habilidades",
+      "label": "Habilidades",
+      "base": 0,
+      "cost": 2,
+      "budgets": [
+       13,
+       9,
+       5
+      ],
+      "groups": [
+       {
+        "label": "Talentos",
+        "fields": [
+         "prontidao",
+         "esportes",
+         "briga",
+         "esquiva",
+         "empatia",
+         "expressao",
+         "intimidacao",
+         "lideranca",
+         "manha",
+         "labia"
+        ]
+       },
+       {
+        "label": "Perícias",
+        "fields": [
+         "empatia_animais",
+         "oficios",
+         "conducao",
+         "etiqueta",
+         "armas_de_fogo",
+         "armas_brancas",
+         "performance",
+         "seguranca",
+         "furtividade",
+         "sobrevivencia"
+        ]
+       },
+       {
+        "label": "Conhecimentos",
+        "fields": [
+         "academicos",
+         "computador",
+         "financas",
+         "investigacao",
+         "direito",
+         "linguistica",
+         "medicina",
+         "ocultismo",
+         "politica",
+         "ciencia"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "disciplinas",
+      "label": "Disciplinas",
+      "base": 0,
+      "cost": 7,
+      "budgets": [
+       3
+      ],
+      "groups": [
+       {
+        "label": "Disciplinas",
+        "fields": [
+         "disc_animalismo",
+         "disc_auspicios",
+         "disc_rapidez",
+         "disc_quimerismo",
+         "disc_dominacao",
+         "disc_fortitude",
+         "disc_necromancia",
+         "disc_ofuscacao",
+         "disc_obtenebracao",
+         "disc_potencia",
+         "disc_presenca",
+         "disc_metamorfose",
+         "disc_quietus",
+         "disc_serpentis",
+         "disc_taumaturgia",
+         "disc_vicissitude"
+        ]
+       }
+      ],
+      "allowed": {
+       "field": "cla",
+       "cases": {
+        "Assamita": [
+         "disc_rapidez",
+         "disc_ofuscacao",
+         "disc_quietus"
+        ],
+        "Brujah": [
+         "disc_rapidez",
+         "disc_potencia",
+         "disc_presenca"
+        ],
+        "Gangrel": [
+         "disc_animalismo",
+         "disc_fortitude",
+         "disc_metamorfose"
+        ],
+        "Giovanni": [
+         "disc_dominacao",
+         "disc_necromancia",
+         "disc_potencia"
+        ],
+        "Lasombra": [
+         "disc_dominacao",
+         "disc_obtenebracao",
+         "disc_potencia"
+        ],
+        "Malkaviano": [
+         "disc_auspicios",
+         "disc_dominacao",
+         "disc_ofuscacao"
+        ],
+        "Nosferatu": [
+         "disc_animalismo",
+         "disc_ofuscacao",
+         "disc_potencia"
+        ],
+        "Ravnos": [
+         "disc_animalismo",
+         "disc_quimerismo",
+         "disc_fortitude"
+        ],
+        "Seguidores de Set": [
+         "disc_ofuscacao",
+         "disc_presenca",
+         "disc_serpentis"
+        ],
+        "Toreador": [
+         "disc_auspicios",
+         "disc_rapidez",
+         "disc_presenca"
+        ],
+        "Tremere": [
+         "disc_auspicios",
+         "disc_dominacao",
+         "disc_taumaturgia"
+        ],
+        "Tzimisce": [
+         "disc_animalismo",
+         "disc_auspicios",
+         "disc_vicissitude"
+        ],
+        "Ventrue": [
+         "disc_dominacao",
+         "disc_fortitude",
+         "disc_presenca"
+        ],
+        "Caitiff": [
+         "disc_animalismo",
+         "disc_auspicios",
+         "disc_rapidez",
+         "disc_quimerismo",
+         "disc_dominacao",
+         "disc_fortitude",
+         "disc_necromancia",
+         "disc_ofuscacao",
+         "disc_obtenebracao",
+         "disc_potencia",
+         "disc_presenca",
+         "disc_metamorfose",
+         "disc_quietus",
+         "disc_serpentis",
+         "disc_taumaturgia",
+         "disc_vicissitude"
+        ]
+       }
+      }
+     },
+     {
+      "id": "antecedentes",
+      "label": "Antecedentes",
+      "base": 0,
+      "cost": 1,
+      "budgets": [
+       5
+      ],
+      "groups": [
+       {
+        "label": "Antecedentes",
+        "fields": [
+         "ant_aliados",
+         "ant_contatos",
+         "ant_fama",
+         "ant_geracao",
+         "ant_rebanho",
+         "ant_influencia",
+         "ant_mentor",
+         "ant_recursos",
+         "ant_lacaios",
+         "ant_status"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "virtudes",
+      "label": "Virtudes",
+      "base": 1,
+      "cost": 2,
+      "budgets": [
+       7
+      ],
+      "groups": [
+       {
+        "label": "Virtudes",
+        "fields": [
+         "consciencia",
+         "autocontrole",
+         "coragem"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "humanidade",
+      "label": "Humanidade",
+      "base": 0,
+      "base_from": [
+       "consciencia",
+       "autocontrole"
+      ],
+      "cost": 1,
+      "budgets": [
+       0
+      ],
+      "groups": [
+       {
+        "label": "Humanidade",
+        "fields": [
+         "humanidade"
+        ]
+       }
+      ]
+     },
+     {
+      "id": "vontade",
+      "label": "Força de Vontade",
+      "base": 0,
+      "base_from": [
+       "coragem"
+      ],
+      "cost": 1,
+      "budgets": [
+       0
+      ],
+      "groups": [
+       {
+        "label": "Força de Vontade",
+        "fields": [
+         "forca_vontade"
+        ]
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "system_key": "vampire-v3"
+ },
+ "values": {
+  "sistema": "Vampiro V3",
+  "ativo_na_sessao": true,
+  "nome": "",
+  "conceito": "",
+  "natureza": "",
+  "comportamento": "",
+  "seita": "",
+  "cronica": "",
+  "cla": "",
+  "predador": "",
+  "forca": 1,
+  "destreza": 1,
+  "vigor": 1,
+  "carisma": 1,
+  "manipulacao": 1,
+  "aparencia": 1,
+  "percepcao": 1,
+  "inteligencia": 1,
+  "raciocinio": 1,
+  "prontidao": 0,
+  "esportes": 0,
+  "briga": 0,
+  "esquiva": 0,
+  "empatia": 0,
+  "expressao": 0,
+  "intimidacao": 0,
+  "lideranca": 0,
+  "manha": 0,
+  "labia": 0,
+  "empatia_animais": 0,
+  "oficios": 0,
+  "conducao": 0,
+  "etiqueta": 0,
+  "armas_de_fogo": 0,
+  "armas_brancas": 0,
+  "performance": 0,
+  "seguranca": 0,
+  "furtividade": 0,
+  "sobrevivencia": 0,
+  "academicos": 0,
+  "computador": 0,
+  "financas": 0,
+  "investigacao": 0,
+  "direito": 0,
+  "linguistica": 0,
+  "medicina": 0,
+  "ocultismo": 0,
+  "politica": 0,
+  "ciencia": 0,
+  "disc_animalismo": 0,
+  "disc_auspicios": 0,
+  "disc_rapidez": 0,
+  "disc_quimerismo": 0,
+  "disc_dominacao": 0,
+  "disc_fortitude": 0,
+  "disc_necromancia": 0,
+  "disc_ofuscacao": 0,
+  "disc_obtenebracao": 0,
+  "disc_potencia": 0,
+  "disc_presenca": 0,
+  "disc_metamorfose": 0,
+  "disc_quietus": 0,
+  "disc_serpentis": 0,
+  "disc_taumaturgia": 0,
+  "disc_vicissitude": 0,
+  "ant_aliados": 0,
+  "ant_contatos": 0,
+  "ant_fama": 0,
+  "ant_geracao": 0,
+  "ant_rebanho": 0,
+  "ant_influencia": 0,
+  "ant_mentor": 0,
+  "ant_recursos": 0,
+  "ant_lacaios": 0,
+  "ant_status": 0,
+  "consciencia": 1,
+  "autocontrole": 1,
+  "coragem": 1,
+  "humanidade": 2,
+  "forca_vontade": 1,
+  "vontade_gasta": 0,
+  "pontos_sangue": 0,
+  "notas": "",
+  "segredos": "",
+  "experiencia": 0
+ }
+}

@@ -42,6 +42,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
 const SYSTEMS = [
   { id: "one-ring", label: "O Um Anel (medieval)" },
   { id: "vampire-v5", label: "Vampiro V5 (cidade moderna)" },
+  { id: "vampire-v3", label: "Vampiro V3 (cidade moderna)" },
   { id: "hunter", label: "Caçador (cidade moderna)" },
 ];
 const HISTORY_LIMIT = 100;

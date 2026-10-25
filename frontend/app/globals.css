@@ -122,6 +122,17 @@ nav { display:grid; gap:5px; } .nav { border:0; background:transparent; color:#e
 .sheet-dependency-case label { display:grid;gap:5px;font-size:10px; }
 .sheet-dependency-case input,.sheet-dependency-case textarea { width:100%;min-height:40px;padding:8px;border:1px solid #c9c4b5;background:#fffef9;font:13px Georgia,serif; }
 .sheet-dependency-case .sheet-remove { justify-self:end;border:0;background:transparent;color:#8d4738;font-size:10px;text-decoration:underline;text-underline-offset:3px; }
+.homebrew-clans { display:grid;gap:12px;margin:18px 0 0; }
+.homebrew-clans legend { padding:0 5px;font:17px Georgia,serif; }
+.homebrew-intro { margin:0;color:#3e4942;font-size:14px;line-height:1.5; }
+.homebrew-list { display:grid;gap:6px;margin:0;padding:0;list-style:none; }
+.homebrew-list li { display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;background:#e5e8db;font-size:14px; }
+.homebrew-list .sheet-remove { border:0;background:transparent;color:#8d4738;font-size:13px;text-decoration:underline;text-underline-offset:3px; }
+.homebrew-subtitle { display:flex;justify-content:space-between;margin:0 0 8px;font-size:14px;font-weight:700; }
+.homebrew-subtitle span { color:#4c554f;font-weight:400; }
+.homebrew-disciplines { display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,190px),1fr));gap:4px 12px; }
+.homebrew-disciplines .sheet-required { padding:4px 0;font-size:13px;white-space:normal; }
+.homebrew-clans .sheet-dependency-case { grid-template-columns:minmax(0,1fr); }
 .sheet-field-grid .sheet-remove { justify-self:end;border:0;background:transparent;color:#8d4738;font-size:10px;text-decoration:underline;text-underline-offset:3px; }
 .sheet-field-grid .sheet-remove:disabled { color:#918e83;cursor:not-allowed; }
 .sheet-preview-card { position:sticky;top:18px;padding:25px;background:linear-gradient(160deg,#fbfaf5,#f0ecdf);box-shadow:7px 7px 0 #ded8c8; }

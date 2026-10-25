@@ -14,6 +14,7 @@ import { createCampaignSheet } from "../lib/sheet-api";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { PortraitPicker } from "./portrait-picker";
+import { HomebrewClanEditor } from "./homebrew-clan-editor";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
 type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
 const SHEET_COLUMNS = "id, name, template_id, owner_id, values, version, effects, portrait_path";
@@ -594,6 +595,8 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
               setTemplate((current) => ({ ...current, system_key: event.target.value || null }));
             }} />
           </label>
+
+          <HomebrewClanEditor template={template} onChange={(next) => { editorRevision.current += 1; setTemplateId(""); setTemplate(next); }} />
 
           <div className="sheet-fields-heading"><div><p className="eyebrow">ESTRUTURA</p><h3>Campos da ficha <span>{template.fields.length}</span></h3></div>
             <button className="quiet" type="button" onClick={addField}>Adicionar campo</button>

@@ -130,9 +130,13 @@ export function makeSheetStarter(template: { id: string; name: string; version: 
   const normalized = fields.map((field) => ({
     required: false, options: [], expression: null, ...field,
   }));
+  // Creation rules travel with the template: the database checks them when the sheet is created.
+  const rules = Array.isArray(schema.creation_rules) ? { creation_rules: schema.creation_rules } : {};
   return {
     id: template.id, label: template.name, templateId: template.id, systemKey: template.id,
-    template: { name: template.name, version: template.version, fields: normalized } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
+    template: { name: template.name, version: template.version, fields: normalized, ...rules,
+      ...(typeof schema.system_key === "string" ? { system_key: schema.system_key } : {}),
+    } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
     values: {} as Record<string, string | number | boolean | string[]>,
   };
 }

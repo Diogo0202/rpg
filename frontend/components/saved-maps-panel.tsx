@@ -15,6 +15,7 @@ const MAP_COLUMNS = "id, campaign_id, name, document, version, system_key, share
 const SYSTEM_OPTIONS = [
   { id: "one-ring", label: "O Um Anel · medieval" },
   { id: "vampire-v5", label: "Vampiro V5 · cidade moderna" },
+  { id: "vampire-v3", label: "Vampiro V3 · cidade moderna" },
   { id: "hunter", label: "Caçador · cidade moderna" },
 ];
 

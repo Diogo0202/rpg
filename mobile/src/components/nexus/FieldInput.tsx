@@ -13,9 +13,13 @@ type Props = {
   formula?: FormulaResult | undefined;
   onChange: (id: string, value: FieldValue | undefined) => void;
   idPrefix?: string;
+  /** Number decided by a creation rule (clan and predator); shown read-only. */
+  fixed?: number | undefined;
+  /** Collection items a creation rule grants; listed but not removable. */
+  lockedItems?: string[] | undefined;
 };
 
-export function FieldInput({ template, field, values, error, formula, onChange, idPrefix = "f" }: Props) {
+export function FieldInput({ template, field, values, error, formula, onChange, idPrefix = "f", fixed, lockedItems }: Props) {
   const id = `${idPrefix}-${field.id}`;
   const errId = `${id}-err`;
   const value = values[field.id];
@@ -50,6 +54,18 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
       </div>
     );
   }
+  if (field.kind === "number" && fixed !== undefined) {
+    return (
+      <div>
+        <p className="mb-1 block text-sm font-semibold text-ink">{field.label}</p>
+        <output id={id} className="parchment-inset flex min-h-11 items-center justify-between px-3 text-ink" aria-label={`${field.label}, definido pelo clã e predador`}>
+          <span className="text-lg font-bold">{fixed}</span>
+          <span className="text-xs text-ink-muted">Definido pelo clã e predador</span>
+        </output>
+        {err}
+      </div>
+    );
+  }
   if (field.kind === "number") {
     return (
       <div>
@@ -77,7 +93,7 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
       </div>
     );
   }
-  if (field.kind === "collection") return <CollectionInput id={id} field={field} value={Array.isArray(value) ? value : []} onChange={onChange} error={error} />;
+  if (field.kind === "collection") return <CollectionInput id={id} field={field} value={Array.isArray(value) ? value : []} locked={lockedItems ?? []} onChange={onChange} error={error} />;
   const long = ["notas", "ambicao", "desejo", "apoiadores"].includes(field.id);
   return (
     <div>
@@ -94,7 +110,7 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
   );
 }
 
-function CollectionInput({ id, field, value, onChange, error }: { id: string; field: SheetField; value: string[]; onChange: Props["onChange"]; error?: string | undefined }) {
+function CollectionInput({ id, field, value, locked, onChange, error }: { id: string; field: SheetField; value: string[]; locked: string[]; onChange: Props["onChange"]; error?: string | undefined }) {
   const [draft, setDraft] = useState("");
   const add = () => {
     const t = draft.trim();
@@ -114,8 +130,10 @@ function CollectionInput({ id, field, value, onChange, error }: { id: string; fi
           {value.map((item) => (
             <li key={item} className="inline-flex items-center gap-1 rounded-full bg-parchment-deep pl-3 text-sm text-ink">
               {item}
-              <button type="button" className="tap inline-flex items-center justify-center rounded-full" aria-label={`Remover ${item}`}
-                onClick={() => onChange(field.id, value.filter((v) => v !== item))}><X className="size-4" aria-hidden /></button>
+              {locked.includes(item)
+                ? <span className="px-2 text-xs text-ink-muted">concedido</span>
+                : <button type="button" className="tap inline-flex items-center justify-center rounded-full" aria-label={`Remover ${item}`}
+                  onClick={() => onChange(field.id, value.filter((v) => v !== item))}><X className="size-4" aria-hidden /></button>}
             </li>
           ))}
         </ul>

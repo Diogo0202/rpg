@@ -132,6 +132,87 @@
   .reviewGroup p { font-size: 11px; }
 }
 
+.distribution { display: grid; gap: 14px; margin: 0 0 22px; }
+.modeField { min-width: 0; margin: 0; padding: 0; border: 0; }
+.modeField legend { margin-bottom: 10px; font: 17px/1.25 Georgia, serif; }
+.modeGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.modeCard { position: relative; display: grid; align-content: start; gap: 10px; min-width: 0; padding: 15px; border: 1px solid var(--line, #c9c4b5); background: #fffef9; color: var(--ink, #172020); cursor: pointer; transition: border-color .15s, background .15s, transform .15s; }
+.modeCard:hover { border-color: var(--moss, #425e4b); }
+.modeCard:active { transform: translateY(1px); }
+.modeCard input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.modeCard:focus-within { outline: 2px solid var(--accent, #b84a31); outline-offset: 2px; }
+.modeCard strong { font: 17px/1.2 Georgia, serif; }
+.modeCard small { color: #4c554f; font-size: 12px; line-height: 1.4; }
+.modeSelected { border-color: var(--moss, #425e4b); background: #e5e8db; box-shadow: inset 3px 0 var(--moss, #425e4b); }
+.modeCard:has(input:disabled) { cursor: not-allowed; opacity: .58; }
+.modeShape { display: flex; align-items: end; gap: 12px; min-height: 58px; }
+.modeColumn { display: grid; justify-items: center; gap: 5px; }
+.modeColumn b { color: var(--moss, #425e4b); font-size: 12px; }
+.modeDots { display: flex; flex-direction: column-reverse; gap: 3px; }
+.modeDots i { display: block; width: 9px; height: 9px; border-radius: 50%; background: var(--accent, #b84a31); }
+.modeHint { margin: 0; padding: 12px 14px; background: #f1eee5; color: #3e4942; font-size: 14px; line-height: 1.45; }
+.tally { display: grid; gap: 10px; padding: 13px 15px; background: #f1eee5; }
+.tallyComplete { background: #e5e8db; }
+.tallyStatus { margin: 0; color: var(--ink, #172020); font-size: 14px; font-weight: 700; line-height: 1.4; }
+.tally ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.tallyRow { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; background: #fffef9; font-size: 13px; }
+.tallyRow strong { font: 15px Georgia, serif; }
+.tallyDone { background: var(--moss, #425e4b); color: #fff; }
+.tallyOver { background: #a3382c; color: #fff; }
+
+@media (max-width: 600px) {
+  .modeGrid { grid-template-columns: minmax(0, 1fr); }
+  .modeShape { min-height: 0; }
+}
+
+.priorityBoard { margin: 0 0 18px; }
+.priorityPool { display: grid; gap: 6px; }
+.priorityPool h4 { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 0; font: 15px Georgia, serif; }
+.priorityPool h4 span { color: #4c554f; font: 12px Arial, sans-serif; }
+.priorityPool ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.priorityBonus { background: var(--accent, #b84a31); color: #fff; }
+.grantList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.grantSummary { display: grid; align-content: start; gap: 8px; padding: 14px 15px; background: #e5e8db; color: var(--ink, #172020); font-size: 14px; line-height: 1.45; }
+.grantSummary p { margin: 0; }
+.grantSummary strong { font: 17px/1.25 Georgia, serif; }
+.grantSummary ul,.lockedItems { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.grantSummary li,.lockedItems li { padding: 5px 9px; background: #fffef9; font-size: 13px; }
+.grantButton { justify-self: start; min-height: 40px; padding: 8px 14px; border: 1px solid var(--moss, #425e4b); background: var(--moss, #425e4b); color: #fff; font-weight: 700; cursor: pointer; transition: transform .15s; }
+.grantButton:active { transform: translateY(1px); }
+.grantButton:focus-visible { outline: 2px solid var(--accent, #b84a31); outline-offset: 2px; }
+
+.powerPicker { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.powerPicker legend { margin-bottom: 4px; font: 17px/1.25 Georgia, serif; }
+.powerGroup { display: grid; gap: 8px; }
+.powerGroup h4 { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin: 0; font: 16px Georgia, serif; }
+.powerGroup h4 span { color: #4c554f; font: 13px Arial, sans-serif; }
+.powerList { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 8px; }
+.power { position: relative; display: grid; gap: 3px; min-height: 52px; padding: 9px 11px; border: 1px solid var(--line, #c9c4b5); background: #fffef9; color: var(--ink, #172020); cursor: pointer; transition: border-color .15s, background .15s; }
+.power input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.power span { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.power small { color: #4c554f; font-size: 12px; }
+.power:hover { border-color: var(--moss, #425e4b); }
+.power:focus-within { outline: 2px solid var(--accent, #b84a31); outline-offset: 2px; }
+.powerChecked { border-color: var(--moss, #425e4b); background: #e5e8db; box-shadow: inset 3px 0 var(--moss, #425e4b); }
+.power:has(input:disabled) { cursor: not-allowed; opacity: .5; }
+
+.grantDialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: clamp(18px, 4vw, 28px); border: 1px solid var(--line, #c9c4b5); background: var(--panel, #faf9f4); color: var(--ink, #172020); box-shadow: 0 18px 50px rgba(23, 32, 32, .28); }
+.grantDialog::backdrop { background: rgba(23, 32, 32, .55); }
+.grantDialog form { display: grid; gap: 18px; }
+.grantDialog h3 { margin: 0; font: 24px/1.15 Georgia, serif; }
+.dialogIntro { margin: -8px 0 0; color: #3e4942; font-size: 14px; line-height: 1.45; }
+.grantDialog .actions { margin-top: 0; }
+
+@media (max-width: 600px) {
+  .grantList { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grantButton,.power { transition: none; }
+  .modeCard { transition: none; }
+  .modeCard:active { transform: none; }
+}
+
 .rules { display: grid; gap: 6px; margin: 16px 0 0; padding: 12px 14px; background: #f5e8e4; color: #8e3028; font-size: 14px; line-height: 1.45; }
 .rules:focus-visible { outline: 3px solid var(--accent, #b84a31); outline-offset: 2px; }
 .rules ul { margin: 0; padding-left: 18px; }

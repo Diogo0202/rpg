@@ -32,10 +32,34 @@ export type SheetField = {
  * Checked when a sheet is created; later advancement may leave the distribution.
  */
 export type CreationDistribution = { label: string; counts: Record<string, number>; rest?: number };
+/** What one option grants: dots added to number fields and items a collection must hold. */
+export type Grant = { add?: Record<string, number>; items?: Record<string, string[]> };
+/** Shown only when another select already holds one of `in` (for example a clan-only discipline). */
+export type GrantRequirement = { field: string; in: string[] };
+export type GrantChoiceOption = Grant & { label: string; requires?: GrantRequirement | null };
+/** A pick the player makes; stored in `field`, a select that depends on the rule's controlling select. */
+export type GrantChoice = { field: string; label: string; options: GrantChoiceOption[] };
+export type GrantCase = Grant & { equals: string; choices?: GrantChoice[]; homebrew?: boolean };
+export type PowerEntry = { name: string; level: number; requires?: { field: string; min: number } | null };
+/** Powers of one discipline. `count` and `max_level` are "dots" (the discipline's value) or a fixed number. */
+export type PowerSource = { field: string; label: string; powers: PowerEntry[]; count?: "dots" | number; max_level?: "dots" | number };
+export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; cases: GrantCase[] };
+export type PowerPicksRule = { type: "power_picks"; id: string; label: string; collection: string; fields: string[]; sources: PowerSource[] };
+export type PriorityGroup = { label: string; fields: string[] };
+export type PriorityPool = {
+  id: string; label: string; base?: number; base_from?: string[]; cost: number; budgets: number[]; groups: PriorityGroup[];
+  /** Only these fields may rise above base for the value the select holds. */
+  allowed?: { field: string; cases: Record<string, string[]> } | null;
+};
+/** Free budgets per group (any order) plus freebie points; `fields` mirrors every pool and base_from field. */
+export type PriorityPoints = { type: "priority_points"; id: string; label: string; freebies: number; exact?: boolean; pools: PriorityPool[]; fields: string[] };
 export type CreationRule =
+  | PriorityPoints
   | { type: "group_distribution"; id: string; label: string; fields: string[]; options: CreationDistribution[] }
   | { type: "group_sum"; id: string; label: string; fields: string[]; min?: number | null; max?: number | null }
-  | { type: "points_budget"; id: string; label: string; fields: string[]; costs: Record<string, number>; budget: number; exact?: boolean };
+  | { type: "points_budget"; id: string; label: string; fields: string[]; costs: Record<string, number>; budget: number; exact?: boolean }
+  | SelectGrantsRule
+  | PowerPicksRule;
 
 /**
  * System-neutral resource such as V5 Willpower or D&D Inspiration.

@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.services.creation_rules import CreationRule
+from app.services.creation_rules import CreationRule, PowerPicks, PriorityPoints, SelectGrants
 from app.services.modifiers import Effect, ModifierPreview, Tag
 
 
@@ -138,10 +138,40 @@ class TemplateDraft(BaseModel):
         ids = [rule.id for rule in self.creation_rules]
         if len(ids) != len(set(ids)):
             raise ValueError("cada regra de criação precisa de um id único")
+        kinds = {field.id: field.kind for field in self.fields}
+
+        def expect(field_id: str, kind: FieldKind, rule_label: str) -> None:
+            if kinds.get(field_id) != kind:
+                raise ValueError(f"regra {rule_label} cita {field_id}, que precisa ser um campo {kind.value}")
+
         for rule in self.creation_rules:
             missing = [field_id for field_id in rule.fields if field_id not in numbers]
             if missing:
                 raise ValueError(f"regra {rule.label} cita campos que não são numéricos: {', '.join(missing)}")
+            if isinstance(rule, SelectGrants):
+                expect(rule.field, FieldKind.select, rule.label)
+                for case in rule.cases:
+                    grants = [case, *(option for choice in case.choices for option in choice.options)]
+                    for choice in case.choices:
+                        expect(choice.field, FieldKind.select, rule.label)
+                    for grant in grants:
+                        for field_id in grant.add:
+                            expect(field_id, FieldKind.number, rule.label)
+                        for field_id in grant.items:
+                            expect(field_id, FieldKind.collection, rule.label)
+                        requirement = getattr(grant, "requires", None)
+                        if requirement:
+                            expect(requirement["field"], FieldKind.select, rule.label)
+            elif isinstance(rule, PriorityPoints):
+                for pool in rule.pools:
+                    if pool.allowed:
+                        expect(pool.allowed.field, FieldKind.select, rule.label)
+            elif isinstance(rule, PowerPicks):
+                expect(rule.collection, FieldKind.collection, rule.label)
+                for source in rule.sources:
+                    for power in source.powers:
+                        if power.requires:
+                            expect(power.requires["field"], FieldKind.number, rule.label)
         return self
 
     @model_validator(mode="after")

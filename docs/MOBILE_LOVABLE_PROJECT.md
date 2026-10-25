@@ -8,7 +8,9 @@ O pacote enviado contém 88 arquivos de código, testes e referências do editor
 
 O agente concluiu a edição no commit interno `a6adf6f919e532af9dec26f919960b60a2e65b30`, com biblioteca e editor de mapas adaptados para IndexedDB local. Ele confirmou apenas typecheck. A rodada seguinte, solicitando testes e build, foi rejeitada por falta de créditos.
 
-Na conferência de 22/10, a prévia hospedada ainda entregou a versão antiga após recarga e navegação. Portanto, a atualização do site servido continua pendente. Uma cópia isolada do código recuperado passou em 62 testes, typecheck e build local; nela foram conferidos criação de casa/NPC, persistência após recarga, exportação e prévia do jogador. Isso não comprova deploy no Lovable. Veja `ATUALIZACAO_SITE_2026-10-22.md`.
+Na conferência de 22/10, a prévia hospedada ainda entregou a versão antiga após recarga e navegação. A continuação de 24/10 concluiu a atualização no commit `11ee2994ef434d4b2f383dbdfd2d15c30dc5cc93`, confirmado novamente pela consulta do projeto em 25/10. O Lovable informou 65 testes, typecheck e build padrão aprovados após ajustar o destino do service worker.
+
+A origem hospedada carregou RPG-Atlas e permitiu criar um mapa V5 com casa e NPC, salvar, recarregar, exportar JSON e ocultar o pin privado na prévia do jogador. Os dados anteriores observados permaneceram. Mapas continuam locais, sem sincronização ou compartilhamento entre usuários. A verificação móvel hospedada foi reportada pelo agente Lovable; a conferência móvel direta do coordenador ocorreu na cópia local. Veja `ATUALIZACAO_SITE_2026-10-22.md` para os limites de cada evidência.
 
 Esta execução não autoriza publicação pública nem aplicação de migrations remotas.
 
