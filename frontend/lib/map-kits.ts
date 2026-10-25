@@ -140,9 +140,9 @@ export const MODERN_KIT: MapKit = {
   ],
 };
 
-/** O Um Anel uses the medieval kit; Vampire V5, Hunter and unknown systems use the city. */
+/** O Um Anel and Shadow of the Demon Lord use the medieval kit; Vampire V5, Hunter and unknown systems use the city. */
 export function themeForSystem(systemKey: string | null | undefined): MapTheme {
-  return systemKey === "one-ring" ? "medieval" : "modern";
+  return systemKey === "one-ring" || systemKey === "shadow-demon-lord" ? "medieval" : "modern";
 }
 
 export function kitForSystem(systemKey: string | null | undefined): MapKit {

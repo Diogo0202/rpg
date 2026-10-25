@@ -66,7 +66,7 @@ Evidências: [criação de campanha](frontend/app/app/actions.ts), [login](front
 - **FIC-13 | 75% | Em processo:** controle de versão para evitar sobrescrever uma ficha alterada em outra sessão.
 - **FIC-14 | 75% | Em processo:** proteção de modelos aprovados que já tenham fichas, exigindo nova versão para mudar o schema. O trigger ainda precisa ser executado e testado no banco.
 - **FIC-15 | 75% | Em processo:** modelo V5 com 9 atributos e 27 habilidades, Fome, Humanidade, Manchas, campos dramáticos e coleções; calcula Saúde e Vontade máximas. Benefícios de criação e regras completas ainda faltam.
-- **FIC-16 | 50% | Em processo:** modelos iniciais V5, Caçador e O Um Anel, editáveis e sujeitos à aprovação do mestre, com roladores específicos iniciais. As fichas completas e todas as regras de criação ainda não estão entregues.
+- **FIC-16 | 50% | Em processo:** modelos iniciais V5, V3, Caçador, O Um Anel e Shadow of the Demon Lord (nível 0 por ancestralidade, números marcados para conferência no livro), editáveis e sujeitos à aprovação do mestre, com roladores específicos iniciais. As fichas completas e todas as regras de criação ainda não estão entregues.
 - **FIC-17 | 75% | Em processo:** importar/exportar JSON Nexus com modelo, valores, efeitos e inventário; restauração cria ficha nova com modelo idêntico aprovado. Compatibilidade direta Atlas e formato universal pendentes.
 - **FIC-18 | 0% | Não implementada:** histórico navegável de alterações e restauração de versões anteriores da ficha.
 
@@ -104,7 +104,7 @@ Evidências: [motor de probabilidade](backend/app/services/v5_probability.py), [
 - **MAP-04 | 75% | Em processo:** ferramentas de muro (desenho livre, ímã nas pontas e na grade, Shift em 15°), casa (retângulo ou polígono), porta presa ao muro, sombra, objeto, pin e borracha, com desfazer/refazer. O demo PixiJS foi removido.
 - **MAP-05 | 50% | Em processo:** sombras desenhadas pelo narrador, com opacidade e opção "só Mestre". Névoa revelada por jogador pendente.
 - **MAP-06 | 75% | Em processo:** documento v2 com até 2000 estruturas e 300 pins, validado no banco (`20261023100000_map_editor_portraits.sql`) e coberto por pgTAP local. Falta aplicar e testar no Supabase remoto.
-- **MAP-07 | 75% | Em processo:** kits por sistema: medieval (O Um Anel) e cidade moderna (Vampiro V5, Caçador) para muros, pisos, portas, objetos e ícones de NPC/item; camadas ocultáveis. Luz por célula pendente.
+- **MAP-07 | 75% | Em processo:** kits por sistema: medieval (O Um Anel, Shadow of the Demon Lord) e cidade moderna (Vampiro V5, Caçador) para muros, pisos, portas, objetos e ícones de NPC/item; camadas ocultáveis. Luz por célula pendente.
 - **MAP-08 | 50% | Em processo:** visão do jogador redigida pela RPC `get_player_map`; cada jogador move só o pin da própria ficha. Linha de visão com bloqueio por paredes pendente.
 - **MAP-09 | 50% | Em processo:** jogadores recebem invalidação por `map_notifications` (Realtime) e recarregam o mapa. Edição simultânea de vários narradores pendente.
 - **MAP-10 | 25% | Em processo:** exportação JSON do documento. PNG foi retirado com o editor novo; importação, WebP, PDF e UVTT pendentes.

@@ -44,6 +44,7 @@ const SYSTEMS = [
   { id: "vampire-v5", label: "Vampiro V5 (cidade moderna)" },
   { id: "vampire-v3", label: "Vampiro V3 (cidade moderna)" },
   { id: "hunter", label: "Caçador (cidade moderna)" },
+  { id: "shadow-demon-lord", label: "Shadow of the Demon Lord (medieval)" },
 ];
 const HISTORY_LIMIT = 100;
 const SNAP_RADIUS = 140;

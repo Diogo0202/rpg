@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Dices, RotateCcw, Trash2 } from "lucide-react";
-import { DICE_LIMITS, rollExpression, rollPool, type DiceRoll } from "@/lib/dice";
+import { DICE_LIMITS, rollExpression, rollPool, rollSotdl, type DiceRoll } from "@/lib/dice";
 import { estimateV5Probabilities, type RollProbabilities } from "@/lib/v5-probability";
 import { prefGet, prefSet } from "@/lib/nexus/prefs";
 import { NexusContext } from "@/lib/nexus/context";
@@ -14,7 +14,7 @@ import { Btn, Empty, Panel, Tag } from "./ui";
 
 const HISTORY_KEY = "dice-roll-history-v1";
 const HISTORY_LIMIT = 30;
-type RollMode = "expression" | "v5";
+type RollMode = "expression" | "v5" | "sotdl";
 
 function validHistory(value: unknown): DiceRoll[] {
   if (!Array.isArray(value)) return [];
@@ -94,6 +94,10 @@ export function DicePanel() {
   const [hunger, setHunger] = useState("0");
   const [difficulty, setDifficulty] = useState("3");
   const [willpowerDice, setWillpowerDice] = useState("3");
+  const [attribute, setAttribute] = useState("10");
+  const [boons, setBoons] = useState("0");
+  const [banes, setBanes] = useState("0");
+  const [target, setTarget] = useState("10");
   const [selectedSheetId, setSelectedSheetId] = useState("");
   const [contextTag, setContextTag] = useState("");
   const [sheetProbability, setSheetProbability] = useState<SheetProbabilityResult | null>(null);
@@ -247,6 +251,10 @@ export function DicePanel() {
             `O modificador deve ficar entre -${DICE_LIMITS.maxModifier} e ${DICE_LIMITS.maxModifier}.`,
           );
         void saveRoll(rollExpression(expression, value, cleanLabel || undefined));
+      } else if (mode === "sotdl") {
+        const numbers = [attribute, boons, banes, target].map(readInteger);
+        if (numbers.some((value) => value === null)) throw new Error("Atributo, dádivas, perdições e alvo precisam ser números inteiros.");
+        void saveRoll(rollSotdl(numbers[0]!, numbers[1]!, numbers[2]!, numbers[3]!, cleanLabel || "Shadow of the Demon Lord"));
       } else {
         if (readInteger(poolSize) === null || readInteger(hunger) === null)
           throw new Error("A parada e os dados de fome precisam ser números inteiros.");
@@ -304,6 +312,18 @@ export function DicePanel() {
           >
             Parada V5 local
           </Btn>
+          <Btn
+            type="button"
+            variant={mode === "sotdl" ? "forest" : "outline"}
+            role="tab"
+            aria-selected={mode === "sotdl"}
+            onClick={() => {
+              setMode("sotdl");
+              setError("");
+            }}
+          >
+            d20 Demon Lord
+          </Btn>
         </div>
 
         <form className="space-y-3" onSubmit={roll}>
@@ -338,6 +358,31 @@ export function DicePanel() {
                   onChange={(event) => setModifier(event.target.value)}
                 />
               </label>
+            </div>
+          ) : mode === "sotdl" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ["Atributo (1 a 20)", attribute, setAttribute, 1, 20],
+                ["Alvo (10 ou a Defesa)", target, setTarget, 1, 40],
+                ["Dádivas", boons, setBoons, 0, 10],
+                ["Perdições", banes, setBanes, 0, 10],
+              ] as const).map(([name, value, setter, min, max]) => (
+                <label key={name} className="text-sm font-semibold text-ink">
+                  {name}
+                  <input
+                    className="field-input mt-1"
+                    type="number"
+                    min={min}
+                    max={max}
+                    step={1}
+                    value={value}
+                    onChange={(event) => setter(event.target.value)}
+                  />
+                </label>
+              ))}
+              <p className="sm:col-span-2 text-xs text-ink-muted">
+                d20 + (atributo − 10). Dádivas e perdições se anulam; das que sobram vale o maior d6.
+              </p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -588,6 +633,11 @@ export function DicePanel() {
                     {entry.pool.hungerDice.length
                       ? ` · fome: ${entry.pool.hungerDice.join(", ")}`
                       : ""}
+                  </p>
+                )}
+                {entry.sotdl && (
+                  <p className="text-sm text-ink">
+                    {entry.sotdl.critical ? "Crítico" : entry.sotdl.success ? "Sucesso" : "Falha"} contra {entry.sotdl.target}
                   </p>
                 )}
               </li>

@@ -8,7 +8,15 @@ from pydantic import ValidationError
 from app.routes.generators import require_signed_in_user
 from app.routes.system_rolls import router
 from app.services import system_rolls
-from app.services.system_rolls import HunterRollRequest, OneRingRollRequest, roll_hunter, roll_one_ring
+from app.services.system_rolls import (
+    HunterRollRequest,
+    OneRingRollRequest,
+    SotdlRollRequest,
+    roll_hunter,
+    roll_one_ring,
+    roll_sotdl,
+    roll_sotdl_fate,
+)
 
 
 @pytest.fixture
@@ -119,6 +127,67 @@ def test_one_ring_rejects_conflicting_favor_and_invalid_bounds() -> None:
         OneRingRollRequest(target=1, skill_dice=True, endurance=1, load=0)
     with pytest.raises(ValidationError):
         OneRingRollRequest(target=1, skill_dice=7, endurance=1, load=0)
+
+
+def test_sotdl_boons_and_banes_cancel_and_the_highest_d6_counts(monkeypatch: pytest.MonkeyPatch) -> None:
+    # d20 = 8; 3 boons - 1 bane leave 2 boon dice, 2 and 5.
+    force_rolls(monkeypatch, [7, 1, 4])
+    result = roll_sotdl(SotdlRollRequest(attribute=12, boons=3, banes=1))
+    assert (result.d20, result.modifier, result.net_boons) == (8, 2, 2)
+    assert result.boon_dice == [2, 5]
+    assert result.boon_value == 5
+    assert result.total == 15
+    assert result.success is True
+    assert result.critical is False
+
+
+def test_sotdl_banes_subtract_and_can_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    force_rolls(monkeypatch, [9, 3, 0])
+    result = roll_sotdl(SotdlRollRequest(attribute=10, banes=2, target=10))
+    assert result.boon_dice == [4, 1]
+    assert result.boon_value == -4
+    assert result.total == 6
+    assert result.verdict == "Falha"
+
+
+def test_sotdl_equal_boons_and_banes_roll_no_d6(monkeypatch: pytest.MonkeyPatch) -> None:
+    force_rolls(monkeypatch, [9])
+    result = roll_sotdl(SotdlRollRequest(attribute=10, boons=2, banes=2, target=10))
+    assert result.boon_dice == []
+    assert result.total == 10
+    assert result.success is True
+
+
+def test_sotdl_critical_needs_twenty_and_five_over_target(monkeypatch: pytest.MonkeyPatch) -> None:
+    force_rolls(monkeypatch, [17])
+    assert roll_sotdl(SotdlRollRequest(attribute=12, target=15)).critical is True
+    force_rolls(monkeypatch, [17])
+    assert roll_sotdl(SotdlRollRequest(attribute=12, target=16)).critical is False
+
+
+@pytest.mark.parametrize(("roll", "outcome"), [(0, "dying"), (1, "stable"), (4, "stable"), (5, "recovers")])
+def test_sotdl_fate_roll(monkeypatch: pytest.MonkeyPatch, roll: int, outcome: str) -> None:
+    force_rolls(monkeypatch, [roll])
+    result = roll_sotdl_fate()
+    assert (result.die, result.outcome) == (roll + 1, outcome)
+
+
+def test_sotdl_validation_is_strict_and_bounded() -> None:
+    for payload in ({"attribute": 0}, {"attribute": 21}, {"attribute": True}, {"attribute": 10, "boons": 11},
+                    {"attribute": 10, "target": 0}, {"attribute": 10, "extra": 1}):
+        with pytest.raises(ValidationError):
+            SotdlRollRequest(**payload)
+
+
+def test_sotdl_routes_return_rolls(client, monkeypatch: pytest.MonkeyPatch) -> None:
+    force_rolls(monkeypatch, [19, 2, 0])
+    response = client.post("/api/v1/system-rolls/shadow-demon-lord", json={"attribute": 9, "boons": 1, "target": 12})
+    assert response.status_code == 200
+    assert response.json()["total"] == 22
+    assert response.json()["critical"] is True
+    fate = client.post("/api/v1/system-rolls/shadow-demon-lord/fate")
+    assert fate.status_code == 200
+    assert fate.json()["outcome"] == "dying"
 
 
 def test_roll_routes_require_signed_in_user() -> None:

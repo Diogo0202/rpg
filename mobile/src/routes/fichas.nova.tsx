@@ -14,15 +14,15 @@ import type { JsonValue } from "@/lib/mobile-sync/index.ts";
 import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
 import { DistributionControls, distributionProblems } from "@/components/nexus/DistributionControls";
 import { distributionRulesFor, matchingDistribution } from "@/lib/creation-distributions";
-import { HUNTER_STEP_HELP } from "@/lib/hunter-creation-data";
+import { stepHelp } from "@/lib/step-help";
 
 export const Route = createFileRoute("/fichas/nova")({
   head: () => ({
     meta: [
       { title: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador e O Um Anel." },
+      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel e Shadow of the Demon Lord." },
       { property: "og:title", content: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador e O Um Anel." },
+      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel e Shadow of the Demon Lord." },
     ],
   }),
   component: NewSheet,
@@ -186,7 +186,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
         ))}
       </ol>
       <Panel title={`${starter.label} · ${current.label}`} actions={identityKinds.map((k) => <Tag key={k} tone="gold">{k}</Tag>)}>
-        {template.system_key === "hunter" && HUNTER_STEP_HELP[current.key] && <p className="mb-3 text-sm text-ink-muted">{HUNTER_STEP_HELP[current.key]}</p>}
+        {stepHelp(template.system_key, current.key) && <p className="mb-3 text-sm text-ink-muted">{stepHelp(template.system_key, current.key)}</p>}
         {removed.length > 0 && (
           <p className="parchment-inset mb-3 p-3 text-sm text-ink" role="status">Algumas escolhas dependentes foram limpas por incompatibilidade: {removed.join(", ")}. Revise.</p>
         )}

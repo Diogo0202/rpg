@@ -9,7 +9,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sources = [
   "docs/LOVABLE_MOBILE_BRIEF.md", "docs/MOBILE_SYNC_CONTRACT.md", "docs/MOBILE_SYNC_CLIENT.md",
   ...["types", "merge", "store", "engine", "transport", "index"].map((name) => `mobile/src/lib/mobile-sync/${name}.ts`),
-  ...["sheet-template", "sheet-creation", "sheet-backup", "system-starters"].map((name) => `frontend/lib/${name}.ts`),
+  // system-starters imports the per-system creation data files, so they travel with it.
+  ...["sheet-template", "sheet-creation", "sheet-backup", "system-starters", "hunter-creation-data", "v3-creation-data", "v5-creation-data", "sotdl-creation-data", "step-help"].map((name) => `frontend/lib/${name}.ts`),
 ];
 const manifest = [];
 for (const source of sources) {

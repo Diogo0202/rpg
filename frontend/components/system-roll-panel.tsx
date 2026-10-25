@@ -17,7 +17,13 @@ type OneRingResult = {
   total: number; weary: boolean; automatic_success: boolean; eye_of_sauron: boolean;
   success_icons: number; success: boolean;
 };
-type HistoryEntry = { title: string; at: string; result: HunterResult | OneRingResult };
+type SotdlResult = {
+  modifier: number; d20: number; net_boons: number; boon_dice: number[]; boon_value: number;
+  total: number; target: number; success: boolean; critical: boolean; verdict: string;
+};
+type SotdlFate = { die: number; outcome: "dying" | "stable" | "recovers"; verdict: string };
+type RollResult = HunterResult | OneRingResult | SotdlResult | SotdlFate;
+type HistoryEntry = { title: string; at: string; result: RollResult };
 type Pending = { id: number; controller: AbortController; characterId: string };
 const NO_SKILL = "__none__";
 
@@ -38,6 +44,23 @@ const RING_SKILLS: Trait[] = [
   { id: "awe", label: "Presença" }, { id: "athletics", label: "Atletismo" }, { id: "awareness", label: "Percepção" },
   { id: "hunting", label: "Caçada" }, { id: "song", label: "Canção" }, { id: "travel", label: "Viagem" },
 ];
+const SOTDL_ATTRIBUTES: Trait[] = [
+  { id: "forca", label: "Força" }, { id: "agilidade", label: "Agilidade" }, { id: "intelecto", label: "Intelecto" },
+  { id: "vontade", label: "Vontade" }, { id: "percepcao", label: "Percepção" },
+];
+const SOTDL_LABEL = "Shadow of the Demon Lord";
+
+function signed(value: number) {
+  return value >= 0 ? `+${value}` : String(value);
+}
+
+function describe(result: RollResult): string {
+  if ("normal_dice" in result) return `${result.verdict} · ${result.successes}/${result.difficulty} sucessos · base ${result.normal_dice.join(" · ")} · Desespero ${result.desperation_dice.join(" · ") || "não usado"}${result.desperation_ones ? ` · ${result.desperation_ones} resultado(s) 1, ${result.desperation_consequence === "despair" ? "Despair" : "escolha Despair ou Overreach pela mesa"}` : ""}${result.critical ? " · crítico" : ""}`;
+  if ("feat_dice" in result) return `${result.success ? "Sucesso" : "Falha"}${result.automatic_success ? " · Runa de Gandalf" : result.eye_of_sauron ? " · Olho de Sauron" : ""} · total ${result.total} · Feito ${result.feat_dice.join(" / ")} · perícia ${result.success_dice.join(" · ") || "nenhum dado"}${result.weary ? " · Cansado" : ""}${result.success_icons ? ` · ${result.success_icons} ícone(s)` : ""}`;
+  if ("outcome" in result) return `Destino: ${result.verdict} · d6 ${result.die}`;
+  const boons = result.net_boons === 0 ? "sem dádivas" : `${Math.abs(result.net_boons)} ${result.net_boons > 0 ? "dádiva(s)" : "perdição(ões)"} [${result.boon_dice.join(" · ")}] ${signed(result.boon_value)}`;
+  return `${result.verdict} · total ${result.total} contra ${result.target} · d20 ${result.d20} ${signed(result.modifier)} · ${boons}`;
+}
 
 function integer(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
@@ -65,6 +88,8 @@ export function SystemRollPanel() {
   const [favored, setFavored] = useState(false);
   const [illFavored, setIllFavored] = useState(false);
   const [useDesperation, setUseDesperation] = useState(false);
+  const [boons, setBoons] = useState(0);
+  const [banes, setBanes] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -76,36 +101,56 @@ export function SystemRollPanel() {
     setMessage("");
     setAttributeId("");
     setSkillId("");
-    setTarget(14);
+    setTarget(selectedRef.current?.values.sistema === SOTDL_LABEL ? 10 : 14);
     setDifficulty(3);
     setFavored(false);
     setIllFavored(false);
     setUseDesperation(false);
+    setBoons(0);
+    setBanes(0);
   }, [character?.id]);
 
   const values = character?.values ?? {};
+  const isSotdl = values.sistema === SOTDL_LABEL || ("agilidade" in values && "corrupcao" in values);
   const isHunter = "desespero" in values || "desperation" in values;
   const isOneRing = "vigor_marcha" in values || "carga" in values;
-  const system = isHunter ? "hunter" : isOneRing ? "one-ring" : null;
-  const attributeChoices = choices(system === "hunter" ? HUNTER_ATTRIBUTES : RING_ATTRIBUTES, values);
-  const skillChoices = choices(system === "hunter" ? HUNTER_SKILLS : RING_SKILLS, values);
+  const system = isSotdl ? "shadow-demon-lord" : isHunter ? "hunter" : isOneRing ? "one-ring" : null;
+  const attributeChoices = choices(system === "shadow-demon-lord" ? SOTDL_ATTRIBUTES : system === "hunter" ? HUNTER_ATTRIBUTES : RING_ATTRIBUTES, values);
+  const skillChoices = system === "shadow-demon-lord" ? [] : choices(system === "hunter" ? HUNTER_SKILLS : RING_SKILLS, values);
   const selectedAttribute = attributeChoices.find((item) => item.id === attributeId) ?? attributeChoices[0];
   const selectedSkill = skillId === NO_SKILL ? undefined : skillChoices.find((item) => item.id === skillId) ?? (skillId ? undefined : skillChoices[0]);
   const currentHistory = character ? history.current.get(character.id) ?? [] : [];
   void historyRevision;
 
-  async function roll() {
+  async function roll(fate = false) {
     const selected = character;
-    if (!selected || !system || !selectedAttribute) return;
+    if (!selected || !system || (!selectedAttribute && !fate)) return;
     const operation: Pending = { id: ++operationId.current, controller: new AbortController(), characterId: selected.id };
     pending.current?.controller.abort();
     pending.current = operation;
     setBusy(true);
     setMessage("");
     try {
-      let result: HunterResult | OneRingResult;
+      let result: RollResult;
       let title: string;
-      if (system === "hunter") {
+      if (system === "shadow-demon-lord" && fate) {
+        title = "Teste de destino";
+        result = await authenticatedPost("/api/v1/system-rolls/shadow-demon-lord/fate", {}, operation.controller.signal) as SotdlFate;
+      } else if (system === "shadow-demon-lord") {
+        const attribute = selectedAttribute;
+        if (!attribute) return;
+        if (attribute.value < 1 || attribute.value > 20) throw new Error("O atributo precisa ficar entre 1 e 20.");
+        const counts = [boons, banes];
+        if (counts.some((count) => !Number.isSafeInteger(count) || count < 0 || count > 10)) throw new Error("Dádivas e perdições vão de 0 a 10.");
+        const targetValue = Number.isSafeInteger(target) && target >= 1 && target <= 40 ? target : null;
+        if (targetValue === null) throw new Error("Informe um alvo de 1 a 40.");
+        title = `${attribute.label} contra ${targetValue}`;
+        result = await authenticatedPost("/api/v1/system-rolls/shadow-demon-lord", {
+          attribute: attribute.value, boons, banes, target: targetValue,
+        }, operation.controller.signal) as SotdlResult;
+      } else if (!selectedAttribute) {
+        return;
+      } else if (system === "hunter") {
         const desperation = integer(selected.values.desespero ?? selected.values.desperation);
         if (desperation === null || desperation < 0 || desperation > 5) throw new Error("A ficha precisa ter Desespero entre 0 e 5.");
         const basePool = selectedAttribute.value + (selectedSkill?.value ?? 0);
@@ -138,19 +183,30 @@ export function SystemRollPanel() {
     }
   }
 
-  if (!character) return <section className={`content ${styles.panel}`}><h2>Roladores de Caçador e O Um Anel</h2><p>Selecione uma ficha da sessão.</p></section>;
-  if (!system) return <section className={`content ${styles.panel}`}><h2>Roladores de Caçador e O Um Anel</h2><p>A ficha selecionada não tem campos reconhecidos desses sistemas.</p></section>;
+  const title = "Roladores de Caçador, O Um Anel e Shadow of the Demon Lord";
+  if (!character) return <section className={`content ${styles.panel}`}><h2>{title}</h2><p>Selecione uma ficha da sessão.</p></section>;
+  if (!system) return <section className={`content ${styles.panel}`}><h2>{title}</h2><p>A ficha selecionada não tem campos reconhecidos desses sistemas.</p></section>;
+  const eyebrow = system === "shadow-demon-lord" ? "SHADOW OF THE DEMON LORD · d20" : system === "hunter" ? "CAÇADOR · 5ª EDIÇÃO" : "O UM ANEL · 2ª EDIÇÃO";
 
   return <section className={`content ${styles.panel}`}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>{system === "hunter" ? "CAÇADOR · 5ª EDIÇÃO" : "O UM ANEL · 2ª EDIÇÃO"}</p><h2>{character.name}</h2></div><p>Rolagens vinculadas à ficha ativa. Os recursos da ficha não mudam.</p></header>
+    <header className={styles.header}><div><p className={styles.eyebrow}>{eyebrow}</p><h2>{character.name}</h2></div><p>Rolagens vinculadas à ficha ativa. Os recursos da ficha não mudam.</p></header>
     <div className={styles.layout}>
       <article className={styles.card}>
         <h3>Montar a rolagem</h3>
         <div className={styles.selectGrid}>
           <label>Atributo<select value={selectedAttribute?.id ?? ""} onChange={(event) => setAttributeId(event.target.value)}>{attributeChoices.map((trait) => <option key={trait.id} value={trait.id}>{trait.label} · {trait.value}</option>)}</select></label>
-          <label>{system === "hunter" ? "Habilidade" : "Perícia"}<select value={selectedSkill?.id ?? NO_SKILL} onChange={(event) => setSkillId(event.target.value)}><option value={NO_SKILL}>Sem perícia</option>{skillChoices.map((trait) => <option key={trait.id} value={trait.id}>{trait.label} · {trait.value}</option>)}</select></label>
+          {system !== "shadow-demon-lord" && <label>{system === "hunter" ? "Habilidade" : "Perícia"}<select value={selectedSkill?.id ?? NO_SKILL} onChange={(event) => setSkillId(event.target.value)}><option value={NO_SKILL}>Sem perícia</option>{skillChoices.map((trait) => <option key={trait.id} value={trait.id}>{trait.label} · {trait.value}</option>)}</select></label>}
         </div>
-        {system === "hunter" ? <>
+        {system === "shadow-demon-lord" ? <>
+          <div className={styles.selectGrid}>
+            <label>Dádivas<input type="number" min={0} max={10} value={boons} onChange={(event) => setBoons(Number(event.target.value))} /></label>
+            <label>Perdições<input type="number" min={0} max={10} value={banes} onChange={(event) => setBanes(Number(event.target.value))} /></label>
+          </div>
+          <label className={styles.target}>Alvo (10 ou a Defesa)<input type="number" min={1} max={40} value={target} onChange={(event) => setTarget(Number(event.target.value))} /></label>
+          <p className={styles.poolLine}>d20 {signed((selectedAttribute?.value ?? 10) - 10)}. Dádivas e perdições se anulam; das que sobram vale o maior d6. Defesa da ficha: <b>{String(values.defesa ?? "?")}</b>.</p>
+          <button className={styles.rollButton} type="button" disabled={busy} onClick={() => void roll(true)}>Teste de destino (1d6)</button>
+          <p className={styles.note}>Para personagens incapacitados ao fim da rodada: 1 morrendo, 2 a 5 estável, 6 recupera 1 de dano.</p>
+        </> : system === "hunter" ? <>
           <label className={styles.target}>Dificuldade<input type="number" min={1} max={69} value={difficulty} onChange={(event) => setDifficulty(Number(event.target.value))} /></label>
           <p className={styles.poolLine}>Reserva base: <b>{Math.max(0, (selectedAttribute?.value ?? 0) + (selectedSkill?.value ?? 0))} dados</b>. Desespero da célula: <b>{String(values.desespero ?? values.desperation ?? "?")}</b>.</p>
           <div className={styles.checks}><label><input type="checkbox" checked={useDesperation} onChange={(event) => setUseDesperation(event.target.checked)} /> Somar dados de Desespero</label></div>
@@ -166,7 +222,7 @@ export function SystemRollPanel() {
       </article>
       <article className={styles.card}>
         <h3>Histórico desta ficha</h3>
-        {currentHistory.length ? <ol className={styles.history}>{currentHistory.map((entry, index) => <li key={`${entry.at}-${index}`}><div><b>{entry.title}</b><time>{entry.at}</time></div>{"normal_dice" in entry.result ? <p>{entry.result.verdict} · {entry.result.successes}/{entry.result.difficulty} sucessos · base {entry.result.normal_dice.join(" · ")} · Desespero {entry.result.desperation_dice.join(" · ") || "não usado"}{entry.result.desperation_ones ? ` · ${entry.result.desperation_ones} resultado(s) 1, ${entry.result.desperation_consequence === "despair" ? "Despair" : "escolha Despair ou Overreach pela mesa"}` : ""}{entry.result.critical ? " · crítico" : ""}</p> : <p>{entry.result.success ? "Sucesso" : "Falha"}{entry.result.automatic_success ? " · Runa de Gandalf" : entry.result.eye_of_sauron ? " · Olho de Sauron" : ""} · total {entry.result.total} · Feito {entry.result.feat_dice.join(" / ")} · perícia {entry.result.success_dice.join(" · ") || "nenhum dado"}{entry.result.weary ? " · Cansado" : ""}{entry.result.success_icons ? ` · ${entry.result.success_icons} ícone(s)` : ""}</p>}</li>)}</ol> : <p>Nenhuma rolagem nesta sessão.</p>}
+        {currentHistory.length ? <ol className={styles.history}>{currentHistory.map((entry, index) => <li key={`${entry.at}-${index}`}><div><b>{entry.title}</b><time>{entry.at}</time></div><p>{describe(entry.result)}</p></li>)}</ol> : <p>Nenhuma rolagem nesta sessão.</p>}
       </article>
     </div>
   </section>;

@@ -20,6 +20,7 @@ export type DiceRoll = {
   createdAt: number;
   label?: string;
   pool?: { successes: number; tens: number; hungerDice: number[] };
+  sotdl?: { target: number; success: boolean; critical: boolean };
 };
 
 export function parseDice(input: string): DiceTerm[] {
@@ -110,6 +111,34 @@ export function rollExpression(input: string, modifier = 0, label?: string): Dic
     terms: out,
     total,
     createdAt: Date.now(),
+    ...(label ? { label } : {}),
+  };
+}
+
+/**
+ * Shadow of the Demon Lord: d20 + (attribute - 10) against `target`. Boons and banes cancel
+ * one for one; the rest roll d6 and only the highest counts. Mirrors backend roll_sotdl.
+ */
+export function rollSotdl(attribute: number, boons = 0, banes = 0, target = 10, label?: string): DiceRoll {
+  if (!Number.isInteger(attribute) || attribute < 1 || attribute > 20) throw new Error("O atributo deve ficar entre 1 e 20.");
+  if ([boons, banes].some((count) => !Number.isInteger(count) || count < 0 || count > 10)) throw new Error("Dádivas e perdições vão de 0 a 10.");
+  if (!Number.isInteger(target) || target < 1 || target > 40) throw new Error("O alvo deve ficar entre 1 e 40.");
+  const modifier = attribute - 10;
+  const net = boons - banes;
+  const d20 = randomInt(20);
+  const boonDice = Array.from({ length: Math.abs(net) }, () => randomInt(6));
+  const boonValue = (boonDice.length ? Math.max(...boonDice) : 0) * (net >= 0 ? 1 : -1);
+  const total = d20 + modifier + boonValue;
+  const success = total >= target;
+  const terms: DiceRoll["terms"] = [{ label: "1d20", rolls: [d20], subtotal: d20 }, { label: `atributo ${modifier >= 0 ? "+" : ""}${modifier}`, rolls: [], subtotal: modifier }];
+  if (net) terms.push({ label: `${Math.abs(net)} ${net > 0 ? "dádiva(s)" : "perdição(ões)"}`, rolls: boonDice, subtotal: boonValue });
+  return {
+    id: crypto.randomUUID(),
+    expression: `d20 contra ${target}`,
+    terms,
+    total,
+    createdAt: Date.now(),
+    sotdl: { target, success, critical: success && total >= 20 && total - target >= 5 },
     ...(label ? { label } : {}),
   };
 }

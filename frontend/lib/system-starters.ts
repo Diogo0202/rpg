@@ -2,6 +2,7 @@ import { HUNTER_SKILLS, HUNTER_SKILL_DISTRIBUTIONS, HUNTER_DRIVES } from "./hunt
 import type { GrantCase, MetaCurrency, SheetField, SheetTemplate } from "./sheet-template.ts";
 import { CAITIFF_CHOICE_FIELDS, V5_CLAN_CASES, V5_DISCIPLINES, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES } from "./v5-creation-data.ts";
 import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BACKGROUNDS, V3_CLANS, V3_DISCIPLINES, V3_PRIORITY_RULE, V3_SECTS, V3_VIRTUES } from "./v3-creation-data.ts";
+import { SOTDL_AFFLICTIONS, SOTDL_ANCESTRIES, SOTDL_ANCESTRY_BASE, SOTDL_ANCESTRY_CASES, SOTDL_ANCESTRY_CHOICE_FIELD, SOTDL_ANCESTRY_FIELDS, SOTDL_ATTRIBUTES, SOTDL_FAITHS } from "./sotdl-creation-data.ts";
 
 /**
  * Proveniência: contratos estruturados no RPG Atlas, checkout local
@@ -20,7 +21,7 @@ import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BACKGROUNDS, V3_CLANS, V3_DI
 export type StarterValue = string | number | boolean | string[];
 export type StarterField = SheetField;
 export type SystemStarter = {
-  id: "vampire-v5" | "vampire-v3" | "hunter" | "one-ring";
+  id: "vampire-v5" | "vampire-v3" | "hunter" | "one-ring" | "shadow-demon-lord";
   label: string;
   template: SheetTemplate;
   values: Record<string, StarterValue>;
@@ -251,7 +252,40 @@ const v3Limits: Record<string, [number, number]> = {
 vampireV3.template.fields = vampireV3.template.fields.map((item) => v3Limits[item.id] ? { ...item, min: v3Limits[item.id][0], max: v3Limits[item.id][1] } : item);
 vampireV3.template.creation_rules = [V3_PRIORITY_RULE];
 
-export const SYSTEM_STARTERS: SystemStarter[] = [vampire, vampireV3, hunter, oneRing];
+// Shadow of the Demon Lord (Trench Crusade campaign): level 0 attributes, speed and the Defense,
+// Health and Perception bonuses are fixed by the ancestry through one select_grants rule.
+// Fervor, faith and Último Alento are the campaign's house rules.
+const sotdl = makeStarter("shadow-demon-lord", "Shadow of the Demon Lord", "Shadow of the Demon Lord nível 0", [
+  text("nome", "Nome", "", true), { ...select("ancestralidade", "Ancestralidade", SOTDL_ANCESTRIES), required: true },
+  grantChoiceField(SOTDL_ANCESTRY_CHOICE_FIELD, "Atributo da ancestralidade", "ancestralidade", SOTDL_ANCESTRY_CASES),
+  select("fe", "Fé", SOTDL_FAITHS), number("nivel", "Nível"),
+  text("trilha_novato", "Trilha de novato"), text("trilha_especialista", "Trilha de especialista"), text("trilha_mestre", "Trilha de mestre"),
+  ...SOTDL_ATTRIBUTES.map(([id, label]) => number(id, label, 10, true)),
+  ...SOTDL_ATTRIBUTES.map(([id, label]) => formula(`mod_${id}`, `Modificador de ${label}`, `${id} - 10`)),
+  number("bonus_defesa", "Bônus de Defesa"), number("bonus_saude", "Bônus de Saúde"), number("bonus_percepcao", "Bônus de Percepção"),
+  formula("defesa", "Defesa", "agilidade + bonus_defesa"), formula("saude", "Saúde", "forca + bonus_saude"),
+  formula("percepcao", "Percepção", "intelecto + bonus_percepcao"), formula("cura", "Taxa de cura", "saude // 4"),
+  number("deslocamento", "Deslocamento", 10), text("tamanho", "Tamanho", "1"), number("poder", "Poder"),
+  number("dano", "Dano"), number("corrupcao", "Corrupção"), number("insanidade", "Insanidade"),
+  number("fervor", "Pontos de Fervor"), number("fervor_max", "Fervor máximo"),
+  { ...field("ultimo_alento_usado", "Último Alento usado", "checkbox", false) },
+  { ...collection("aflicoes", "Aflições"), options: SOTDL_AFFLICTIONS },
+  collection("talentos", "Talentos"), collection("equipamento", "Equipamento"), collection("magias", "Magias"),
+  text("historia", "História"), text("notas", "Notas"),
+], [{ id: "fervor", label: "Pontos de Fervor", field: "fervor", mode: "pool", max_field: "fervor_max" }]);
+
+const sotdlLimits: Record<string, [number, number]> = {
+  ...Object.fromEntries(SOTDL_ATTRIBUTES.map(([id]) => [id, [1, 20] as [number, number]])),
+  nivel: [0, 10], bonus_defesa: [-10, 20], bonus_saude: [-10, 50], bonus_percepcao: [-10, 10], deslocamento: [0, 30],
+  poder: [0, 10], dano: [0, 200], corrupcao: [0, 20], insanidade: [0, 20], fervor: [0, 99], fervor_max: [0, 99], experiencia: [0, 9999],
+};
+sotdl.template.fields = sotdl.template.fields.map((item) => sotdlLimits[item.id] ? { ...item, min: sotdlLimits[item.id][0], max: sotdlLimits[item.id][1] } : item);
+sotdl.template.creation_rules = [
+  { type: "select_grants", id: "ancestralidade", label: "Ancestralidade", field: "ancestralidade",
+    fields: SOTDL_ANCESTRY_FIELDS, base: SOTDL_ANCESTRY_BASE, cases: SOTDL_ANCESTRY_CASES },
+];
+
+export const SYSTEM_STARTERS: SystemStarter[] = [vampire, vampireV3, hunter, oneRing, sotdl];
 
 type StarterMetadata = {
   identity: string[];
@@ -260,7 +294,7 @@ type StarterMetadata = {
   traits: string[];
   resources: string[];
   story: string[];
-  identities: Record<string, "clan" | "predator" | "creed" | "lineage">;
+  identities: Record<string, "race" | "clan" | "predator" | "creed" | "lineage">;
 };
 
 const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
@@ -299,6 +333,15 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     resources: ["vigor_marcha", "esperanca", "sombra", "carga", "experiencia"],
     story: ["ambicao", "desejo", "notas"],
     identities: { linhagem: "lineage" },
+  },
+  "shadow-demon-lord": {
+    identity: ["nome", "ancestralidade", SOTDL_ANCESTRY_CHOICE_FIELD, "fe", "nivel", "trilha_novato", "trilha_especialista", "trilha_mestre"],
+    attributes: [...SOTDL_ATTRIBUTES.map(([id]) => id), ...SOTDL_ATTRIBUTES.map(([id]) => `mod_${id}`)],
+    skills: [],
+    traits: ["talentos", "magias", "equipamento"],
+    resources: ["bonus_defesa", "bonus_saude", "bonus_percepcao", "defesa", "saude", "percepcao", "cura", "deslocamento", "tamanho", "poder", "dano", "corrupcao", "insanidade", "aflicoes", "fervor", "fervor_max", "ultimo_alento_usado", "experiencia"],
+    story: ["historia", "notas"],
+    identities: { ancestralidade: "race" },
   },
 };
 

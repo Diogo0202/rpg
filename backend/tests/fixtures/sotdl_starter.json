@@ -1,0 +1,601 @@
+{
+  "name": "Shadow of the Demon Lord nível 0",
+  "version": 1,
+  "fields": [
+    {
+      "id": "sistema",
+      "label": "Sistema",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "ativo_na_sessao",
+      "label": "Ativo na sessão",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "nome",
+      "label": "Nome",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "character_name": true
+    },
+    {
+      "id": "ancestralidade",
+      "label": "Ancestralidade",
+      "kind": "select",
+      "options": [
+        "Humano",
+        "Transmorfo",
+        "Autômato",
+        "Anão",
+        "Goblin",
+        "Orc"
+      ],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "identity_kind": "race"
+    },
+    {
+      "id": "ancestralidade_atributo",
+      "label": "Atributo da ancestralidade",
+      "kind": "select",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "depends_on": {
+        "field_id": "ancestralidade",
+        "cases": [
+          {
+            "equals": "Humano",
+            "options": [
+              "Força +1",
+              "Agilidade +1",
+              "Intelecto +1",
+              "Vontade +1"
+            ]
+          },
+          {
+            "equals": "Autômato",
+            "options": [
+              "Força +2",
+              "Agilidade +2",
+              "Intelecto +2",
+              "Vontade +2"
+            ]
+          }
+        ]
+      },
+      "creation_step": "identity"
+    },
+    {
+      "id": "fe",
+      "label": "Fé",
+      "kind": "select",
+      "options": [
+        "Cristão",
+        "Herege"
+      ],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "nivel",
+      "label": "Nível",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 10,
+      "creation_step": "identity"
+    },
+    {
+      "id": "trilha_novato",
+      "label": "Trilha de novato",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "trilha_especialista",
+      "label": "Trilha de especialista",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "trilha_mestre",
+      "label": "Trilha de mestre",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "forca",
+      "label": "Força",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 20,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "agilidade",
+      "label": "Agilidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 20,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "intelecto",
+      "label": "Intelecto",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 20,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "vontade",
+      "label": "Vontade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 20,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "mod_forca",
+      "label": "Modificador de Força",
+      "kind": "formula",
+      "options": [],
+      "expression": "forca - 10",
+      "required": false,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "mod_agilidade",
+      "label": "Modificador de Agilidade",
+      "kind": "formula",
+      "options": [],
+      "expression": "agilidade - 10",
+      "required": false,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "mod_intelecto",
+      "label": "Modificador de Intelecto",
+      "kind": "formula",
+      "options": [],
+      "expression": "intelecto - 10",
+      "required": false,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "mod_vontade",
+      "label": "Modificador de Vontade",
+      "kind": "formula",
+      "options": [],
+      "expression": "vontade - 10",
+      "required": false,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "bonus_defesa",
+      "label": "Bônus de Defesa",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": -10,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "bonus_saude",
+      "label": "Bônus de Saúde",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": -10,
+      "max": 50,
+      "creation_step": "resources"
+    },
+    {
+      "id": "bonus_percepcao",
+      "label": "Bônus de Percepção",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": -10,
+      "max": 10,
+      "creation_step": "resources"
+    },
+    {
+      "id": "defesa",
+      "label": "Defesa",
+      "kind": "formula",
+      "options": [],
+      "expression": "agilidade + bonus_defesa",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "saude",
+      "label": "Saúde",
+      "kind": "formula",
+      "options": [],
+      "expression": "forca + bonus_saude",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "percepcao",
+      "label": "Percepção",
+      "kind": "formula",
+      "options": [],
+      "expression": "intelecto + bonus_percepcao",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "cura",
+      "label": "Taxa de cura",
+      "kind": "formula",
+      "options": [],
+      "expression": "saude // 4",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "deslocamento",
+      "label": "Deslocamento",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 30,
+      "creation_step": "resources"
+    },
+    {
+      "id": "tamanho",
+      "label": "Tamanho",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "poder",
+      "label": "Poder",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 10,
+      "creation_step": "resources"
+    },
+    {
+      "id": "dano",
+      "label": "Dano",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 200,
+      "creation_step": "resources"
+    },
+    {
+      "id": "corrupcao",
+      "label": "Corrupção",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "insanidade",
+      "label": "Insanidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "fervor",
+      "label": "Pontos de Fervor",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 99,
+      "creation_step": "resources"
+    },
+    {
+      "id": "fervor_max",
+      "label": "Fervor máximo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 99,
+      "creation_step": "resources"
+    },
+    {
+      "id": "ultimo_alento_usado",
+      "label": "Último Alento usado",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "aflicoes",
+      "label": "Aflições",
+      "kind": "collection",
+      "options": [
+        "Assustado",
+        "Debilitado",
+        "Lento",
+        "Atordoado"
+      ],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "talentos",
+      "label": "Talentos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "equipamento",
+      "label": "Equipamento",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "magias",
+      "label": "Magias",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "historia",
+      "label": "História",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "notas",
+      "label": "Notas",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "experiencia",
+      "label": "Experiência disponível",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 9999,
+      "creation_step": "resources"
+    }
+  ],
+  "experience_field": "experiencia",
+  "meta_currencies": [
+    {
+      "id": "fervor",
+      "label": "Pontos de Fervor",
+      "field": "fervor",
+      "mode": "pool",
+      "max_field": "fervor_max"
+    }
+  ],
+  "creation_rules": [
+    {
+      "type": "select_grants",
+      "id": "ancestralidade",
+      "label": "Ancestralidade",
+      "field": "ancestralidade",
+      "fields": [
+        "forca",
+        "agilidade",
+        "intelecto",
+        "vontade",
+        "bonus_defesa",
+        "bonus_saude",
+        "bonus_percepcao",
+        "deslocamento",
+        "corrupcao"
+      ],
+      "base": {
+        "forca": 10,
+        "agilidade": 10,
+        "intelecto": 10,
+        "vontade": 10,
+        "deslocamento": 10
+      },
+      "cases": [
+        {
+          "equals": "Humano",
+          "add": {},
+          "choices": [
+            {
+              "field": "ancestralidade_atributo",
+              "label": "Atributo +1",
+              "options": [
+                {
+                  "label": "Força +1",
+                  "add": {
+                    "forca": 1
+                  }
+                },
+                {
+                  "label": "Agilidade +1",
+                  "add": {
+                    "agilidade": 1
+                  }
+                },
+                {
+                  "label": "Intelecto +1",
+                  "add": {
+                    "intelecto": 1
+                  }
+                },
+                {
+                  "label": "Vontade +1",
+                  "add": {
+                    "vontade": 1
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "equals": "Transmorfo",
+          "add": {
+            "forca": -1,
+            "bonus_percepcao": 1
+          }
+        },
+        {
+          "equals": "Autômato",
+          "add": {
+            "forca": -1,
+            "agilidade": -2,
+            "intelecto": -1,
+            "vontade": -1,
+            "bonus_defesa": 5,
+            "deslocamento": -2
+          },
+          "choices": [
+            {
+              "field": "ancestralidade_atributo",
+              "label": "Atributo +2",
+              "options": [
+                {
+                  "label": "Força +2",
+                  "add": {
+                    "forca": 2
+                  }
+                },
+                {
+                  "label": "Agilidade +2",
+                  "add": {
+                    "agilidade": 2
+                  }
+                },
+                {
+                  "label": "Intelecto +2",
+                  "add": {
+                    "intelecto": 2
+                  }
+                },
+                {
+                  "label": "Vontade +2",
+                  "add": {
+                    "vontade": 2
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "equals": "Anão",
+          "add": {
+            "agilidade": -1,
+            "bonus_saude": 4,
+            "bonus_percepcao": 1,
+            "deslocamento": -2
+          }
+        },
+        {
+          "equals": "Goblin",
+          "add": {
+            "forca": -2,
+            "agilidade": 2,
+            "vontade": -1,
+            "bonus_percepcao": 1
+          }
+        },
+        {
+          "equals": "Orc",
+          "add": {
+            "forca": 1,
+            "intelecto": -1,
+            "vontade": -1,
+            "bonus_percepcao": 1,
+            "corrupcao": 1,
+            "deslocamento": 2
+          }
+        }
+      ]
+    }
+  ],
+  "system_key": "shadow-demon-lord"
+}

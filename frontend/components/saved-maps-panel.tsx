@@ -17,6 +17,7 @@ const SYSTEM_OPTIONS = [
   { id: "vampire-v5", label: "Vampiro V5 · cidade moderna" },
   { id: "vampire-v3", label: "Vampiro V3 · cidade moderna" },
   { id: "hunter", label: "Caçador · cidade moderna" },
+  { id: "shadow-demon-lord", label: "Shadow of the Demon Lord · medieval" },
 ];
 
 function ReadOnlyMap({ map }: { map: EditableMap }) {

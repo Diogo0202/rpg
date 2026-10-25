@@ -7,7 +7,7 @@ import type { CreationDistribution, FieldValue, SheetField, SheetTemplate, Store
 import styles from "./sheet-creation-wizard.module.css";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { PortraitPicker } from "./portrait-picker";
-import { HUNTER_STEP_HELP } from "../lib/hunter-creation-data";
+import { stepHelp } from "../lib/step-help";
 import { checkCreation, type CreationReport } from "../lib/sheet-adjustments";
 import { activeGrants, applyGrants, choiceOptions, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../lib/creation-grants";
 import type { PowerPicksRule, SelectGrantsRule } from "../lib/sheet-template";
@@ -352,7 +352,7 @@ export function SheetCreationWizard(props: Props) {
 
     <article className={styles.card}>
       <div className={styles.stepHeading}><span className={styles.stepNumber}>{String(stepIndex + 1).padStart(2, "0")}</span><div><p className={styles.eyebrow}>ETAPA {stepIndex + 1} DE {steps.length}</p><h3>{step.title}</h3></div></div>
-      {template.system_key === "hunter" && HUNTER_STEP_HELP[step.key] && <p className={styles.intro}>{HUNTER_STEP_HELP[step.key]}</p>}
+      {stepHelp(template.system_key, step.key) && <p className={styles.intro}>{stepHelp(template.system_key, step.key)}</p>}
 
       {loading ? <p className={styles.empty}>Carregando modelos da campanha…</p> : null}
       {!loading && step.kind === "template" && <div className={styles.templateGrid}>

@@ -139,3 +139,71 @@ def roll_one_ring(payload: OneRingRollRequest) -> OneRingRollResponse:
         success_icons=sum(1 for die in counted_dice if die == 6) if success else 0,
         success=success,
     )
+
+
+# Shadow of the Demon Lord: resumo de regras da campanha Trench Crusade
+# (D:\megabrain\Atlas_RPG\historias\Trench_Crusade\manual_de_regras_shadow_of_the_demon_lord_*.md).
+# d20 + (atributo - 10) contra 10 ou a Defesa; dádivas e perdições se anulam 1 a 1 e as que
+# sobram rolam d6, valendo só o maior. O crítico (total 20+ e 5 acima do alvo) e o teste de
+# destino seguem o livro e ficam marcados para conferência em docs/SOTDL_CRIACAO_GUIADA.md.
+class SotdlRollRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attribute: StrictInt = Field(ge=1, le=20)
+    boons: StrictInt = Field(default=0, ge=0, le=10)
+    banes: StrictInt = Field(default=0, ge=0, le=10)
+    target: StrictInt = Field(default=10, ge=1, le=40)
+
+
+class SotdlRollResponse(BaseModel):
+    attribute: int
+    modifier: int
+    d20: int
+    net_boons: int
+    boon_dice: list[int]
+    boon_value: int
+    total: int
+    target: int
+    success: bool
+    critical: bool
+    verdict: str
+
+
+def roll_sotdl(payload: SotdlRollRequest) -> SotdlRollResponse:
+    modifier = payload.attribute - 10
+    net = payload.boons - payload.banes
+    d20 = secrets.randbelow(20) + 1
+    boon_dice = [secrets.randbelow(6) + 1 for _ in range(abs(net))]
+    boon_value = (max(boon_dice) if boon_dice else 0) * (1 if net >= 0 else -1)
+    total = d20 + modifier + boon_value
+    success = total >= payload.target
+    critical = success and total >= 20 and total - payload.target >= 5
+    verdict = "Crítico" if critical else "Sucesso" if success else "Falha"
+    return SotdlRollResponse(
+        attribute=payload.attribute,
+        modifier=modifier,
+        d20=d20,
+        net_boons=net,
+        boon_dice=boon_dice,
+        boon_value=boon_value,
+        total=total,
+        target=payload.target,
+        success=success,
+        critical=critical,
+        verdict=verdict,
+    )
+
+
+class SotdlFateResponse(BaseModel):
+    die: int
+    outcome: str
+    verdict: str
+
+
+_FATE = {1: ("dying", "Morrendo"), 6: ("recovers", "Recupera 1 de dano")}
+
+
+def roll_sotdl_fate() -> SotdlFateResponse:
+    die = secrets.randbelow(6) + 1
+    outcome, verdict = _FATE.get(die, ("stable", "Estável"))
+    return SotdlFateResponse(die=die, outcome=outcome, verdict=verdict)

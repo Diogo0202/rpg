@@ -8,11 +8,11 @@ import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 
 /**
- * Development-only harness: the creation wizard on a Vampire starter (V5 or V3) with in-memory
- * values, so distribution modes, counters and priority points can be checked without Supabase.
- * Served only by app/dev/sheet-wizard, which returns 404 outside `next dev`.
+ * Development-only harness: the creation wizard on a Vampire (V5 or V3) or Shadow of the Demon Lord
+ * starter with in-memory values, so distribution modes, counters, priority points and ancestry grants
+ * can be checked without Supabase. Served only by app/dev/sheet-wizard, which returns 404 outside `next dev`.
  */
-const STARTERS = SYSTEM_STARTERS.filter((item) => item.id === "vampire-v5" || item.id === "vampire-v3");
+const STARTERS = SYSTEM_STARTERS.filter((item) => item.id === "vampire-v5" || item.id === "vampire-v3" || item.id === "shadow-demon-lord");
 const TEMPLATE_ID = "00000000-0000-4000-8000-0000000000d1";
 
 export function SheetCreationWizardFixture() {

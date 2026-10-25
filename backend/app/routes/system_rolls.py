@@ -8,8 +8,13 @@ from app.services.system_rolls import (
     HunterRollResponse,
     OneRingRollRequest,
     OneRingRollResponse,
+    SotdlFateResponse,
+    SotdlRollRequest,
+    SotdlRollResponse,
     roll_hunter,
     roll_one_ring,
+    roll_sotdl,
+    roll_sotdl_fate,
 )
 
 
@@ -30,3 +35,18 @@ def roll_one_ring_action(
     _: None = Depends(require_signed_in_user),
 ) -> OneRingRollResponse:
     return roll_one_ring(payload)
+
+
+@router.post("/shadow-demon-lord", response_model=SotdlRollResponse)
+def roll_sotdl_action(
+    payload: SotdlRollRequest,
+    _: None = Depends(require_signed_in_user),
+) -> SotdlRollResponse:
+    return roll_sotdl(payload)
+
+
+@router.post("/shadow-demon-lord/fate", response_model=SotdlFateResponse)
+def roll_sotdl_fate_action(
+    _: None = Depends(require_signed_in_user),
+) -> SotdlFateResponse:
+    return roll_sotdl_fate()
