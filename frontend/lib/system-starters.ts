@@ -3,6 +3,7 @@ import type { GrantCase, MetaCurrency, SheetField, SheetTemplate } from "./sheet
 import { CAITIFF_CHOICE_FIELDS, V5_CLAN_CASES, V5_DISCIPLINES, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES } from "./v5-creation-data.ts";
 import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BACKGROUNDS, V3_CLANS, V3_DISCIPLINES, V3_PRIORITY_RULE, V3_SECTS, V3_VIRTUES } from "./v3-creation-data.ts";
 import { SOTDL_AFFLICTIONS, SOTDL_ANCESTRIES, SOTDL_ANCESTRY_BASE, SOTDL_ANCESTRY_CASES, SOTDL_ANCESTRY_CHOICE_FIELD, SOTDL_ANCESTRY_FIELDS, SOTDL_ATTRIBUTES, SOTDL_FAITHS } from "./sotdl-creation-data.ts";
+import { DEMON_ABILITY_GROUPS, DEMON_ATTRIBUTE_GROUPS, DEMON_BACKGROUNDS, DEMON_HOUSES, DEMON_LORES, DEMON_PRIORITY_RULE, DEMON_TORMENT_CASES, DEMON_VIRTUES } from "./demon-fallen-creation-data.ts";
 
 /**
  * Proveniência: contratos estruturados no RPG Atlas, checkout local
@@ -21,7 +22,7 @@ import { SOTDL_AFFLICTIONS, SOTDL_ANCESTRIES, SOTDL_ANCESTRY_BASE, SOTDL_ANCESTR
 export type StarterValue = string | number | boolean | string[];
 export type StarterField = SheetField;
 export type SystemStarter = {
-  id: "vampire-v5" | "vampire-v3" | "hunter" | "one-ring" | "shadow-demon-lord";
+  id: "vampire-v5" | "vampire-v3" | "hunter" | "one-ring" | "shadow-demon-lord" | "demon-the-fallen";
   label: string;
   template: SheetTemplate;
   values: Record<string, StarterValue>;
@@ -252,6 +253,41 @@ const v3Limits: Record<string, [number, number]> = {
 vampireV3.template.fields = vampireV3.template.fields.map((item) => v3Limits[item.id] ? { ...item, min: v3Limits[item.id][0], max: v3Limits[item.id][1] } : item);
 vampireV3.template.creation_rules = [V3_PRIORITY_RULE];
 
+const demon = makeStarter("demon-the-fallen", "Demônio: A Queda", "Demônio: A Queda básico", [
+  text("nome", "Nome", "", true), text("conceito", "Conceito"), text("cronica", "Crônica"),
+  { ...select("casa", "Casa", DEMON_HOUSES), required: true },
+  text("faccao", "Facção"), text("natureza", "Natureza"), text("comportamento", "Comportamento"),
+  text("hospedeiro", "Hospedeiro mortal"),
+  ...DEMON_ATTRIBUTE_GROUPS.flatMap((group) => group.fields.map(([id, label]) => number(id, label, 1, true))),
+  ...DEMON_ABILITY_GROUPS.flatMap((group) => group.fields.map(([id, label]) => number(id, label))),
+  ...DEMON_BACKGROUNDS.map(([id, label]) => number(id, label)),
+  ...DEMON_LORES.map(([id, label]) => number(id, label)),
+  ...DEMON_VIRTUES.map(([id, label]) => number(id, label, 1, true)),
+  number("fe_permanente", "Fé permanente", 3), number("fe_atual", "Fé atual", 3),
+  field("tormento_permanente", "Tormento permanente", "number", undefined, [], null, true), number("tormento_temporario", "Tormento temporário"),
+  number("vontade_max", "Força de Vontade máxima", 2), number("vontade_atual", "Força de Vontade atual", 2),
+  collection("forma_apocaliptica", "Forma apocalíptica"), collection("rituais", "Rituais"),
+  collection("pactos", "Pactos"), collection("vitalidade", "Vitalidade"),
+  text("historia", "História"), text("notas", "Notas"), { ...text("segredos", "Segredos"), private: true },
+], [
+  { id: "fe", label: "Fé", field: "fe_atual", mode: "pool", max_field: "fe_permanente" },
+  { id: "vontade", label: "Força de Vontade", field: "vontade_atual", mode: "pool", max_field: "vontade_max" },
+]);
+const demonLimits: Record<string, [number, number]> = {
+  ...Object.fromEntries(DEMON_ATTRIBUTE_GROUPS.flatMap((group) => group.fields.map(([id]) => [id, [1, 5] as [number, number]]))),
+  ...Object.fromEntries([...DEMON_ABILITY_GROUPS.flatMap((group) => group.fields), ...DEMON_BACKGROUNDS, ...DEMON_LORES]
+    .map(([id]) => [id, [0, 5] as [number, number]])),
+  ...Object.fromEntries(DEMON_VIRTUES.map(([id]) => [id, [1, 5] as [number, number]])),
+  fe_permanente: [3, 10], fe_atual: [0, 10], tormento_permanente: [0, 10], tormento_temporario: [0, 10],
+  vontade_max: [0, 10], vontade_atual: [0, 10], experiencia: [0, 9999],
+};
+demon.template.fields = demon.template.fields.map((item) => demonLimits[item.id]
+  ? { ...item, min: demonLimits[item.id][0], max: demonLimits[item.id][1] } : item);
+demon.template.creation_rules = [DEMON_PRIORITY_RULE,
+  { type: "select_grants", id: "tormento_inicial", label: "Tormento inicial da Casa", field: "casa",
+    fields: ["tormento_permanente"], cases: DEMON_TORMENT_CASES },
+];
+
 // Shadow of the Demon Lord (Trench Crusade campaign): level 0 attributes, speed and the Defense,
 // Health and Perception bonuses are fixed by the ancestry through one select_grants rule.
 // Fervor, faith and Último Alento are the campaign's house rules.
@@ -285,7 +321,7 @@ sotdl.template.creation_rules = [
     fields: SOTDL_ANCESTRY_FIELDS, base: SOTDL_ANCESTRY_BASE, cases: SOTDL_ANCESTRY_CASES },
 ];
 
-export const SYSTEM_STARTERS: SystemStarter[] = [vampire, vampireV3, hunter, oneRing, sotdl];
+export const SYSTEM_STARTERS: SystemStarter[] = [vampire, vampireV3, hunter, oneRing, sotdl, demon];
 
 type StarterMetadata = {
   identity: string[];
@@ -333,6 +369,15 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     resources: ["vigor_marcha", "esperanca", "sombra", "carga", "experiencia"],
     story: ["ambicao", "desejo", "notas"],
     identities: { linhagem: "lineage" },
+  },
+  "demon-the-fallen": {
+    identity: ["nome", "conceito", "cronica", "casa", "faccao", "natureza", "comportamento", "hospedeiro"],
+    attributes: DEMON_ATTRIBUTE_GROUPS.flatMap((group) => group.fields.map(([id]) => id)),
+    skills: DEMON_ABILITY_GROUPS.flatMap((group) => group.fields.map(([id]) => id)),
+    traits: [...DEMON_BACKGROUNDS, ...DEMON_LORES, ...DEMON_VIRTUES].map(([id]) => id),
+    resources: ["fe_permanente", "fe_atual", "tormento_permanente", "tormento_temporario", "vontade_max", "vontade_atual", "vitalidade", "experiencia"],
+    story: ["forma_apocaliptica", "rituais", "pactos", "historia", "notas", "segredos"],
+    identities: { casa: "clan" },
   },
   "shadow-demon-lord": {
     identity: ["nome", "ancestralidade", SOTDL_ANCESTRY_CHOICE_FIELD, "fe", "nivel", "trilha_novato", "trilha_especialista", "trilha_mestre"],

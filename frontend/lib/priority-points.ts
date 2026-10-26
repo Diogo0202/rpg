@@ -17,7 +17,9 @@ export function priorityRules(template: SheetTemplate): PriorityPoints[] {
 const numeric = (value: FieldValue | undefined) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 
 export function poolBase(pool: PriorityPool, values: Values): number {
-  return (pool.base ?? 0) + (pool.base_from ?? []).reduce((sum, id) => sum + numeric(values[id]), 0);
+  const highest = (pool.base_from_highest ?? []).map((id) => numeric(values[id])).sort((a, b) => b - a);
+  return (pool.base ?? 0) + (pool.base_from ?? []).reduce((sum, id) => sum + numeric(values[id]), 0)
+    + highest.slice(0, pool.highest_count ?? 0).reduce((sum, value) => sum + value, 0);
 }
 
 /** Fields the select's current value does not let rise above base; all of them while nothing is chosen. */

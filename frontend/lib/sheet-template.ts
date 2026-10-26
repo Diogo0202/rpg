@@ -47,7 +47,7 @@ export type SelectGrantsRule = { type: "select_grants"; id: string; label: strin
 export type PowerPicksRule = { type: "power_picks"; id: string; label: string; collection: string; fields: string[]; sources: PowerSource[] };
 export type PriorityGroup = { label: string; fields: string[] };
 export type PriorityPool = {
-  id: string; label: string; base?: number; base_from?: string[]; cost: number; budgets: number[]; groups: PriorityGroup[];
+  id: string; label: string; base?: number; base_from?: string[]; base_from_highest?: string[]; highest_count?: number; cost: number; budgets: number[]; groups: PriorityGroup[];
   /** Only these fields may rise above base for the value the select holds. */
   allowed?: { field: string; cases: Record<string, string[]> } | null;
 };

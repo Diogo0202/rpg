@@ -1,3 +1,4 @@
+import { priorityRules, tallyPriority } from "./priority-points.ts";
 import type { CreationRule, FieldValue, Grant, GrantCase, GrantChoice, GrantChoiceOption, PowerEntry, PowerPicksRule, PowerSource, SelectGrantsRule, SheetTemplate } from "./sheet-template.ts";
 
 /**
@@ -174,6 +175,7 @@ export function ruleMessage(rule: CreationRule): string {
   }
   if (rule.type === "group_sum") return `${rule.label}: a soma deve ficar${typeof rule.min === "number" ? ` a partir de ${rule.min}` : ""}${typeof rule.max === "number" ? ` até ${rule.max}` : ""}.`;
   if (rule.type === "points_budget") return `${rule.label}: gaste ${(rule.exact ?? true) ? "exatamente" : "até"} ${rule.budget} pontos.`;
+  if (rule.type === "priority_points") return `${rule.label}: confira as prioridades e os ${rule.freebies} pontos bônus.`;
   if (rule.type === "select_grants") return `${rule.label}: os valores e escolhas concedidos não conferem.`;
   return `${rule.label}: escolha um poder da lista por ponto, até o nível permitido.`;
 }
@@ -210,6 +212,7 @@ export function creationRuleViolations(template: SheetTemplate, values: Values):
     }
   }
   for (const id of grantViolations(template, values)) violated.add(id);
+  for (const rule of priorityRules(template)) if (!tallyPriority(template, rule, values).complete) violated.add(rule.id);
   for (const rule of powerRules(template)) if (powerViolated(rule, values)) violated.add(rule.id);
   return rules.filter((rule) => violated.has(rule.id));
 }

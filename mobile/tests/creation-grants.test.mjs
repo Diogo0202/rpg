@@ -4,11 +4,21 @@ import { test } from "node:test";
 import { activeGrants, applyGrants, creationRuleViolations, grantChoiceFieldIds, grantProblems, grantedItems, powerRules, powerStatus, ruleMessage, staleGrantChoices } from "../src/lib/creation-grants.ts";
 import { reconcileDependentValues } from "../src/lib/sheet-creation.ts";
 import { SYSTEM_STARTERS } from "../src/lib/system-starters.ts";
+import { poolBase, priorityPatch, priorityRules } from "../src/lib/priority-points.ts";
 
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const template = v5.template;
 // The web V5 starter as the server stores it (frontend/lib/system-starters.ts).
 const fixture = JSON.parse(await readFile(new URL("../../backend/tests/fixtures/v5_starter.json", import.meta.url), "utf8"));
+test("a criação local de Demônio confere prioridades e recalcula Vontade", () => {
+  const demon = SYSTEM_STARTERS.find((item) => item.id === "demon-the-fallen");
+  const rule = priorityRules(demon.template)[0];
+  const willpower = rule.pools.find((pool) => pool.id === "vontade");
+  const initial = { ...demon.values, consciencia: 3, conviccao: 2, coragem: 1, vontade_max: 5 };
+  assert.equal(poolBase(willpower, initial), 5);
+  assert.equal(priorityPatch(demon.template, initial, { ...initial, coragem: 4 }).vontade_max, 7);
+  assert.deepEqual(creationRuleViolations(demon.template, demon.values).map((item) => item.id), ["criacao_demonio"]);
+});
 const base = () => ({ ...v5.values });
 /** One wizard change: dependent selects reconcile, grants apply, stale picks drop. */
 const pick = (values, changes, on = template) => {

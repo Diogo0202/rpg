@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "tsc --noEmit",
-    "test:domain": "node --experimental-strip-types --test tests/domain.test.mjs tests/vault-metadata.test.mjs tests/content-safety.test.mjs tests/sheet-creation.test.mjs tests/creation-grants.test.mjs tests/priority-points.test.mjs tests/sotdl-creation.test.mjs tests/sheet-backup-metadata.test.mjs tests/sheet-api.test.mjs tests/metadata.test.mjs tests/clarity.test.mjs tests/server-access-audit.test.mjs tests/ai-assistance.test.mjs tests/map-editor.test.mjs tests/portraits.test.mjs tests/support-links.test.mjs"
+    "test:domain": "node --experimental-strip-types --test tests/domain.test.mjs tests/vault-metadata.test.mjs tests/content-safety.test.mjs tests/sheet-creation.test.mjs tests/creation-grants.test.mjs tests/priority-points.test.mjs tests/sotdl-creation.test.mjs tests/demon-fallen-creation.test.mjs tests/sheet-backup-metadata.test.mjs tests/sheet-api.test.mjs tests/metadata.test.mjs tests/clarity.test.mjs tests/server-access-audit.test.mjs tests/ai-assistance.test.mjs tests/map-editor.test.mjs tests/portraits.test.mjs tests/support-links.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",

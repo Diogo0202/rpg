@@ -56,6 +56,9 @@ test("modelos do Atlas exportam o contrato de backup v1 sem metadados de apresen
     for(const field of starter.template.fields)if(field.kind==="select"&&value.values[field.id]===""){
       if(field.required)value.values[field.id]=field.options[0];else delete value.values[field.id];
     }
+    for(const field of starter.template.fields)if(field.kind==="number"&&field.required&&value.values[field.id]===undefined){
+      value.values[field.id]=field.min??0;
+    }
     assert.equal(validateBackup(value).name,"Lia");
     assert.equal(JSON.stringify(value.template).includes("creation_step"),false);
     assert.equal(value.values.ativo_na_sessao,true);

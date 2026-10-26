@@ -42,7 +42,11 @@ export type PowerEntry = { name: string; level: number; requires?: { field: stri
 export type PowerSource = { field: string; label: string; powers: PowerEntry[]; count?: "dots" | number; max_level?: "dots" | number };
 export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; cases: GrantCase[] };
 export type PowerPicksRule = { type: "power_picks"; id: string; label: string; collection: string; fields: string[]; sources: PowerSource[] };
+export type PriorityGroup = { label: string; fields: string[] };
+export type PriorityPool = { id: string; label: string; base?: number; base_from?: string[]; base_from_highest?: string[]; highest_count?: number; cost: number; budgets: number[]; groups: PriorityGroup[]; allowed?: { field: string; cases: Record<string, string[]> } | null };
+export type PriorityPoints = { type: "priority_points"; id: string; label: string; freebies: number; exact?: boolean; pools: PriorityPool[]; fields: string[] };
 export type CreationRule =
+  | PriorityPoints
   | { type: "group_distribution"; id: string; label: string; fields: string[]; options: CreationDistribution[] }
   | { type: "group_sum"; id: string; label: string; fields: string[]; min?: number | null; max?: number | null }
   | { type: "points_budget"; id: string; label: string; fields: string[]; costs: Record<string, number>; budget: number; exact?: boolean }

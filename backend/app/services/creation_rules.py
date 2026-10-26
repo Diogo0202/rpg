@@ -260,15 +260,21 @@ class PriorityPool(BaseModel):
     label: Annotated[str, Field(min_length=1, max_length=80)]
     base: Annotated[int, Field(ge=-100, le=100)] = 0
     base_from: FieldIds = Field(default_factory=list, max_length=10)
+    base_from_highest: FieldIds = Field(default_factory=list, max_length=10)
+    highest_count: Annotated[int, Field(ge=0, le=10)] = 0
     cost: Annotated[int, Field(ge=0, le=100)]
     budgets: list[Annotated[int, Field(ge=0, le=1000)]] = Field(min_length=1, max_length=4)
     groups: list[PriorityGroup] = Field(min_length=1, max_length=4)
     allowed: PriorityAllowed | None = None
 
-    _ids = field_validator("base_from")(_valid_ids)
+    _ids = field_validator("base_from", "base_from_highest")(_valid_ids)
 
     @model_validator(mode="after")
     def shape(self) -> "PriorityPool":
+        if self.highest_count > len(self.base_from_highest):
+            raise ValueError(f"{self.label}: highest_count excede os campos de origem")
+        if bool(self.base_from_highest) != bool(self.highest_count):
+            raise ValueError(f"{self.label}: base_from_highest pede highest_count")
         if len(self.budgets) != len(self.groups):
             raise ValueError(f"{self.label}: cada grupo precisa de um orçamento")
         listed = [field_id for group in self.groups for field_id in group.fields]
@@ -305,7 +311,7 @@ class PriorityPoints(BaseModel):
         listed = [field_id for pool in self.pools for group in pool.groups for field_id in group.fields]
         if len(listed) != len(set(listed)):
             raise ValueError(f"{self.label}: um campo aparece em mais de um pool")
-        every = list(dict.fromkeys([*listed, *(field_id for pool in self.pools for field_id in pool.base_from)]))
+        every = list(dict.fromkeys([*listed, *(field_id for pool in self.pools for field_id in [*pool.base_from, *pool.base_from_highest])]))
         if len(every) > 100:
             raise ValueError(f"{self.label}: a regra cita campos demais")
         self.fields = every
@@ -425,7 +431,8 @@ def _priority_problems(rule: PriorityPoints, values: dict[str, Any], labels: dic
     problems: list[str] = []
     bonus = 0
     for pool in rule.pools:
-        base = pool.base + sum(_number(values, field_id) or 0 for field_id in pool.base_from)
+        highest = sorted((_number(values, field_id) or 0 for field_id in pool.base_from_highest), reverse=True)
+        base = pool.base + sum(_number(values, field_id) or 0 for field_id in pool.base_from) + sum(highest[:pool.highest_count])
         permitted: set[str] | None = None
         if pool.allowed:
             selected = values.get(pool.allowed.field)

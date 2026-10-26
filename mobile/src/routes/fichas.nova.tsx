@@ -15,14 +15,15 @@ import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
 import { DistributionControls, distributionProblems } from "@/components/nexus/DistributionControls";
 import { distributionRulesFor, matchingDistribution } from "@/lib/creation-distributions";
 import { stepHelp } from "@/lib/step-help";
+import { priorityPatch, priorityRules, tallyPriority } from "@/lib/priority-points";
 
 export const Route = createFileRoute("/fichas/nova")({
   head: () => ({
     meta: [
       { title: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel e Shadow of the Demon Lord." },
+      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel, Shadow of the Demon Lord e Demônio: A Queda." },
       { property: "og:title", content: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel e Shadow of the Demon Lord." },
+      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador, O Um Anel, Shadow of the Demon Lord e Demônio: A Queda." },
     ],
   }),
   component: NewSheet,
@@ -100,6 +101,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
     const r = reconcileDependentValues(template, next);
     // Clan and predator packages land on the sheet at once; the picks they offer open in a picker.
     const granted = { ...r.values, ...applyGrants(template, values, r.values) };
+    Object.assign(granted, priorityPatch(template, values, granted));
     for (const stale of staleGrantChoices(template, granted)) delete granted[stale];
     setRemoved(r.removedIds.filter((rid) => values[rid] !== undefined && r.values[rid] === undefined));
     setValues(granted);
@@ -114,11 +116,18 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
   /** Clan, predator and power checks plus the point distributions that live on these fields. */
   const stepProblems = (fields: SheetField[]) => {
     const ids = new Set(fields.map((field) => field.id));
+    const priority = priorityRules(template).flatMap((rule) => tallyPriority(template, rule, values).pools
+      .filter((pool) => pool.groups.some((group) => group.fieldIds.some((id) => ids.has(id))))
+      .flatMap((pool) => [
+        ...pool.problems,
+        ...(pool.shortfall ? [`${pool.pool.label}: faltam ${pool.shortfall} pontos da distribuição inicial`] : []),
+      ]));
     return [
+      ...priority,
       ...distributionProblems(template, values, ids, distributionChoices),
       ...grantProblems(template, values, ids, labels),
       ...creationRuleViolations(template, values)
-        .filter((rule) => rule.type !== "select_grants" && rule.type !== "power_picks" && rule.fields.some((fieldId) => ids.has(fieldId)))
+        .filter((rule) => rule.type !== "select_grants" && rule.type !== "power_picks" && rule.type !== "priority_points" && rule.fields.some((fieldId) => ids.has(fieldId)))
         .map(ruleMessage),
     ];
   };
@@ -198,6 +207,14 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
         )}
         <DistributionControls template={template} values={values} ids={currentIds} choices={distributionChoices}
           onChoose={(id, option) => { setDistributionChoices((previous) => ({ ...previous, [id]: option })); setProblems([]); }} />
+        {priorityRules(template).map((rule) => {
+          const tally = tallyPriority(template, rule, values);
+          const pools = tally.pools.filter((pool) => current.key === "review" || pool.groups.some((group) => group.fieldIds.some((id) => currentIds.includes(id))));
+          return pools.length ? <div key={rule.id} className="parchment-inset mb-3 p-3 text-sm text-ink" role="status">
+            <p className="font-semibold">Pontos bônus: restam {tally.remaining} de {rule.freebies}</p>
+            {pools.map((pool) => <p key={pool.pool.id}>{pool.pool.label}: {pool.groups.map((group) => `${group.label} ${group.spent}/${group.free}`).join("; ")}</p>)}
+          </div> : null;
+        })}
         {current.key === "review" ? <Review starter={starter} values={values} formulas={formulas} /> : (
           <div className="grid gap-3 sm:grid-cols-2">
             {current.fields.map((f) => {
