@@ -1,6 +1,8 @@
 import { HUNTER_SKILLS, HUNTER_SKILL_DISTRIBUTIONS, HUNTER_DRIVES } from "./hunter-creation-data.ts";
+import { HUNTER_LIMITS, HUNTER_TRAIT_FIELDS, HUNTER_TRAIT_IDS } from "./hunter-traits.ts";
+import { ONE_RING_CREATION_RULES, ONE_RING_META_CURRENCIES, ONE_RING_SEEDS, ONE_RING_STEPS } from "./one-ring-rules.ts";
 import type { GrantCase, MetaCurrency, SheetField, SheetTemplate } from "./sheet-template.ts";
-import { CAITIFF_CHOICE_FIELDS, V5_CLAN_CASES, V5_DISCIPLINES, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES } from "./v5-creation-data.ts";
+import { CAITIFF_CHOICE_FIELDS, V5_ADVANTAGE_RULES, V5_CLAN_CASES, V5_CLAN_GENERATION_RULE, V5_DISCIPLINES, V5_POTENCY_BY_GENERATION, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES, v5SpecialtyRule } from "./v5-creation-data.ts";
 import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BACKGROUNDS, V3_CLANS, V3_DISCIPLINES, V3_PRIORITY_RULE, V3_SECTS, V3_VIRTUES } from "./v3-creation-data.ts";
 import { SOTDL_AFFLICTIONS, SOTDL_ANCESTRIES, SOTDL_ANCESTRY_BASE, SOTDL_ANCESTRY_CASES, SOTDL_ANCESTRY_CHOICE_FIELD, SOTDL_ANCESTRY_FIELDS, SOTDL_ATTRIBUTES, SOTDL_FAITHS } from "./sotdl-creation-data.ts";
 import { DEMON_ABILITY_GROUPS, DEMON_ATTRIBUTE_GROUPS, DEMON_BACKGROUNDS, DEMON_HOUSES, DEMON_LORES, DEMON_PRIORITY_RULE, DEMON_TORMENT_CASES, DEMON_VIRTUES } from "./demon-fallen-creation-data.ts";
@@ -130,7 +132,7 @@ const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", 
   ...v5Skills.map(([id, label]) => number(id, label)),
   ...V5_DISCIPLINES.map(([id, label]) => number(id, label)),
   number("fome", "Fome", 1), number("humanidade", "Humanidade", 7), number("manchas","Manchas"), number("geracao", "Geração", 13),
-  number("potencia_sangue", "Potência de Sangue"), number("recursos", "Recursos"),
+  number("potencia_sangue", "Potência de Sangue", 1), number("recursos", "Recursos"),
   formula("saude_max", "Vitalidade máxima", "vigor + 3"),
   formula("vontade_max", "Força de Vontade máxima", "autocontrole + resolucao"),
   number("saude_superficial", "Dano superficial na Vitalidade"), number("saude_agravada", "Dano agravado na Vitalidade"),
@@ -153,8 +155,11 @@ const hunterArchetypes = [
 
 const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular", [
   text("nome", "Nome", "", true), text("conceito", "Conceito"), { ...select("credo", "Credo", hunterCreeds), required: true },
-  { ...select("impulso", "Ímpeto", HUNTER_DRIVES), required: true }, text("celula", "Célula"), text("ambicao", "Ambição"), text("desejo", "Desejo"),
-  collection("pilares", "Pilares"), text("redencao", "Redenção"),
+  { ...select("impulso", "Ímpeto", HUNTER_DRIVES), required: true }, { ...text("celula", "Célula"), max_length: HUNTER_LIMITS.celula },
+  text("ambicao", "Ambição"), text("desejo", "Desejo"),
+  // v3: Pilares became up to three Convicção/Pedra de Toque pairs (frontend/lib/hunter-traits.ts).
+  ...HUNTER_TRAIT_FIELDS.map((item) => ({ ...item, initial: "" })),
+  { ...text("redencao", "Redenção"), max_length: HUNTER_LIMITS.redencao }, field("em_desespero", "Em Desespero", "checkbox", false),
   ...v5Attributes.map(([id, label]) => number(id, label, 1, true)),
   ...HUNTER_SKILLS.map(([id, label]) => number(id, label)),
   formula("saude_max", "Vitalidade máxima", "vigor + 3"),
@@ -168,12 +173,13 @@ const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular",
 ], [willpower]);
 
 // New starter only: existing approved campaign templates are never rewritten automatically.
-hunter.template.version = 2;
+hunter.template.version = 3;
 const hunterAttributeIds = new Set(v5Attributes.map(([id]) => id));
 const hunterSkillIds = new Set(HUNTER_SKILLS.map(([id]) => id));
 hunter.template.fields = hunter.template.fields.map((item) => hunterAttributeIds.has(item.id)
   ? { ...item, min: 1, max: 5 }
-  : hunterSkillIds.has(item.id) ? { ...item, min: 0, max: 5 } : item);
+  : hunterSkillIds.has(item.id) ? { ...item, min: 0, max: 5 }
+    : item.id === "desespero" ? { ...item, min: 0, max: 5 } : item);
 hunter.template.creation_rules = [
   { type: "group_distribution", id: "atributos", label: "Atributos", fields: v5Attributes.map(([id]) => id),
     options: [{ label: "Distribuição de atributos", counts: { 4: 1, 3: 3, 2: 4, 1: 1 } }] },
@@ -181,19 +187,11 @@ hunter.template.creation_rules = [
     options: HUNTER_SKILL_DISTRIBUTIONS },
 ];
 
-const oneRingLineages = [
-  "Anões do Povo de Durin", "Bardeses", "Elfos de Lindon", "Hobbits do Condado", "Homens de Bri", "Patrulheiros do Norte",
-];
-
-const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel modular", [
-  text("nome", "Nome", "", true), text("conceito", "Conceito"), select("linhagem", "Linhagem", oneRingLineages),
-  number("forca", "Força", 1, true), number("coracao", "Coração", 1, true), number("espirito", "Espírito", 1, true),
-  number("awe", "Presença"), number("athletics", "Atletismo"), number("awareness", "Percepção"),
-  number("hunting", "Caçada"), number("song", "Canção"), number("travel", "Viagem"),
-  number("vigor_marcha", "Vigor (Endurance)"), number("esperanca", "Esperança"),
-  number("sombra", "Sombra"), number("carga", "Carga"), collection("rituais", "Rituais"),
-  text("ambicao", "Ambição"), text("desejo", "Desejo"), text("notas", "Notas"),
-], [{ id: "esperanca", label: "Esperança", field: "esperanca", mode: "pool" }]);
+// O Um Anel 2ª edição, ficha v2: Corpo/Coração/Astúcia with TN = 20 - attribute, culture bases for
+// Endurance, Hope and Parry, 18 skills, proficiencies, Valour/Wisdom and Shadow (frontend/lib/one-ring-rules.ts).
+const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel 2ª edição", ONE_RING_SEEDS, ONE_RING_META_CURRENCIES);
+oneRing.template.version = 2;
+oneRing.template.creation_rules = ONE_RING_CREATION_RULES;
 
 // V5 creation arithmetic: numbers only, no rules text. Attributes 4/3/3/3/2/2/2/2/1;
 // skills follow one of three distributions (the rest stay at 0).
@@ -214,15 +212,19 @@ vampire.template.creation_rules = [
     { label: "Equilibrado", counts: { 3: 3, 2: 5, 1: 7 } },
   ] },
   // Disciplines are fully decided by the clan and the predator pick, so they are enforced exactly;
-  // Humanity starts at 7 and moves only with the predator. Blood Potency changes are applied, not enforced.
+  // Humanity starts at 7 and Blood Potency follows the generation, and both move only with the predator.
   { type: "select_grants", id: "cla_disciplinas", label: "Disciplinas do clã", field: "cla",
     fields: V5_DISCIPLINES.map(([id]) => id), cases: V5_CLAN_CASES },
   { type: "select_grants", id: "predador_bonus", label: "Bônus do predador", field: "predador",
-    fields: ["humanidade", ...V5_DISCIPLINES.map(([id]) => id)], base: { humanidade: 7 }, cases: V5_PREDATOR_CASES },
+    fields: ["humanidade", "potencia_sangue", ...V5_DISCIPLINES.map(([id]) => id)], base: { humanidade: 7 },
+    base_by: V5_POTENCY_BY_GENERATION, cases: V5_PREDATOR_CASES },
   { type: "power_picks", id: "poderes", label: "Poderes de Disciplina", collection: "disciplinas",
     fields: V5_DISCIPLINES.map(([id]) => id), sources: V5_POWER_SOURCES },
   { type: "power_picks", id: "rituais_iniciais", label: "Rituais", collection: "rituais",
     fields: ["disc_feiticaria"], sources: V5_RITUAL_SOURCES },
+  ...V5_ADVANTAGE_RULES,
+  V5_CLAN_GENERATION_RULE,
+  v5SpecialtyRule(v5Skills),
 ];
 
 // Vampire V3: priorities (7/5/3 attributes, 13/9/5 abilities) plus 15 freebie points, enforced by one
@@ -357,18 +359,19 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
     skills: HUNTER_SKILLS.map(([id]) => id),
     traits: ["vantagens", "especialidades", "defeitos", "triunfos", "distincoes"],
-    resources: ["saude_max", "vontade_max", "desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada", "experiencia"],
-    story: ["ambicao", "desejo", "pilares", "redencao", "notas"],
+    resources: ["saude_max", "vontade_max", "desespero", "em_desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada", "experiencia"],
+    story: ["ambicao", "desejo", ...HUNTER_TRAIT_IDS, "redencao", "notas"],
     identities: { credo: "creed" },
   },
-  "one-ring": {
-    identity: ["nome", "conceito", "linhagem"],
-    attributes: ["forca", "coracao", "espirito"],
-    skills: ["awe", "athletics", "awareness", "hunting", "song", "travel"],
-    traits: ["rituais"],
-    resources: ["vigor_marcha", "esperanca", "sombra", "carga", "experiencia"],
-    story: ["ambicao", "desejo", "notas"],
-    identities: { linhagem: "lineage" },
+  "one-ring": { ...ONE_RING_STEPS, identities: { linhagem: "lineage" } },
+  "shadow-demon-lord": {
+    identity: ["nome", "ancestralidade", SOTDL_ANCESTRY_CHOICE_FIELD, "fe", "nivel", "trilha_novato", "trilha_especialista", "trilha_mestre"],
+    attributes: [...SOTDL_ATTRIBUTES.map(([id]) => id), ...SOTDL_ATTRIBUTES.map(([id]) => `mod_${id}`)],
+    skills: [],
+    traits: ["talentos", "magias", "equipamento"],
+    resources: ["bonus_defesa", "bonus_saude", "bonus_percepcao", "defesa", "saude", "percepcao", "cura", "deslocamento", "tamanho", "poder", "dano", "corrupcao", "insanidade", "aflicoes", "fervor", "fervor_max", "ultimo_alento_usado", "experiencia"],
+    story: ["historia", "notas"],
+    identities: { ancestralidade: "race" },
   },
   "demon-the-fallen": {
     identity: ["nome", "conceito", "cronica", "casa", "faccao", "natureza", "comportamento", "hospedeiro"],
@@ -378,15 +381,6 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     resources: ["fe_permanente", "fe_atual", "tormento_permanente", "tormento_temporario", "vontade_max", "vontade_atual", "vitalidade", "experiencia"],
     story: ["forma_apocaliptica", "rituais", "pactos", "historia", "notas", "segredos"],
     identities: { casa: "clan" },
-  },
-  "shadow-demon-lord": {
-    identity: ["nome", "ancestralidade", SOTDL_ANCESTRY_CHOICE_FIELD, "fe", "nivel", "trilha_novato", "trilha_especialista", "trilha_mestre"],
-    attributes: [...SOTDL_ATTRIBUTES.map(([id]) => id), ...SOTDL_ATTRIBUTES.map(([id]) => `mod_${id}`)],
-    skills: [],
-    traits: ["talentos", "magias", "equipamento"],
-    resources: ["bonus_defesa", "bonus_saude", "bonus_percepcao", "defesa", "saude", "percepcao", "cura", "deslocamento", "tamanho", "poder", "dano", "corrupcao", "insanidade", "aflicoes", "fervor", "fervor_max", "ultimo_alento_usado", "experiencia"],
-    story: ["historia", "notas"],
-    identities: { ancestralidade: "race" },
   },
 };
 

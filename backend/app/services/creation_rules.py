@@ -154,11 +154,37 @@ class GrantCase(BaseModel):
     homebrew: bool = False
 
 
+class GrantBand(BaseModel):
+    """While the controlling number lies in [min, max], `add` joins the rule's base."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min: Annotated[int, Field(ge=-100, le=1000)]
+    max: Annotated[int, Field(ge=-100, le=1000)]
+    add: AddMap = Field(default_factory=dict, max_length=20)
+
+    @model_validator(mode="after")
+    def ordered(self) -> "GrantBand":
+        if self.min > self.max:
+            raise ValueError("a faixa precisa de mínimo até máximo")
+        return self
+
+
+class GrantBaseBy(BaseModel):
+    """Base that follows a number field, such as V5 Blood Potency by generation; a value in no band is refused."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    field: Annotated[str, Field(min_length=2, max_length=64)]
+    bands: list[GrantBand] = Field(min_length=1, max_length=20)
+
+
 class SelectGrants(BaseModel):
     """A select (clan, predator) grants dots and items; `fields` must equal base + grants at creation.
 
     Every select_grants rule is summed together, so a predator's discipline pick
     stacks on the clan's dots. Adds on fields no rule lists are not enforced.
+    `base_by` adds the first band matching a number field to the base.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -169,6 +195,7 @@ class SelectGrants(BaseModel):
     field: Annotated[str, Field(min_length=2, max_length=64)]
     fields: FieldIds = Field(min_length=1, max_length=100)
     base: AddMap = Field(default_factory=dict, max_length=100)
+    base_by: GrantBaseBy | None = None
     cases: list[GrantCase] = Field(min_length=1, max_length=100)
 
     _ids = field_validator("fields")(_valid_ids)
@@ -177,6 +204,146 @@ class SelectGrants(BaseModel):
     def unique_cases(self) -> "SelectGrants":
         if len({item.equals for item in self.cases}) != len(self.cases):
             raise ValueError(f"{self.label}: cada caso precisa de um valor único")
+        if self.base_by and any(field_id not in self.fields for band in self.base_by.bands for field_id in band.add):
+            raise ValueError(f"{self.label}: as faixas só somam em campos da regra")
+        return self
+
+
+class CatalogEntry(BaseModel):
+    """A mechanical name (no rules text) and the point values it may take."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Annotated[str, Field(min_length=1, max_length=80)]
+    costs: list[Annotated[int, Field(ge=1, le=20)]] = Field(min_length=1, max_length=20)
+
+
+class CollectionPoints(BaseModel):
+    """Points in a collection's own items plus listed number fields must equal (or not exceed) `points`.
+
+    An item is worth its "•" marks, or a trailing number such as "Aliados (2)". Items an
+    active select_grants case or option grants (a predator's advantages) are extra and
+    not counted. Used for V5's 7 points of Advantages and 2 of Flaws. With a `catalog`,
+    each own item must name a listed entry ("Nome ••", "Nome: detalhe (2)") at one of its
+    costs, unless the narrator sets `allow_homebrew` on the template.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["collection_points"]
+    id: Annotated[str, Field(min_length=2, max_length=64)]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    collection: Annotated[str, Field(min_length=2, max_length=64)]
+    fields: FieldIds = Field(default_factory=list, max_length=20)
+    points: Annotated[int, Field(ge=0, le=100)]
+    exact: bool = True
+    catalog: list[CatalogEntry] = Field(default_factory=list, max_length=200)
+    allow_homebrew: bool = False
+
+    _ids = field_validator("fields")(_valid_ids)
+
+    @model_validator(mode="after")
+    def unique_catalog(self) -> "CollectionPoints":
+        names = [item_name_key(entry.name) for entry in self.catalog]
+        if len(names) != len(set(names)):
+            raise ValueError(f"{self.label}: o catálogo repete um nome")
+        return self
+
+
+class RangeLimit(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    min: Annotated[int, Field(ge=-1000, le=1000)]
+    max: Annotated[int, Field(ge=-1000, le=1000)]
+
+    @model_validator(mode="after")
+    def ordered(self) -> "RangeLimit":
+        if self.min > self.max:
+            raise ValueError("o intervalo precisa de mínimo até máximo")
+        return self
+
+
+ExcludeMap = dict[Annotated[str, Field(min_length=2, max_length=64)], list[Annotated[str, Field(min_length=1, max_length=160)]]]
+
+
+class SelectRangeDefault(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ranges: dict[Annotated[str, Field(min_length=2, max_length=64)], RangeLimit] = Field(default_factory=dict, max_length=20)
+    exclude: ExcludeMap = Field(default_factory=dict, max_length=10)
+
+
+class SelectRangeCase(SelectRangeDefault):
+    equals: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
+
+
+class SelectRanges(BaseModel):
+    """While a select holds a value, number fields stay in a range and other selects avoid listed values.
+
+    The first case whose `equals` lists the value applies; any other non-empty value uses
+    `default`. V5: thin-blooded only at 14th-16th generation, every other clan (homebrew
+    included) in the starting generations the template allows. `fields` stays empty: the
+    rule names its fields in `ranges`, so step filters keyed on `fields` leave it to the
+    wizards' own checks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["select_ranges"]
+    id: Annotated[str, Field(min_length=2, max_length=64)]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    field: Annotated[str, Field(min_length=2, max_length=64)]
+    fields: list[str] = Field(default_factory=list, max_length=0)
+    cases: list[SelectRangeCase] = Field(default_factory=list, max_length=100)
+    default: SelectRangeDefault | None = None
+
+    @model_validator(mode="after")
+    def unique_values(self) -> "SelectRanges":
+        listed = [value for case in self.cases for value in case.equals]
+        if len(listed) != len(set(listed)):
+            raise ValueError(f"{self.label}: um valor aparece em mais de um caso")
+        for case in self.all_cases():
+            _valid_ids(list(case.ranges))
+        return self
+
+    def all_cases(self) -> list[SelectRangeDefault]:
+        return [*self.cases, *([self.default] if self.default else [])]
+
+
+class SpecialtySkill(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    field: Annotated[str, Field(min_length=2, max_length=64)]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+
+
+class SpecialtyPicks(BaseModel):
+    """Free specialties "Habilidade (especialização)" in skills with dots.
+
+    One for each `required` skill that has dots, plus `free` more in any skill with dots.
+    Items an active select_grants case grants (the predator's specialty) are extra.
+    `fields` stays empty for the same reason as in SelectRanges; the skills are in `skills`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["specialty_picks"]
+    id: Annotated[str, Field(min_length=2, max_length=64)]
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    collection: Annotated[str, Field(min_length=2, max_length=64)]
+    skills: list[SpecialtySkill] = Field(min_length=1, max_length=100)
+    required: FieldIds = Field(default_factory=list, max_length=100)
+    free: Annotated[int, Field(ge=0, le=20)] = 1
+    fields: list[str] = Field(default_factory=list, max_length=0)
+
+    @model_validator(mode="after")
+    def skills_listed(self) -> "SpecialtyPicks":
+        ids = [skill.field for skill in self.skills]
+        _valid_ids(ids)
+        if len({skill.label.lower() for skill in self.skills}) != len(self.skills):
+            raise ValueError(f"{self.label}: cada habilidade precisa de um rótulo único")
+        if any(field_id not in ids for field_id in self.required):
+            raise ValueError(f"{self.label}: as habilidades obrigatórias precisam estar na lista")
         return self
 
 
@@ -318,7 +485,9 @@ class PriorityPoints(BaseModel):
         return self
 
 
-CreationRule = Annotated[Union[GroupDistribution, GroupSum, PointsBudget, SelectGrants, PowerPicks, PriorityPoints], Field(discriminator="type")]
+CreationRule = Annotated[Union[GroupDistribution, GroupSum, PointsBudget, SelectGrants, PowerPicks, PriorityPoints, CollectionPoints,
+                               SelectRanges, SpecialtyPicks],
+                         Field(discriminator="type")]
 
 
 class Violation(BaseModel):
@@ -357,6 +526,156 @@ def _allowed(option: GrantChoiceOption, values: dict[str, Any]) -> bool:
     return option.requires is None or values.get(option.requires["field"]) in option.requires["in"]
 
 
+def _band(base_by: GrantBaseBy, values: dict[str, Any]) -> GrantBand | None:
+    value = _number(values, base_by.field)
+    return None if value is None else next((band for band in base_by.bands if band.min <= value <= band.max), None)
+
+
+def _granted_items(rules: list[SelectGrants], values: dict[str, Any]) -> dict[str, set[str]]:
+    """Items the selected cases and their allowed chosen options put in each collection."""
+    granted: dict[str, set[str]] = {}
+    for rule in rules:
+        case = next((item for item in rule.cases if item.equals == values.get(rule.field)), None)
+        if case is None:
+            continue
+        grants: list[GrantCase | GrantChoiceOption] = [case]
+        for choice in case.choices:
+            option = next((item for item in choice.options if item.label == values.get(choice.field)), None)
+            if option is not None and _allowed(option, values):
+                grants.append(option)
+        for grant in grants:
+            for collection, items in grant.items.items():
+                granted.setdefault(collection, set()).update(items)
+    return granted
+
+
+# Same pattern in frontend/mobile creation-grants.ts and in SQL (20261026180000_v5_creation_points.sql).
+_TRAILING_POINTS = re.compile(r"(?:^|[ (])([0-9]{1,2})\)? *$")
+
+
+def item_points(item: str) -> int:
+    """Worth of an item: "Aliados ••", "Aliados (2)" and "Aliados 2" are 2; an item with neither is 0."""
+    dots = item.count("•")
+    if dots:
+        return dots
+    match = _TRAILING_POINTS.search(item)
+    return int(match.group(1)) if match else 0
+
+
+# Same steps in frontend/mobile creation-checks.ts and private.creation_item_name (20261027150000_v5_creation_catalog.sql).
+_DETAIL = re.compile(r"^(.+?) *\([^()]*\)$")
+_SPACES = re.compile(r"\s+")
+
+
+def item_name(item: str) -> str:
+    """Name without points or detail: "Aliados: polícia ••", "Aliados (polícia) (2)" and "Aliados 2" are "Aliados"."""
+    text = item.replace("•", "") if "•" in item else _TRAILING_POINTS.sub("", item)
+    text = _SPACES.sub(" ", text).strip().split(":", 1)[0].strip()
+    match = _DETAIL.match(text)
+    return match.group(1).strip() if match else text
+
+
+def item_name_key(item: str) -> str:
+    return item_name(item).lower()
+
+
+def _catalog_problem(rule: CollectionPoints, own: list[str]) -> str | None:
+    if not rule.catalog:
+        return None
+    entries = {item_name_key(entry.name): entry for entry in rule.catalog}
+    outside: list[str] = []
+    for item in own:
+        entry = entries.get(item_name_key(item))
+        if entry is None:
+            if not rule.allow_homebrew:
+                outside.append(item)
+            continue
+        if item_points(item) not in entry.costs:
+            allowed = ", ".join(str(cost) for cost in entry.costs)
+            return f"{item} vale {item_points(item)}; {entry.name} aceita {allowed} {'ponto' if entry.costs == [1] else 'pontos'}"
+    if outside:
+        return f"{', '.join(outside)} fora do catálogo do modelo (o narrador pode liberar itens da casa no modelo)"
+    return None
+
+
+def _range_violation(rule: SelectRanges, values: dict[str, Any], labels: dict[str, str]) -> str | None:
+    selected = values.get(rule.field)
+    if not isinstance(selected, str) or not selected:
+        return None
+    case: SelectRangeDefault | None = next((item for item in rule.cases if selected in item.equals), None) or rule.default
+    if case is None:
+        return None
+    problems: list[str] = []
+    for field_id, limit in case.ranges.items():
+        value = _number(values, field_id)
+        if value is None or not limit.min <= value <= limit.max:
+            problems.append(f"{labels.get(field_id, field_id)} deve ficar entre {limit.min} e {limit.max} para {selected}")
+    for field_id, refused in case.exclude.items():
+        other = values.get(field_id)
+        if isinstance(other, str) and other in refused:
+            problems.append(f"{labels.get(field_id, field_id)} {other} não combina com {selected}")
+    return "; ".join(problems) or None
+
+
+def _specialty_skill(rule: SpecialtyPicks, item: str) -> SpecialtySkill | None:
+    text = item.strip()
+    lowered = text.lower()
+    for skill in rule.skills:
+        prefix = f"{skill.label.lower()} ("
+        if lowered.startswith(prefix) and text.endswith(")") and text[len(prefix):-1].strip():
+            return skill
+    return None
+
+
+def _specialty_problem(rule: SpecialtyPicks, values: dict[str, Any], granted: dict[str, set[str]]) -> str | None:
+    raw = values.get(rule.collection, [])
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        return "a lista precisa conter textos"
+    extra = granted.get(rule.collection, set())
+    own = [item for item in raw if item not in extra]
+    if len({item.strip().lower() for item in own}) != len(own):
+        return "há especializações repetidas"
+    picked: Counter[str] = Counter()
+    for item in own:
+        skill = _specialty_skill(rule, item)
+        if skill is None:
+            return f"{item} precisa seguir o formato Habilidade (especialização) com uma habilidade da lista"
+        if (_number(values, skill.field) or 0) < 1:
+            return f"{item} pede ao menos 1 ponto em {skill.label}"
+        picked[skill.field] += 1
+    labels = {skill.field: skill.label for skill in rule.skills}
+    due = [field_id for field_id in rule.required if (_number(values, field_id) or 0) >= 1]
+    missing = [labels[field_id] for field_id in due if not picked[field_id]]
+    if missing:
+        return f"falta especialização em {', '.join(missing)}"
+    expected = len(due) + rule.free
+    if len(own) != expected:
+        return f"{len(own)} {'especialização' if len(own) == 1 else 'especializações'}, o esperado é {expected}"
+    return None
+
+
+def _collection_problem(rule: CollectionPoints, values: dict[str, Any], granted: dict[str, set[str]], labels: dict[str, str]) -> str | None:
+    raw = values.get(rule.collection, [])
+    if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
+        return "a lista precisa conter textos"
+    extra = granted.get(rule.collection, set())
+    own = [item for item in raw if item not in extra]
+    unpriced = [item for item in own if item_points(item) == 0]
+    if unpriced:
+        return f"indique os pontos de {', '.join(unpriced)} (•• ou (2))"
+    catalog = _catalog_problem(rule, own)
+    if catalog:
+        return catalog
+    numbers = [_number(values, field_id) for field_id in rule.fields]
+    if any(number is None for number in numbers):
+        return "preencha os campos numéricos"
+    spent = sum(item_points(item) for item in own) + sum(number for number in numbers if number is not None)
+    if (rule.exact and spent != rule.points) or spent > rule.points:
+        counted = ", ".join(labels.get(field_id, field_id) for field_id in rule.fields)
+        return f"{spent} de {rule.points} pontos" + (f" (inclui {counted})" if counted else "")
+    return None
+
+
 def _grant_violations(rules: list[SelectGrants], values: dict[str, Any], labels: dict[str, str]) -> list[Violation]:
     """All select_grants rules together: enforced fields equal base plus every active grant."""
     expected: Counter[str] = Counter()
@@ -364,6 +683,14 @@ def _grant_violations(rules: list[SelectGrants], values: dict[str, Any], labels:
     for rule in rules:
         for field_id in rule.fields:
             expected[field_id] += rule.base.get(field_id, 0)
+        if rule.base_by:
+            band = _band(rule.base_by, values)
+            if band is None:
+                bounds = f"{min(item.min for item in rule.base_by.bands)} a {max(item.max for item in rule.base_by.bands)}"
+                problems.setdefault(rule.id, []).append(f"{labels.get(rule.base_by.field, rule.base_by.field)} fora das faixas de criação ({bounds})")
+            else:
+                for field_id, amount in band.add.items():
+                    expected[field_id] += amount
     for rule in rules:
         selected = values.get(rule.field)
         case = next((item for item in rule.cases if item.equals == selected), None)
@@ -468,12 +795,30 @@ def _priority_problems(rule: PriorityPoints, values: dict[str, Any], labels: dic
 def evaluate_creation_rules(rules: list[CreationRule], values: dict[str, Any], labels: dict[str, str] | None = None) -> list[Violation]:
     """Returns every violated rule; an empty list means the sheet may be created."""
     labels = labels or {}
-    violations: list[Violation] = _grant_violations([rule for rule in rules if isinstance(rule, SelectGrants)], values, labels)
+    grant_rules = [rule for rule in rules if isinstance(rule, SelectGrants)]
+    violations: list[Violation] = _grant_violations(grant_rules, values, labels)
+    granted = _granted_items(grant_rules, values)
     for rule in rules:
         if isinstance(rule, SelectGrants):
             continue
+        if isinstance(rule, CollectionPoints):
+            problem = _collection_problem(rule, values, granted, labels)
+            if problem:
+                violations.append(Violation(rule_id=rule.id, label=rule.label, fields=[rule.collection, *rule.fields], message=f"{rule.label}: {problem}"))
+            continue
         if isinstance(rule, PowerPicks):
             problem = _power_violation(rule, values)
+            if problem:
+                violations.append(Violation(rule_id=rule.id, label=rule.label, fields=[rule.collection], message=f"{rule.label}: {problem}"))
+            continue
+        if isinstance(rule, SelectRanges):
+            problem = _range_violation(rule, values, labels)
+            if problem:
+                ranged = list(dict.fromkeys(field_id for case in rule.all_cases() for field_id in case.ranges))
+                violations.append(Violation(rule_id=rule.id, label=rule.label, fields=[rule.field, *ranged], message=f"{rule.label}: {problem}"))
+            continue
+        if isinstance(rule, SpecialtyPicks):
+            problem = _specialty_problem(rule, values, granted)
             if problem:
                 violations.append(Violation(rule_id=rule.id, label=rule.label, fields=[rule.collection], message=f"{rule.label}: {problem}"))
             continue

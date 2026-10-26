@@ -1,4 +1,6 @@
-﻿/**
+import type { PriorityPoints } from "./sheet-template.ts";
+
+/**
  * Vampire V3 creation as names and numbers only: attributes, abilities,
  * clan disciplines, backgrounds, virtues and the priority budgets. No rules
  * text or book prose is copied. The V5 predator list is added by the starter as
@@ -69,3 +71,24 @@ export const V3_ALLOWED_DISCIPLINES: Record<string, string[]> = {
   Caitiff: V3_DISCIPLINES.map(([id]) => id),
 };
 
+const ids = (list: Array<[string, string]>) => list.map(([id]) => id);
+
+/** 7/5/3 attributes, 13/9/5 abilities, 3 disciplines, 5 backgrounds, 7 virtues and 15 freebie points. */
+export const V3_PRIORITY_RULE: PriorityPoints = {
+  type: "priority_points", id: "criacao_v3", label: "Criação por prioridades", freebies: 15, exact: true,
+  fields: [],
+  pools: [
+    { id: "atributos", label: "Atributos", base: 1, cost: 5, budgets: [7, 5, 3], groups: V3_ATTRIBUTE_GROUPS.map((group) => ({ label: group.label, fields: ids(group.fields) })) },
+    { id: "habilidades", label: "Habilidades", base: 0, cost: 2, budgets: [13, 9, 5], groups: V3_ABILITY_GROUPS.map((group) => ({ label: group.label, fields: ids(group.fields) })) },
+    { id: "disciplinas", label: "Disciplinas", base: 0, cost: 7, budgets: [3], groups: [{ label: "Disciplinas", fields: ids(V3_DISCIPLINES) }],
+      allowed: { field: "cla", cases: V3_ALLOWED_DISCIPLINES } },
+    { id: "antecedentes", label: "Antecedentes", base: 0, cost: 1, budgets: [5], groups: [{ label: "Antecedentes", fields: ids(V3_BACKGROUNDS) }] },
+    { id: "virtudes", label: "Virtudes", base: 1, cost: 2, budgets: [7], groups: [{ label: "Virtudes", fields: ids(V3_VIRTUES) }] },
+    { id: "humanidade", label: "Humanidade", base: 0, base_from: ["consciencia", "autocontrole"], cost: 1, budgets: [0], groups: [{ label: "Humanidade", fields: ["humanidade"] }] },
+    { id: "vontade", label: "Força de Vontade", base: 0, base_from: ["coragem"], cost: 1, budgets: [0], groups: [{ label: "Força de Vontade", fields: ["forca_vontade"] }] },
+  ],
+};
+V3_PRIORITY_RULE.fields = [...new Set([
+  ...V3_PRIORITY_RULE.pools.flatMap((pool) => pool.groups.flatMap((group) => group.fields)),
+  ...V3_PRIORITY_RULE.pools.flatMap((pool) => pool.base_from ?? []),
+])];

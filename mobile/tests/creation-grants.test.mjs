@@ -10,6 +10,7 @@ const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const template = v5.template;
 // The web V5 starter as the server stores it (frontend/lib/system-starters.ts).
 const fixture = JSON.parse(await readFile(new URL("../../backend/tests/fixtures/v5_starter.json", import.meta.url), "utf8"));
+
 test("a criação local de Demônio confere prioridades e recalcula Vontade", () => {
   const demon = SYSTEM_STARTERS.find((item) => item.id === "demon-the-fallen");
   const rule = priorityRules(demon.template)[0];
@@ -39,7 +40,11 @@ function brujah(on = template, start = base()) {
   values = pick(values, { cla: "Brujah" }, on);
   values = pick(values, { predador: "Sanguessuga" }, on);
   values = pick(values, { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" }, on);
-  return pick(values, { disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] }, on);
+  // 7 points of own advantages and 2 of own flaws besides the predator's, from the catalogs;
+  // free specialties: one in Ofícios (it has dots) plus one more, besides the predator's.
+  return pick(values, { disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"],
+    vantagens: ["Aliados •••", "Refúgio ••", "Contatos ••"], defeitos: [...values.defeitos, "Vício Irremediável ••"],
+    especialidades: [...values.especialidades, "Ofícios (Marcenaria)", "Atletismo (Corrida)"] }, on);
 }
 
 test("the mobile V5 starter carries the same grant and power rules as the web starter", () => {
@@ -145,13 +150,21 @@ test("tampered values break the same rules the database names", () => {
     [{ humanidade: 7 }, ["predador_bonus"]],
     // Not a Blood Leech option: the bonus dot is unaccounted for in every rule listing Rapidez.
     [{ predador_disciplina: "Dominação" }, ["cla_disciplinas", "predador_bonus"]],
-    [{ predador_especialidade: undefined }, ["predador_bonus"]],
-    [{ defeitos: [] }, ["predador_bonus"]],
+    // Without the pick its specialty is no longer granted, so it counts as one of the player's.
+    [{ predador_especialidade: undefined }, ["especializacoes", "predador_bonus"]],
+    [{ defeitos: [] }, ["defeitos_pontos", "predador_bonus"]],
     [{ disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina"] }, ["poderes"]],
     [{ disciplinas: ["Potência: Proeza", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] }, ["poderes"]],
     [{ disciplinas: ["Potência: Inventado", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] }, ["poderes"]],
     [{ forca: 5 }, ["atributos"]],
-    [{ atletismo: 0 }, ["habilidades"]],
+    // Losing the skill also orphans its free specialty.
+    [{ atletismo: 0 }, ["especializacoes", "habilidades"]],
+    [{ defeitos: ["Exclusão de Presa: mortais ••", "Segredo Sombrio: Diablerista •• ou Rejeitado ••", "Vício ••"] }, ["defeitos_pontos"]],
+    [{ vantagens: ["Aliados •••", "Refúgio ••", "Pacto Antigo ••"] }, ["vantagens_pontos"]],
+    [{ especialidades: ["Briga (Membros)", "Atletismo (Corrida)"] }, ["especializacoes"]],
+    [{ especialidades: ["Briga (Membros)", "Ofícios (Marcenaria)", "Medicina (Cirurgia)"] }, ["especializacoes"]],
+    [{ geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
+    [{ cla: "Sangue-Ralo", disc_potencia: 0, disc_presenca: 0, disc_rapidez: 1, disc_alquimia: 1, disciplinas: ["Alquimia do Sangue-Ralo: Longo Alcance", "Rapidez: Graça Felina"], geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
   ];
   for (const [change, expected] of cases) {
     const values = { ...brujah(), ...change };
@@ -170,6 +183,18 @@ test("a Tremere needs one level-1 ritual and a clan-gated pick on the wrong clan
   const forged = { ...values, cla: "Brujah" };
   assert.ok(violations(fixture.template, { ...brujah(), predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue", disc_feiticaria: 1 }).includes("predador_bonus"));
   assert.ok(violations(fixture.template, forged).includes("cla_disciplinas"));
+});
+
+test("the mobile V5 starter carries the web catalog, clan-generation and specialty rules", () => {
+  for (const id of ["vantagens_pontos", "defeitos_pontos", "cla_geracao", "especializacoes"]) {
+    assert.deepEqual(template.creation_rules.find((rule) => rule.id === id), fixture.template.creation_rules.find((rule) => rule.id === id), `rule ${id} drifted from the web starter`);
+  }
+  const labels = new Map(template.fields.map((field) => [field.id, field.label]));
+  const thin = pick(base(), { cla: "Sangue-Ralo" });
+  assert.ok(grantProblems(template, thin, new Set(["cla"]), labels).some((problem) => problem.includes("Geração deve ficar entre 14 e 16 para Sangue-Ralo")));
+  const homebrew = { ...fixture.template, creation_rules: fixture.template.creation_rules.map((rule) => rule.id === "vantagens_pontos" ? { ...rule, allow_homebrew: true } : rule) };
+  assert.deepEqual(violations(homebrew, { ...brujah(), vantagens: ["Aliados •••", "Refúgio ••", "Pacto Antigo ••"] }), [], "the narrator's homebrew switch accepts other names");
+  assert.match(ruleMessage(template.creation_rules.find((rule) => rule.id === "especializacoes")), /Habilidade \(especialização\)/);
 });
 
 test("violations read as Portuguese guidance", () => {

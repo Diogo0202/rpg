@@ -40,7 +40,7 @@ function NewSheet() {
       .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [list, mode]);
   return (
-    <>
+    <div data-system-theme={starter?.systemKey === "demon-the-fallen" ? "demon-the-fallen" : undefined} className="sheet-system-theme space-y-4">
       <PageHeader title="Nova ficha" subtitle="Assistente guiado. Modelos-base parciais; regras completas dependem das fontes oficiais." />
       <LocalGate>
         {starter ? <Wizard starter={starter} onCancel={() => setStarter(null)} /> : templates.length > 0 ? (
@@ -55,7 +55,7 @@ function NewSheet() {
         ) : <p className="parchment p-4 text-sm text-ink-muted">{mode === "connected" ? "Esta campanha não tem modelos aprovados compatíveis para criar fichas." : "Nenhum modelo local está disponível."}</p>
         }
       </LocalGate>
-    </>
+    </div>
   );
 }
 
@@ -105,7 +105,8 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
     for (const stale of staleGrantChoices(template, granted)) delete granted[stale];
     setRemoved(r.removedIds.filter((rid) => values[rid] !== undefined && r.values[rid] === undefined));
     setValues(granted);
-    setErrors((e) => { const n = { ...e }; delete n[id]; return n; });
+    // A paired field (Convicção / Pedra de Toque) answers its partner's "fill both" error too.
+    setErrors((e) => { const n = { ...e }; delete n[id]; for (const f of template.fields) if (f.paired_with === id) delete n[f.id]; return n; });
     setProblems([]);
     const opened = grantRules(template).find((rule) => rule.field === id && values[id] !== v && (selectedCase(rule, granted)?.choices?.length ?? 0) > 0);
     if (opened) setPicker(opened.id);
@@ -127,7 +128,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
       ...distributionProblems(template, values, ids, distributionChoices),
       ...grantProblems(template, values, ids, labels),
       ...creationRuleViolations(template, values)
-        .filter((rule) => rule.type !== "select_grants" && rule.type !== "power_picks" && rule.type !== "priority_points" && rule.fields.some((fieldId) => ids.has(fieldId)))
+        .filter((rule) => rule.type !== "select_grants" && rule.type !== "power_picks" && rule.type !== "priority_points" && rule.type !== "collection_points" && rule.fields.some((fieldId) => ids.has(fieldId)))
         .map(ruleMessage),
     ];
   };

@@ -10,6 +10,15 @@ test("backup round trip preserves dynamic inventory values", () => {
   assert.throws(() => validateBackup({ ...doc, inventory: [{ ...doc.inventory[0], custom_values: { peso: { execute: "code" } } }] }), /atributo/i);
 });
 
+test("backup carries weapon damage type and defaults older items to superficial", () => {
+  const weapon = { name: "Estaca", category: "weapon", quantity: 1, resource_cost: 0, damage_bonus: 2, protection: 0, notes: "", acquired: true, equipped: true, sort_order: 0 };
+  const doc = createSheetBackup({ name: "Mara", template: { name: "Original", version: 1, fields: [field] }, values: { nome: "Mara" }, effects: [], inventory: [{ ...weapon, damage_type: "aggravated" }, { ...weapon, name: "Faca antiga", equipped: false }] });
+  const restored = parseBackupText(JSON.stringify(doc))[0].inventory;
+  assert.equal(restored[0].damage_type, "aggravated");
+  assert.equal(restored[1].damage_type, "superficial");
+  assert.throws(() => validateBackup({ ...doc, inventory: [{ ...weapon, damage_type: "lethal" }] }), /tipo de dano/i);
+});
+
 test("ignora somente metadados de apresentação do template aprovado", () => {
   const approved = [{ ...field, creation_step: "identity", identity_kind: "origin", character_name: true }];
   assert.equal(mechanicallyEquivalentFields(approved, [field]), true);

@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.services.creation_rules import CreationRule, PowerPicks, PriorityPoints, SelectGrants
+from app.services.creation_rules import CollectionPoints, CreationRule, PowerPicks, PriorityPoints, SelectGrants, SelectRanges, SpecialtyPicks
 from app.services.modifiers import Effect, ModifierPreview, Tag
 
 
@@ -73,6 +73,13 @@ class TemplateField(BaseModel):
     # Hard limits for number fields, enforced on every write (creation and later edits).
     min: int | None = Field(default=None, ge=-1_000_000, le=1_000_000)
     max: int | None = Field(default=None, ge=-1_000_000, le=1_000_000)
+    # Structured text (mirrors private.validate_sheet_text_constraints): length of a text or of each
+    # collection item, item counts, a closed item list and a text field that must be filled together.
+    max_length: int | None = Field(default=None, ge=1, le=10_000)
+    min_items: int | None = Field(default=None, ge=0, le=200)
+    max_items: int | None = Field(default=None, ge=0, le=200)
+    item_options: list[Annotated[str, Field(min_length=1, max_length=160)]] | None = Field(default=None, max_length=100)
+    paired_with: str | None = Field(default=None, max_length=64)
 
     @field_validator("id")
     @classmethod
@@ -80,6 +87,22 @@ class TemplateField(BaseModel):
         if not FIELD_ID.fullmatch(value):
             raise ValueError("id deve usar letras minúsculas, números e sublinhado")
         return value
+
+    @model_validator(mode="after")
+    def text_constraints(self) -> "TemplateField":
+        if self.max_length is not None and self.kind not in {FieldKind.text, FieldKind.collection}:
+            raise ValueError("max_length só vale para texto ou coleção")
+        if (self.min_items is not None or self.max_items is not None or self.item_options is not None) \
+                and self.kind != FieldKind.collection:
+            raise ValueError("limites de itens só valem para coleções")
+        if self.min_items is not None and self.max_items is not None and self.min_items > self.max_items:
+            raise ValueError(f"o mínimo de itens de {self.id} passa do máximo")
+        if self.item_options is not None and len(self.item_options) != len(set(self.item_options)):
+            raise ValueError(f"opções de itens repetidas em {self.id}")
+        if self.paired_with is not None and (self.kind != FieldKind.text or self.paired_with == self.id
+                                             or not FIELD_ID.fullmatch(self.paired_with)):
+            raise ValueError(f"paired_with de {self.id} precisa apontar para outro campo de texto")
+        return self
 
     @model_validator(mode="after")
     def kind_requirements(self) -> "TemplateField":
@@ -148,8 +171,12 @@ class TemplateDraft(BaseModel):
             missing = [field_id for field_id in rule.fields if field_id not in numbers]
             if missing:
                 raise ValueError(f"regra {rule.label} cita campos que não são numéricos: {', '.join(missing)}")
+            if isinstance(rule, CollectionPoints):
+                expect(rule.collection, FieldKind.collection, rule.label)
             if isinstance(rule, SelectGrants):
                 expect(rule.field, FieldKind.select, rule.label)
+                if rule.base_by:
+                    expect(rule.base_by.field, FieldKind.number, rule.label)
                 for case in rule.cases:
                     grants = [case, *(option for choice in case.choices for option in choice.options)]
                     for choice in case.choices:
@@ -166,6 +193,17 @@ class TemplateDraft(BaseModel):
                 for pool in rule.pools:
                     if pool.allowed:
                         expect(pool.allowed.field, FieldKind.select, rule.label)
+            elif isinstance(rule, SelectRanges):
+                expect(rule.field, FieldKind.select, rule.label)
+                for case in rule.all_cases():
+                    for field_id in case.ranges:
+                        expect(field_id, FieldKind.number, rule.label)
+                    for field_id in case.exclude:
+                        expect(field_id, FieldKind.select, rule.label)
+            elif isinstance(rule, SpecialtyPicks):
+                expect(rule.collection, FieldKind.collection, rule.label)
+                for skill in rule.skills:
+                    expect(skill.field, FieldKind.number, rule.label)
             elif isinstance(rule, PowerPicks):
                 expect(rule.collection, FieldKind.collection, rule.label)
                 for source in rule.sources:
@@ -195,6 +233,9 @@ class TemplateDraft(BaseModel):
         if len(ids) != len(set(ids)):
             raise ValueError("cada campo precisa de um id único")
         fields = {field.id: field for field in self.fields}
+        for field in self.fields:
+            if field.paired_with is not None and getattr(fields.get(field.paired_with), "kind", None) != FieldKind.text:
+                raise ValueError(f"paired_with de {field.id} cita {field.paired_with}, que precisa ser texto")
         for field in self.fields:
             dependency = field.depends_on
             if dependency is None:

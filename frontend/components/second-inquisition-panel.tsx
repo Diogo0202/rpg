@@ -68,6 +68,44 @@ export function SecondInquisitionPanel({ campaignId, canManage }: { campaignId: 
   const [eventKind, setEventKind] = useState<EventKind>("public_discipline");
   const [areaId, setAreaId] = useState("");
   const [occurredAt, setOccurredAt] = useState(() => localDateTimeValue(new Date()));
+  const [combats, setCombats] = useState<Array<{ id: string; title: string }>>([]);
+  const [combatId, setCombatId] = useState("");
+
+  useEffect(() => {
+    if (!canManage) return;
+    let active = true;
+    createClient().from("combat_sessions").select("id,title").eq("campaign_id", campaignId).eq("active", true).order("created_at", { ascending: false }).limit(50)
+      .then(({ data, error }) => {
+        if (!active) return;
+        const rows = error ? [] : (data ?? []) as Array<{ id: string; title: string }>;
+        setCombats(rows);
+        setCombatId((current) => rows.some((row) => row.id === current) ? current : rows[0]?.id ?? "");
+      });
+    return () => { active = false; };
+  }, [campaignId, canManage]);
+
+  /** SI-06: aplicação explícita do narrador; a API recalcula a avaliação e grava a origem. */
+  async function applyResponse(kind: string, target: "entity" | "combat") {
+    const selectedCampaign = campaignId;
+    if (!canManage || busy || (target === "combat" && !combatId)) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await api(`/api/v1/campaigns/${selectedCampaign}/second-inquisition/responses/${kind}/apply`, "POST", {
+        save_entity: true,
+        combat_id: target === "combat" ? combatId : null,
+        idempotency_key: crypto.randomUUID(),
+      }) as { application?: { participant_name?: string | null } };
+      if (campaignRef.current !== selectedCampaign) return;
+      setMessage(target === "combat"
+        ? `${result.application?.participant_name ?? "Equipe"} entrou no combate e foi salva no mundo com a origem registrada.`
+        : "Resposta salva no mundo com a origem registrada.");
+    } catch (error) {
+      if (campaignRef.current === selectedCampaign) setMessage(error instanceof Error ? error.message : "Não foi possível aplicar a resposta.");
+    } finally {
+      if (campaignRef.current === selectedCampaign) setBusy(false);
+    }
+  }
 
   async function api(path: string, method = "GET", payload?: unknown) {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -196,7 +234,17 @@ export function SecondInquisitionPanel({ campaignId, canManage }: { campaignId: 
         {data.assessment.responses.length ? data.assessment.responses.map((response) => <article key={response.kind}>
           <h4>Nível {response.triggered_at_level} · {response.title}</h4>
           <dl>{Object.entries(response.stats).map(([key, value]) => <div key={key}><dt>{statLabels[key] ?? key}</dt><dd>{value}</dd></div>)}</dl>
+          <div className={styles.applyActions}>
+            <button type="button" className={styles.quiet} disabled={busy} onClick={() => void applyResponse(response.kind, "entity")}>Salvar no mundo</button>
+            {response.kind === "containment_team" && (combats.length
+              ? <><select aria-label="Combate ativo" value={combatId} disabled={busy} onChange={(event) => setCombatId(event.target.value)}>
+                  {combats.map((combat) => <option key={combat.id} value={combat.id}>{combat.title}</option>)}
+                </select>
+                <button type="button" disabled={busy || !combatId} onClick={() => void applyResponse(response.kind, "combat")}>Inserir no combate</button></>
+              : <small>Nenhum combate ativo para receber a equipe.</small>)}
+          </div>
         </article>) : <p>Nenhuma resposta foi acionada pelas regras atuais da mesa.</p>}
+        {data.assessment.responses.length > 0 && <p><small>Estatísticas genéricas: conferir no livro. Aplicar grava a origem (nível, pontuação e números) visível só para o narrador.</small></p>}
       </div>
     </section>}
 

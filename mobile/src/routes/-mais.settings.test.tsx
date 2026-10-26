@@ -33,7 +33,7 @@ describe("SettingsPanel local cache confirmation", () => {
         removeItem: (key: string) => values.delete(key),
       },
     });
-    document.documentElement.classList.remove("dark");
+    document.documentElement.classList.remove("dark", "hunter", "demon-lord");
     nexus.wipeLocal.mockReset().mockResolvedValue(undefined);
     nexus.refresh.mockReset().mockResolvedValue(undefined);
     nexus.engine.exportPendingDrafts.mockReset().mockResolvedValue({ operations: [] });
@@ -49,6 +49,31 @@ describe("SettingsPanel local cache confirmation", () => {
     expect(screen.getByRole("button", { name: "Escuro" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Padrão" }));
     expect(document.documentElement).not.toHaveClass("dark");
+  });
+
+  it("keeps the hunter palette after reopening and clears it when returning to standard", () => {
+    const view = render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Caçador" }));
+    expect(document.documentElement).toHaveClass("hunter");
+    expect(document.documentElement).not.toHaveClass("dark");
+    view.unmount();
+    render(<SettingsPanel />);
+    expect(screen.getByRole("button", { name: "Caçador" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Padrão" }));
+    expect(document.documentElement).not.toHaveClass("hunter");
+  });
+
+  it("keeps the Demon Lord palette after reopening and swaps cleanly with the hunter theme", () => {
+    const view = render(<SettingsPanel />);
+    fireEvent.click(screen.getByRole("button", { name: "Caçador" }));
+    fireEvent.click(screen.getByRole("button", { name: "Demon Lord" }));
+    expect(document.documentElement).toHaveClass("demon-lord");
+    expect(document.documentElement).not.toHaveClass("hunter");
+    view.unmount();
+    render(<SettingsPanel />);
+    expect(screen.getByRole("button", { name: "Demon Lord" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Padrão" }));
+    expect(document.documentElement).not.toHaveClass("demon-lord");
   });
 
   it("allows cancel or Escape and only clears all account campaigns after manual confirmation", async () => {

@@ -1,13 +1,15 @@
+import type { CollectionPointsRule, CreationRule, FieldValue, Grant, GrantCase, GrantChoice, GrantChoiceOption, PowerEntry, PowerPicksRule, PowerSource, SelectGrantsRule, SheetTemplate } from "./sheet-template.ts";
 import { priorityRules, tallyPriority } from "./priority-points.ts";
-import type { CreationRule, FieldValue, Grant, GrantCase, GrantChoice, GrantChoiceOption, PowerEntry, PowerPicksRule, PowerSource, SelectGrantsRule, SheetTemplate } from "./sheet-template.ts";
+import { creationCheckProblems, creationCheckViolations } from "./creation-checks.ts";
 
 /**
  * Clan and predator packages (select_grants) and locked power lists (power_picks).
  * Port of frontend/lib/creation-grants.ts; the rules always come from
  * template.creation_rules, so campaign templates edited on the web apply here too.
  * At creation every field a select_grants rule lists must equal its base plus what
- * the selected cases and chosen options add. Adds on fields no rule lists (Blood
- * Potency) are applied by the wizard but not enforced.
+ * the selected cases and chosen options add (plus the `base_by` band, such as Blood
+ * Potency by generation). Adds on fields no rule lists are applied but not enforced.
+ * collection_points counts the player's own advantage and flaw points.
  */
 
 type Values = Record<string, FieldValue>;
@@ -45,6 +47,12 @@ export function chosenOption(choice: GrantChoice, values: Values): GrantChoiceOp
   return typeof picked === "string" ? choice.options.find((option) => option.label === picked && optionAllowed(option, values)) : undefined;
 }
 
+/** The `base_by` band the controlling number falls in (V5 generation -> Blood Potency); undefined when none matches. */
+export function activeBand(rule: SelectGrantsRule, values: Values) {
+  const value = values[rule.base_by?.field ?? ""];
+  return rule.base_by && typeof value === "number" ? rule.base_by.bands.find((band) => band.min <= value && value <= band.max) : undefined;
+}
+
 export type ActiveGrant = { rule: SelectGrantsRule; case: GrantCase | undefined; grants: Grant[]; missing: GrantChoice[] };
 
 export function activeGrants(template: SheetTemplate, values: Values): ActiveGrant[] {
@@ -65,7 +73,7 @@ export function grantedNumbers(template: SheetTemplate, values: Values): { enfor
   const enforced = new Map<string, number>();
   const deltas = new Map<string, number>();
   const active = activeGrants(template, values);
-  for (const { rule } of active) for (const id of rule.fields) enforced.set(id, (enforced.get(id) ?? 0) + (rule.base?.[id] ?? 0));
+  for (const { rule } of active) for (const id of rule.fields) enforced.set(id, (enforced.get(id) ?? 0) + (rule.base?.[id] ?? 0) + (activeBand(rule, values)?.add?.[id] ?? 0));
   for (const { grants } of active) for (const grant of grants) for (const [id, amount] of Object.entries(grant.add ?? {})) {
     const target = enforced.has(id) ? enforced : deltas;
     target.set(id, (target.get(id) ?? 0) + amount);
@@ -149,9 +157,48 @@ export function grantProblems(template: SheetTemplate, values: Values, fieldIds:
       problems.push(`${rule.label}: ${status.source.label} pede ${status.allowed} ${status.allowed === 1 ? "escolha" : "escolhas"}, há ${status.chosen.length}.`);
     }
   }
+  for (const rule of grantRules(template)) {
+    if (!rule.base_by || !fieldIds.has(rule.base_by.field) || activeBand(rule, values)) continue;
+    const bands = rule.base_by.bands;
+    problems.push(`${labels.get(rule.base_by.field) ?? rule.base_by.field} fora das faixas de criação (${Math.min(...bands.map((band) => band.min))} a ${Math.max(...bands.map((band) => band.max))}).`);
+  }
   const { enforced } = grantedNumbers(template, values);
   for (const [id, value] of enforced) if (fieldIds.has(id) && numeric(values[id]) !== value) problems.push(`${labels.get(id) ?? id} deve ficar em ${value}.`);
+  for (const rule of collectionPointRules(template)) {
+    if (!fieldIds.has(rule.collection) && !rule.fields.some((id) => fieldIds.has(id))) continue;
+    const status = collectionPointStatus(template, rule, values);
+    if (status.unpriced.length) problems.push(`${rule.label}: indique os pontos de ${status.unpriced.join(", ")} (•• ou (2)).`);
+    else if (!status.complete) problems.push(`${rule.label}: ${status.spent} de ${rule.points} pontos.`);
+  }
+  problems.push(...creationCheckProblems(template, values, fieldIds, labels, grantedItems(template, values)));
   return problems;
+}
+
+export function collectionPointRules(template: SheetTemplate): CollectionPointsRule[] {
+  return (template.creation_rules ?? []).filter((rule): rule is CollectionPointsRule => rule.type === "collection_points");
+}
+
+/** Same pattern as item_points in backend/app/services/creation_rules.py and the SQL mirror. */
+const TRAILING_POINTS = /(?:^|[ (])([0-9]{1,2})\)? *$/;
+
+/** "Aliados ••", "Aliados (2)" and "Aliados 2" are worth 2; an item with neither is worth 0. */
+export function itemPoints(item: string): number {
+  const dots = [...item].filter((char) => char === "•").length;
+  if (dots) return dots;
+  const match = TRAILING_POINTS.exec(item);
+  return match ? Number(match[1]) : 0;
+}
+
+export type CollectionPointStatus = { spent: number; own: string[]; unpriced: string[]; complete: boolean };
+
+/** Points the player's own items (granted ones excluded) and the listed number fields spend. */
+export function collectionPointStatus(template: SheetTemplate, rule: CollectionPointsRule, values: Values): CollectionPointStatus {
+  const granted = grantedItems(template, values).get(rule.collection) ?? [];
+  const own = strings(values[rule.collection]).filter((item) => !granted.includes(item));
+  const unpriced = own.filter((item) => itemPoints(item) === 0);
+  const spent = own.reduce((sum, item) => sum + itemPoints(item), 0) + rule.fields.reduce((sum, id) => sum + numeric(values[id]), 0);
+  const complete = unpriced.length === 0 && ((rule.exact ?? true) ? spent === rule.points : spent <= rule.points);
+  return { spent, own, unpriced, complete };
 }
 
 /** Choice fields holding an option the current values no longer allow (a clan-only pick after changing clan). */
@@ -177,6 +224,9 @@ export function ruleMessage(rule: CreationRule): string {
   if (rule.type === "points_budget") return `${rule.label}: gaste ${(rule.exact ?? true) ? "exatamente" : "até"} ${rule.budget} pontos.`;
   if (rule.type === "priority_points") return `${rule.label}: confira as prioridades e os ${rule.freebies} pontos bônus.`;
   if (rule.type === "select_grants") return `${rule.label}: os valores e escolhas concedidos não conferem.`;
+  if (rule.type === "collection_points") return `${rule.label}: gaste ${(rule.exact ?? true) ? "exatamente" : "até"} ${rule.points} pontos, marcados com • ou (2)${rule.catalog?.length ? ", com nomes e pontos do catálogo do modelo" : ""}.`;
+  if (rule.type === "select_ranges") return `${rule.label}: a escolha pede outros valores (confira a geração e o tipo de predador).`;
+  if (rule.type === "specialty_picks") return `${rule.label}: uma em ${rule.required.length ? "cada habilidade obrigatória com pontos" : "nenhuma obrigatória"} mais ${rule.free} livre, no formato Habilidade (especialização).`;
   return `${rule.label}: escolha um poder da lista por ponto, até o nível permitido.`;
 }
 
@@ -214,6 +264,12 @@ export function creationRuleViolations(template: SheetTemplate, values: Values):
   for (const id of grantViolations(template, values)) violated.add(id);
   for (const rule of priorityRules(template)) if (!tallyPriority(template, rule, values).complete) violated.add(rule.id);
   for (const rule of powerRules(template)) if (powerViolated(rule, values)) violated.add(rule.id);
+  for (const rule of collectionPointRules(template)) {
+    const raw = values[rule.collection] ?? [];
+    if (!Array.isArray(raw) || raw.some((item) => typeof item !== "string") || rule.fields.some((id) => values[id] !== undefined && typeof values[id] !== "number")
+      || !collectionPointStatus(template, rule, values).complete) violated.add(rule.id);
+  }
+  for (const id of creationCheckViolations(template, values, grantedItems(template, values))) violated.add(id);
   return rules.filter((rule) => violated.has(rule.id));
 }
 
@@ -221,7 +277,13 @@ function grantViolations(template: SheetTemplate, values: Values): Set<string> {
   const rules = grantRules(template);
   const violated = new Set<string>();
   const expected = new Map<string, number>();
-  for (const rule of rules) for (const id of rule.fields) expected.set(id, (expected.get(id) ?? 0) + (rule.base?.[id] ?? 0));
+  for (const rule of rules) {
+    for (const id of rule.fields) expected.set(id, (expected.get(id) ?? 0) + (rule.base?.[id] ?? 0));
+    if (!rule.base_by) continue;
+    const band = activeBand(rule, values);
+    if (!band) violated.add(rule.id);
+    for (const [id, amount] of Object.entries(band?.add ?? {})) expected.set(id, (expected.get(id) ?? 0) + amount);
+  }
   for (const rule of rules) {
     const item = selectedCase(rule, values);
     if (!item) continue;

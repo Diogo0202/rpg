@@ -1,4 +1,4 @@
-import type { GrantCase, GrantChoice, GrantChoiceOption, PowerSource } from "./sheet-template.ts";
+import type { CatalogEntry, CollectionPointsRule, GrantBaseBy, GrantCase, GrantChoice, GrantChoiceOption, PowerSource, SelectRangesRule, SpecialtyPicksRule } from "./sheet-template.ts";
 
 /**
  * V5 creation packages as names and numbers only: which disciplines each clan
@@ -99,6 +99,75 @@ export const V5_PREDATOR_CASES: GrantCase[] = PREDATORS.map((predator) => ({
     { field: "predador_especialidade", label: "Especialização", options: predator.specialties.map(specialty) },
   ],
 }));
+
+/** Starting Blood Potency by generation: 14th-16th (thin-blooded) 0, 12th-13th 1, 10th-11th 2; it joins the predator's adds. */
+export const V5_POTENCY_BY_GENERATION: GrantBaseBy = {
+  field: "geracao",
+  bands: [{ min: 14, max: 16, add: { potencia_sangue: 0 } }, { min: 12, max: 13, add: { potencia_sangue: 1 } }, { min: 10, max: 11, add: { potencia_sangue: 2 } }],
+};
+
+const upTo = (max: number) => Array.from({ length: max }, (_, index) => index + 1);
+const entries = (list: Array<[name: string, costs: number[]]>): CatalogEntry[] => list.map(([name, costs]) => ({ name, costs }));
+
+/**
+ * Closed lists of Advantage and Flaw names with the points each may take, names
+ * and numbers only. Recursos is the number field, so it stays out of the list.
+ * Detail goes after a colon or in parentheses: "Aliados: polícia ••".
+ */
+export const V5_ADVANTAGE_CATALOG: CatalogEntry[] = entries([
+  ["Aliados", upTo(5)], ["Contatos", upTo(3)], ["Fama", upTo(5)], ["Influência", upTo(5)], ["Refúgio", upTo(3)],
+  ["Máscara", upTo(2)], ["Mawla", upTo(5)], ["Rebanho", upTo(5)], ["Lacaios", upTo(3)], ["Status", upTo(5)],
+  ["Linguística", upTo(5)], ["Bela", [2]], ["Deslumbrante", [4]], ["Farejador de Sangue", [1]], ["Estômago de Ferro", [3]], ["Comer Comida", [2]],
+  // Thin-blood merits (one point each).
+  ["Camaradas Anarquistas", [1]], ["Contato na Camarilla", [1]], ["Sangue Encadeador", [1]], ["Bebedor Diurno", [1]],
+  ["Afinidade de Disciplina", [1]], ["Semblante Vivo", [1]], ["Alquimista Sangue-Ralo", [1]], ["Resiliência Vampírica", [1]],
+]);
+
+export const V5_FLAW_CATALOG: CatalogEntry[] = entries([
+  ["Inimigo", upTo(5)], ["Infame", upTo(3)], ["Sem Refúgio", [1]], ["Refúgio Comprometido", [2]], ["Refúgio Sinistro", [1]], ["Refúgio Assombrado", upTo(3)],
+  ["Antipatizado", [1]], ["Desprezado", [2]], ["Cadáver Conhecido", [1]], ["Identidade Conhecida", [2]], ["Dívidas de Prestação", upTo(3)],
+  ["Destituído", [1]], ["Perseguidores", [1]], ["Suspeito", [1]], ["Rejeitado", [2]], ["Segredo Sombrio", upTo(3)],
+  ["Analfabeto", [2]], ["Feio", [1]], ["Repulsivo", [2]], ["Exclusão de Presa", [1]], ["Sede de Matusalém", [1]], ["Organóvoro", [2]], ["Vegano", [2]],
+  ["Predador Óbvio", [2]], ["Isca de Estaca", [2]], ["Perdição Folclórica", [1]], ["Bloqueio Folclórico", [1]], ["Estigmas", [1]],
+  ["Vício", [1]], ["Vício Irremediável", [2]], ["Arcaico", [1]], ["Vivendo no Passado", [1]], ["Escravo do Vínculo", [2]], ["Viciado em Vínculo", [1]], ["Vínculo Duradouro", [1]],
+  // Thin-blood flaws (one point each).
+  ["Dentes de Leite", [1]], ["Temperamento Bestial", [1]], ["Marcado pela Camarilla", [1]], ["Maldição de Clã", [1]], ["Carne Morta", [1]],
+  ["Fragilidade Mortal", [1]], ["Rejeitado pelos Anarquistas", [1]], ["Dependência de Vitae", [1]],
+]);
+
+/** 7 points of Advantages (Resources counts toward them) and 2 of Flaws; the predator's own advantages and flaws are extra. */
+export const V5_ADVANTAGE_RULES: CollectionPointsRule[] = [
+  { type: "collection_points", id: "vantagens_pontos", label: "Vantagens", collection: "vantagens", fields: ["recursos"], points: 7, catalog: V5_ADVANTAGE_CATALOG, allow_homebrew: false },
+  { type: "collection_points", id: "defeitos_pontos", label: "Defeitos", collection: "defeitos", fields: [], points: 2, catalog: V5_FLAW_CATALOG, allow_homebrew: false },
+];
+
+/**
+ * Clan and generation: thin-blooded only at 14th-16th, every other clan (Caitiff and
+ * homebrew included) at 10th-13th, the starting bands of V5_POTENCY_BY_GENERATION
+ * (neonate 12th-13th, ancilla 10th-11th). A narrator who wants neonates only narrows
+ * `default` in the template. Thin-blood Blood Potency stays at 0, so the predator that
+ * raises it is refused for them (kept in V5_REVIEW_RULES for the table to confirm).
+ */
+export const V5_CLAN_GENERATION_RULE: SelectRangesRule = {
+  type: "select_ranges", id: "cla_geracao", label: "Clã e geração", field: "cla", fields: [],
+  cases: [{ equals: ["Sangue-Ralo"], ranges: { geracao: { min: 14, max: 16 } }, exclude: { predador: ["Sanguessuga"] } }],
+  default: { ranges: { geracao: { min: 10, max: 13 } } },
+};
+
+/** Skills that always get a free specialty when they have dots; one more goes to any skill with dots. */
+export const V5_SPECIALTY_REQUIRED = ["academicos", "oficios", "performance", "ciencia"];
+
+export function v5SpecialtyRule(skills: Array<[id: string, label: string]>): SpecialtyPicksRule {
+  return { type: "specialty_picks", id: "especializacoes", label: "Especializações", collection: "especialidades",
+    skills: skills.map(([field, label]) => ({ field, label })), required: V5_SPECIALTY_REQUIRED, free: 1, fields: [] };
+}
+
+/** Choices the table should confirm against its books. */
+export const V5_REVIEW_RULES = [
+  "Sangue-Ralo com predador Sanguessuga é recusado (Potência de Sangue dos Sangue-Ralo fica em 0).",
+  "Gerações iniciais dos demais clãs: 10ª a 13ª (neófito ou ancilla); o narrador pode restringir no modelo.",
+  "Méritos e defeitos de Sangue-Ralo contam nos 7 e 2 pontos como os demais.",
+];
 
 const powers = (...levels: string[][]) => levels.flatMap((names, index) => names.map((name) => ({ name, level: index + 1 })));
 const needs = (name: string, level: number, label: string, min: number) => ({ name, level, requires: { field: id(label), min } });

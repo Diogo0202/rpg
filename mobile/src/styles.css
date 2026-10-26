@@ -114,6 +114,131 @@
   --shadow-parchment: 0 1px 0 oklch(1 0 0 / 8%) inset, 0 10px 24px -14px oklch(0.05 0.02 160 / 85%);
 }
 
+:root.hunter {
+  --forest-deep: #17191b;
+  --background: #17191b;
+  --foreground: #f6f3ed;
+  --card: #f6f3ed;
+  --card-foreground: #142a38;
+  --ink: #142a38;
+  --ink-muted: #4d5961;
+  --parchment-deep: #e9e2d9;
+  --popover: #f6f3ed;
+  --popover-foreground: #142a38;
+  --primary: #ff7b2c;
+  --primary-foreground: #151719;
+  --gold: #ff7b2c;
+  --secondary: #27333b;
+  --secondary-foreground: #f6f3ed;
+  --muted: #27333b;
+  --muted-foreground: #d1e5e9;
+  --accent: #b53b18;
+  --accent-foreground: #fffdf8;
+  --destructive: #a63129;
+  --destructive-foreground: #fffdf8;
+  --warning: #ffd06a;
+  --warning-foreground: #17191b;
+  --success: #3e867b;
+  --border: #62666a;
+  --input: #a8a49e;
+  --ring: #ff7b2c;
+  --sidebar: #17191b;
+  --sidebar-foreground: #f6f3ed;
+  --sidebar-primary: #ff7b2c;
+  --sidebar-primary-foreground: #151719;
+  --sidebar-accent: #27333b;
+  --sidebar-accent-foreground: #f6f3ed;
+  --sidebar-border: #62666a;
+  --sidebar-ring: #ff7b2c;
+  --shadow-parchment: 0 1px 0 #fff8 inset, 0 10px 24px -14px #0009;
+  --gradient-forest: radial-gradient(100% 70% at 85% -10%, #71301e, #17191b 65%);
+  --parchment-border: #a8a49e;
+  --field-background: #fffdf8;
+}
+
+/* Demon Lord: trincheira profana (lama e ferro, pergaminho queimado, sangue e ouro sacro). */
+:root.demon-lord {
+  --forest-deep: #15130f;
+  --background: #15130f;
+  --foreground: #ebe0c9;
+  --card: #ebe0c9;
+  --card-foreground: #241c14;
+  --ink: #241c14;
+  --ink-muted: #5c4e3d;
+  --parchment-deep: #e0d2b6;
+  --popover: #ebe0c9;
+  --popover-foreground: #241c14;
+  --primary: #c9a14a;
+  --primary-foreground: #15130f;
+  --gold: #c9a14a;
+  --secondary: #2a241c;
+  --secondary-foreground: #ebe0c9;
+  --muted: #2a241c;
+  --muted-foreground: #d8ccb4;
+  --accent: #8f1d14;
+  --accent-foreground: #f6efdf;
+  --destructive: #8f1d14;
+  --destructive-foreground: #f6efdf;
+  --warning: #d9a441;
+  --warning-foreground: #15130f;
+  --success: #6f7a3a;
+  --border: #4a3f30;
+  --input: #b8a585;
+  --ring: #c9a14a;
+  --sidebar: #15130f;
+  --sidebar-foreground: #ebe0c9;
+  --sidebar-primary: #c9a14a;
+  --sidebar-primary-foreground: #15130f;
+  --sidebar-accent: #2a241c;
+  --sidebar-accent-foreground: #ebe0c9;
+  --sidebar-border: #4a3f30;
+  --sidebar-ring: #c9a14a;
+  --shadow-parchment: 0 1px 0 #fff6 inset, 0 10px 24px -14px #000a;
+  --gradient-forest: radial-gradient(100% 70% at 85% -10%, #5a1a12, #15130f 65%);
+  --parchment-border: #b8a585;
+  --field-background: #f6efdf;
+}
+
+/* Demônio: A Queda keeps the sheet readable on paper inside a charcoal frame. */
+.sheet-system-theme[data-system-theme="demon-the-fallen"] {
+  --background: #151719;
+  --foreground: #f2e8d8;
+  --card: #f1e8db;
+  --card-foreground: #2d2524;
+  --popover: #f1e8db;
+  --popover-foreground: #2d2524;
+  --ink: #2d2524;
+  --ink-muted: #584b48;
+  --parchment-deep: #e7d8c7;
+  --primary: #d98a6d;
+  --primary-foreground: #18161a;
+  --secondary: #44353a;
+  --secondary-foreground: #f2e8d8;
+  --muted: #44353a;
+  --muted-foreground: #cbbeb0;
+  --accent: #9b382b;
+  --accent-foreground: #fff9f0;
+  --destructive: #9b382b;
+  --destructive-foreground: #fff9f0;
+  --warning: #dab878;
+  --warning-foreground: #2d2524;
+  --gold: #dab878;
+  --forest-deep: #151719;
+  --border: #9c8775;
+  --input: #b9a897;
+  --ring: #d98a6d;
+  --parchment-border: #c7b8aa;
+  --field-background: #fff9f0;
+  --shadow-parchment: 0 1px 0 #fff9f0 inset, 0 12px 28px -14px #151719;
+  min-height: 70svh;
+  padding: clamp(1rem, 3vw, 1.75rem);
+  border: 1px solid #44353a;
+  border-top: 4px solid #d98a6d;
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  color: var(--foreground);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);

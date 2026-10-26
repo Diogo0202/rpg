@@ -57,7 +57,7 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
     if (typeof data.template_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.template_id)) throw new Error("A ficha precisa usar o ID de um modelo aprovado da campanha.");
     if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 120 || !data.values || typeof data.values !== "object" || Array.isArray(data.values)) throw new Error("Nome ou valores de ficha inválidos.");
   } else if (entityType === "character_inventory") {
-    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], "Inventário");
+    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], "Inventário");
   } else if (entityType === "world_entities") {
     assertOnlyKeys(data, ["kind", "name", "description", "tags", "body"], "Entidade");
     const body = object(data.body);

@@ -1,11 +1,13 @@
-import type { FieldValue, Grant, GrantCase, GrantChoice, GrantChoiceOption, PowerEntry, PowerPicksRule, PowerSource, SelectGrantsRule, SheetField, SheetTemplate } from "./sheet-template.ts";
+import type { CollectionPointsRule, FieldValue, Grant, GrantCase, GrantChoice, GrantChoiceOption, PowerEntry, PowerPicksRule, PowerSource, SelectGrantsRule, SheetField, SheetTemplate } from "./sheet-template.ts";
+import { creationCheckProblems } from "./creation-checks.ts";
 
 /**
  * Clan and predator packages (select_grants) and locked power lists (power_picks).
  * Mirrors backend/app/services/creation_rules.py: at creation every field a
  * select_grants rule lists must equal its base plus what the selected cases and
- * chosen options add, across all such rules. Adds on fields no rule lists (Blood
- * Potency) are applied by the wizard but not enforced.
+ * chosen options add (plus the `base_by` band, such as Blood Potency by generation),
+ * across all such rules. Adds on fields no rule lists are applied but not enforced.
+ * collection_points counts the player's own advantage and flaw points.
  */
 
 type Values = Record<string, FieldValue>;
@@ -43,6 +45,12 @@ export function chosenOption(choice: GrantChoice, values: Values): GrantChoiceOp
   return typeof picked === "string" ? choice.options.find((option) => option.label === picked && optionAllowed(option, values)) : undefined;
 }
 
+/** The `base_by` band the controlling number falls in (V5 generation -> Blood Potency); undefined when none matches. */
+export function activeBand(rule: SelectGrantsRule, values: Values) {
+  const value = values[rule.base_by?.field ?? ""];
+  return rule.base_by && typeof value === "number" ? rule.base_by.bands.find((band) => band.min <= value && value <= band.max) : undefined;
+}
+
 export type ActiveGrant = { rule: SelectGrantsRule; case: GrantCase | undefined; grants: Grant[]; missing: GrantChoice[] };
 
 export function activeGrants(template: SheetTemplate, values: Values): ActiveGrant[] {
@@ -63,7 +71,7 @@ export function grantedNumbers(template: SheetTemplate, values: Values): { enfor
   const enforced = new Map<string, number>();
   const deltas = new Map<string, number>();
   const active = activeGrants(template, values);
-  for (const { rule } of active) for (const id of rule.fields) enforced.set(id, (enforced.get(id) ?? 0) + (rule.base?.[id] ?? 0));
+  for (const { rule } of active) for (const id of rule.fields) enforced.set(id, (enforced.get(id) ?? 0) + (rule.base?.[id] ?? 0) + (activeBand(rule, values)?.add?.[id] ?? 0));
   for (const { grants } of active) for (const grant of grants) for (const [id, amount] of Object.entries(grant.add ?? {})) {
     const target = enforced.has(id) ? enforced : deltas;
     target.set(id, (target.get(id) ?? 0) + amount);
@@ -147,9 +155,48 @@ export function grantProblems(template: SheetTemplate, values: Values, fieldIds:
       problems.push(`${rule.label}: ${status.source.label} pede ${status.allowed} ${status.allowed === 1 ? "escolha" : "escolhas"}, há ${status.chosen.length}.`);
     }
   }
+  for (const rule of grantRules(template)) {
+    if (!rule.base_by || !fieldIds.has(rule.base_by.field) || activeBand(rule, values)) continue;
+    const bands = rule.base_by.bands;
+    problems.push(`${labels.get(rule.base_by.field) ?? rule.base_by.field} fora das faixas de criação (${Math.min(...bands.map((band) => band.min))} a ${Math.max(...bands.map((band) => band.max))}).`);
+  }
   const { enforced } = grantedNumbers(template, values);
   for (const [id, value] of enforced) if (fieldIds.has(id) && numeric(values[id]) !== value) problems.push(`${labels.get(id) ?? id} deve ficar em ${value}.`);
+  for (const rule of collectionPointRules(template)) {
+    if (!fieldIds.has(rule.collection) && !rule.fields.some((id) => fieldIds.has(id))) continue;
+    const status = collectionPointStatus(template, rule, values);
+    if (status.unpriced.length) problems.push(`${rule.label}: indique os pontos de ${status.unpriced.join(", ")} (•• ou (2)).`);
+    else if (!status.complete) problems.push(`${rule.label}: ${status.spent} de ${rule.points} pontos.`);
+  }
+  problems.push(...creationCheckProblems(template, values, fieldIds, labels, grantedItems(template, values)));
   return problems;
+}
+
+export function collectionPointRules(template: SheetTemplate): CollectionPointsRule[] {
+  return (template.creation_rules ?? []).filter((rule): rule is CollectionPointsRule => rule.type === "collection_points");
+}
+
+/** Same pattern as item_points in backend/app/services/creation_rules.py and the SQL mirror. */
+const TRAILING_POINTS = /(?:^|[ (])([0-9]{1,2})\)? *$/;
+
+/** "Aliados ••", "Aliados (2)" and "Aliados 2" are worth 2; an item with neither is worth 0. */
+export function itemPoints(item: string): number {
+  const dots = [...item].filter((char) => char === "•").length;
+  if (dots) return dots;
+  const match = TRAILING_POINTS.exec(item);
+  return match ? Number(match[1]) : 0;
+}
+
+export type CollectionPointStatus = { spent: number; own: string[]; unpriced: string[]; complete: boolean };
+
+/** Points the player's own items (granted ones excluded) and the listed number fields spend. */
+export function collectionPointStatus(template: SheetTemplate, rule: CollectionPointsRule, values: Values): CollectionPointStatus {
+  const granted = grantedItems(template, values).get(rule.collection) ?? [];
+  const own = strings(values[rule.collection]).filter((item) => !granted.includes(item));
+  const unpriced = own.filter((item) => itemPoints(item) === 0);
+  const spent = own.reduce((sum, item) => sum + itemPoints(item), 0) + rule.fields.reduce((sum, id) => sum + numeric(values[id]), 0);
+  const complete = unpriced.length === 0 && ((rule.exact ?? true) ? spent === rule.points : spent <= rule.points);
+  return { spent, own, unpriced, complete };
 }
 
 export type HomebrewDiscipline = { label: string; powers: PowerEntry[]; rituals: PowerEntry[] };
@@ -236,8 +283,13 @@ export function removeHomebrewClan(template: SheetTemplate, name: string): Sheet
       if (rule.type === "select_grants") return { ...rule, fields: rule.fields.filter((id) => !orphans.has(id)), cases: rule.cases.filter((item) => item !== removed) };
       if (rule.type === "power_picks") return { ...rule, fields: rule.fields.filter((id) => !orphans.has(id)), sources: rule.sources.filter((source) => !orphans.has(source.field)) };
       return rule;
-    }).filter((rule) => rule.fields.length > 0),
+    }).filter((rule) => (rule.type !== "select_grants" && rule.type !== "power_picks") || rule.fields.length > 0),
   };
+}
+
+/** Narrator switch: a collection_points catalog also accepts names outside its list. */
+export function allowHomebrew(template: SheetTemplate, ruleId: string, allowed: boolean): SheetTemplate {
+  return { ...template, creation_rules: (template.creation_rules ?? []).map((rule) => rule.type === "collection_points" && rule.id === ruleId ? { ...rule, allow_homebrew: allowed } : rule) };
 }
 
 export function homebrewClans(template: SheetTemplate): GrantCase[] {

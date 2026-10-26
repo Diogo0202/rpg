@@ -7,14 +7,17 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator, model_validator
 
+from app.services.combat_blocks import deterministic_seed, second_inquisition_block
 from app.services.second_inquisition import (
     EventKind,
+    ResponseKind,
     VerificationBasis,
     VerifiedEvent,
     assess_threat,
 )
+from app.services.supabase_rpc import call_rpc
 
 
 router = APIRouter(prefix="/api/v1/campaigns/{campaign_id}/second-inquisition", tags=["second-inquisition"])
@@ -210,6 +213,83 @@ async def confirm_campaign_event(
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=502, detail="Supabase não retornou a confirmação criada")
     return rows[0]
+
+
+class ResponseApply(BaseModel):
+    """SI-06: o narrador escolhe aplicar uma resposta já acionada pela avaliação."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    save_entity: StrictBool = True
+    combat_id: UUID | None = None
+    idempotency_key: UUID
+
+    @model_validator(mode="after")
+    def coherent_target(self) -> "ResponseApply":
+        if not self.save_entity and self.combat_id is None:
+            raise ValueError("escolha salvar no mundo, inserir no combate ou ambos")
+        return self
+
+
+_RESPONSE_ENTITIES = {
+    ResponseKind.CONTAINMENT: ("npc", "Equipe de contenção da Segunda Inquisição", "Agentes treinados enviados para conter a ameaça."),
+    ResponseKind.WIRETAP: ("event", "Monitoramento de comunicações da SI", "A Segunda Inquisição passou a vigiar comunicações ligadas à coterie."),
+    ResponseKind.FINANCIAL_BLOCK: ("event", "Restrição financeira da SI", "Contas e recursos ligados à coterie foram congelados."),
+}
+
+
+@router.post("/responses/{response_kind}/apply", status_code=201)
+async def apply_assessment_response(
+    campaign_id: UUID,
+    response_kind: ResponseKind,
+    payload: ResponseApply,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    token, _ = await _require_campaign_manager(campaign_id, authorization)
+    rows = await _read_all_events(campaign_id, token)
+    try:
+        events = [_verified_event(row, campaign_id) for row in rows]
+        assessment = assess_threat(str(campaign_id), events)
+    except (KeyError, TypeError, ValueError) as error:
+        raise HTTPException(status_code=409, detail="eventos confirmados inválidos; aplicação cancelada") from error
+    response = next((item for item in assessment.responses if item.kind == response_kind), None)
+    if response is None:
+        raise HTTPException(status_code=409, detail="esta resposta não está acionada no nível atual da SI")
+    entity_kind, name, description = _RESPONSE_ENTITIES[response_kind]
+    block = None
+    if response_kind == ResponseKind.CONTAINMENT:
+        latest = max((event.verified_at.isoformat() for event in events), default="")
+        seed = deterministic_seed(str(campaign_id), response_kind.value, str(assessment.level), str(len(events)), latest)
+        try:
+            block = second_inquisition_block(dict(response.stats), assessment.level, seed).model_dump(mode="json")
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
+        name = f"{name} (nível {assessment.level})"
+    elif payload.combat_id is not None:
+        raise HTTPException(status_code=422, detail="somente a equipe de contenção entra no combate")
+    result = await call_rpc("rpg_apply_generated_content", token, {
+        "p_campaign_id": str(campaign_id),
+        "p_idempotency_key": str(payload.idempotency_key),
+        "p_source_kind": "second_inquisition",
+        "p_source_ref": {
+            "response_kind": response_kind.value, "title": response.title, "level": assessment.level,
+            "level_name": assessment.level_name, "score": assessment.score,
+            "verified_event_count": assessment.verified_event_count,
+            "triggered_at_level": response.triggered_at_level, "stats": dict(response.stats),
+        },
+        "p_name": name,
+        "p_entity_kind": entity_kind,
+        # Jogadores leem o mundo: só a descrição narrativa vai para a entidade.
+        "p_entity_body": {"description": description, "role": "antagonist", "source": "Segunda Inquisição (aplicada pelo narrador)"},
+        "p_save_entity": payload.save_entity,
+        "p_combat_id": str(payload.combat_id) if payload.combat_id else None,
+        "p_initiative": block["initiative"] if block and payload.combat_id else None,
+        "p_health": block["health"] if block and payload.combat_id else None,
+        "p_combat_block": block,
+    })
+    if not isinstance(result, dict):
+        raise HTTPException(status_code=503, detail="Supabase não confirmou a aplicação")
+    return {"application": result, "response": response.model_dump(mode="json"), "combat_block": block}
 
 
 @router.delete("/{event_id}", status_code=204)

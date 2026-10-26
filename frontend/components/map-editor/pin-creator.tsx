@@ -7,7 +7,7 @@ import type { MapKit, PinIcon } from "../../lib/map-kits";
 import { PortraitAvatar } from "../portrait-picker";
 import styles from "./map-editor.module.css";
 
-export type SheetOption = { id: string; name: string; portrait_path: string | null };
+export type SheetOption = { id: string; name: string; portrait_path: string | null; owner_id?: string | null };
 export type EntityOption = { id: string; name: string; kind: "npc" | "item" };
 
 const RING_COLORS = ["#d6b15d", "#b55b32", "#83a89a", "#a16b8d", "#7397b5", "#e3e0d8"];

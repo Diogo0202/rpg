@@ -53,6 +53,8 @@ export type BackupInventoryItem = {
   quantity: number;
   resource_cost: number;
   damage_bonus: number;
+  /** Damage kind of a weapon. Older backups omit it and restore as superficial. */
+  damage_type?: "superficial" | "aggravated";
   protection: number;
   notes: string;
   acquired: boolean;
@@ -80,6 +82,7 @@ export type VaultBackup = {
 const fieldKinds = new Set<BackupField["kind"]>([
   "text", "number", "select", "checkbox", "collection", "formula", "roll",
 ]);
+const damageTypes = new Set<string>(["superficial", "aggravated"]);
 const forbiddenKeys = new Set(["__proto__", "constructor", "prototype"]);
 const inventoryCategories = new Set<BackupInventoryItem["category"]>([
   "weapon", "armor", "equipment", "clothing", "dwelling", "vehicle", "mount", "animal",
@@ -213,13 +216,14 @@ function validateInventory(value: unknown): BackupInventoryItem[] {
   return value.map((item, index) => {
     const label = `Item ${index + 1}`;
     if (!isPlainObject(item)) throw new Error(`${label} deve ser um objeto.`);
-    exactKeys(item, ["name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], label);
+    exactKeys(item, ["name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], label);
     if (!inventoryCategories.has(item.category as BackupInventoryItem["category"])) throw new Error(`${label}: categoria inválida.`);
     if (!Number.isInteger(item.quantity) || (item.quantity as number) < 1 || (item.quantity as number) > 999) throw new Error(`${label}: quantidade deve ficar entre 1 e 999.`);
     for (const field of ["resource_cost", "damage_bonus", "protection"] as const) {
       if (!Number.isInteger(item[field]) || (item[field] as number) < 0 || (item[field] as number) > 10) throw new Error(`${label}: ${field} deve ficar entre 0 e 10.`);
     }
     if (!Number.isInteger(item.sort_order) || (item.sort_order as number) < 0 || (item.sort_order as number) > 9999) throw new Error(`${label}: ordem inválida.`);
+    if (item.damage_type !== undefined && !damageTypes.has(item.damage_type as string)) throw new Error(`${label}: tipo de dano deve ser superficial ou agravado.`);
     if (typeof item.acquired !== "boolean" || typeof item.equipped !== "boolean") throw new Error(`${label}: estados de aquisição e uso devem ser booleanos.`);
     if (item.equipped) {
       if (!item.acquired || !["weapon","armor"].includes(String(item.category)) || equippedCategories.has(String(item.category))) throw new Error(`${label}: equipamento deve estar adquirido, ser arma ou armadura e ser único por categoria.`);
@@ -231,6 +235,7 @@ function validateInventory(value: unknown): BackupInventoryItem[] {
       quantity: item.quantity as number,
       resource_cost: item.resource_cost as number,
       damage_bonus: item.damage_bonus as number,
+      damage_type: (item.damage_type ?? "superficial") as "superficial" | "aggravated",
       protection: item.protection as number,
       notes: boundedString(item.notes, `${label}: observações`, 4000),
       acquired: item.acquired,

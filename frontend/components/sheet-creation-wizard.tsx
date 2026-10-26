@@ -9,9 +9,10 @@ import { AiSheetRequest } from "./ai-assistance-panel";
 import { PortraitPicker } from "./portrait-picker";
 import { stepHelp } from "../lib/step-help";
 import { checkCreation, type CreationReport } from "../lib/sheet-adjustments";
-import { activeGrants, applyGrants, choiceOptions, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../lib/creation-grants";
+import { activeGrants, applyGrants, choiceOptions, collectionPointRules, collectionPointStatus, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../lib/creation-grants";
 import type { PowerPicksRule, SelectGrantsRule } from "../lib/sheet-template";
 import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority, type PoolTally, type PriorityTally } from "../lib/priority-points";
+import { specialtyRules, specialtyStatus } from "../lib/creation-checks";
 
 type Props = {
   campaignId: string;
@@ -86,6 +87,7 @@ export function SheetCreationWizard(props: Props) {
   const enforcedNumbers = useMemo(() => grantedNumbers(template, values).enforced, [template, values]);
   const lockedItems = useMemo(() => grantedItems(template, values), [template, values]);
   const pickRules = useMemo(() => new Map(powerRules(template).map((rule) => [rule.collection, rule])), [template]);
+  const pointRules = useMemo(() => new Map(collectionPointRules(template).map((rule) => [rule.collection, rule])), [template]);
   const fieldLabels = useMemo(() => new Map(template.fields.map((field) => [field.id, field.label])), [template]);
   const [grantDialog, setGrantDialog] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -258,19 +260,42 @@ export function SheetCreationWizard(props: Props) {
     if (field.kind === "select") {
       return <label className={styles.field} key={field.id}>{label}<select {...common} value={typeof value === "string" ? value : ""} onChange={(event) => changeField(field, event.target.value)}><option value="">Selecione</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select>{dependencyHelp}{errorNode}</label>;
     }
+    if (field.kind === "collection" && Array.isArray(field.item_options) && field.item_options.length) {
+      // Closed list (for example O Um Anel favoured skills): checkboxes, capped by max_items.
+      const chosen = Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+      const full = typeof field.max_items === "number" && chosen.length >= field.max_items;
+      return <fieldset className={`${styles.powerPicker} ${styles.wide}`} key={field.id} id={inputId} tabIndex={-1} aria-invalid={Boolean(error)} aria-describedby={describedBy}>
+        <legend>{label}{typeof field.max_items === "number" && <small> {chosen.length} de {field.max_items}</small>}</legend>
+        <div className={styles.powerList}>{field.item_options.map((option) => {
+          const checked = chosen.includes(option);
+          return <label className={`${styles.power} ${checked ? styles.powerChecked : ""}`} key={option}>
+            <input type="checkbox" checked={checked} disabled={busy || (!checked && full)} onChange={(event) => changeField(field, event.target.checked ? [...chosen, option] : chosen.filter((item) => item !== option))} />
+            <span>{option}</span>
+          </label>;
+        })}</div>{errorNode}
+      </fieldset>;
+    }
     if (field.kind === "collection") {
       // Items a clan or predator grants stay on the list; the player edits only the rest.
       const locked = lockedItems.get(field.id) ?? [];
       const items = (Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []).filter((item) => !locked.includes(item));
+      const pointRule = pointRules.get(field.id);
+      const points = pointRule ? collectionPointStatus(template, pointRule, values) : null;
+      const specialtyRule = specialtyRules(template).find((rule) => rule.collection === field.id);
+      const specialties = specialtyRule ? specialtyStatus(specialtyRule, values, locked) : null;
       return <div className={styles.field} key={field.id}><label htmlFor={inputId}>{label}</label>
         {locked.length > 0 && <ul className={styles.lockedItems} aria-label={`${field.label} concedidas pelo clã e predador`}>{locked.map((item) => <li key={item}>{item}</li>)}</ul>}
+        {pointRule && points && <small aria-live="polite">{points.spent} de {pointRule.points} pontos{pointRule.fields.length ? ` (inclui ${pointRule.fields.map((id) => fieldLabels.get(id) ?? id).join(", ")})` : ""}. Marque os pontos com • ou (2).</small>}
+        {pointRule?.catalog?.length ? <details><summary>{pointRule.allow_homebrew ? "Catálogo do modelo (o narrador também aceita itens da casa)" : "Catálogo do modelo"}</summary>
+          <small>{pointRule.catalog.map((entry) => `${entry.name} (${entry.costs.join("/")})`).join(" · ")}</small></details> : null}
+        {specialtyRule && specialties && <small aria-live="polite">{specialties.own.length} de {specialties.expected} especializações gratuitas{specialties.due.length ? ` (uma em ${specialties.due.join(", ")}, mais ${specialtyRule.free} livre)` : ""}. Formato: Habilidade (especialização).</small>}
         <textarea {...common} rows={3} value={collectionDrafts[field.id] ?? items.join("\n")} placeholder={locked.length ? "Outros itens, um por linha" : "Um item por linha"} onChange={(event) => {
           const text = event.target.value;
           setCollectionDrafts((current) => ({ ...current, [field.id]: text }));
           changeField(field, [...locked, ...text.split("\n").map((item) => item.trim()).filter((item) => item && !locked.includes(item))]);
         }} />{errorNode}</div>;
     }
-    return <label className={styles.field} key={field.id}>{label}<input {...common} type={field.kind === "number" ? "number" : "text"} min={field.kind === "number" ? field.min ?? undefined : undefined} max={field.kind === "number" ? field.max ?? undefined : undefined} value={typeof value === "number" || typeof value === "string" ? value : ""} onChange={(event) => changeField(field, field.kind === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)} />{errorNode}</label>;
+    return <label className={styles.field} key={field.id}>{label}<input {...common} type={field.kind === "number" ? "number" : "text"} maxLength={field.kind === "text" ? field.max_length ?? undefined : undefined} min={field.kind === "number" ? field.min ?? undefined : undefined} max={field.kind === "number" ? field.max ?? undefined : undefined} value={typeof value === "number" || typeof value === "string" ? value : ""} onChange={(event) => changeField(field, field.kind === "number" ? event.target.value === "" ? "" : Number(event.target.value) : event.target.value)} />{errorNode}</label>;
   }
 
   function renderPowerPicker(field: SheetField, rule: PowerPicksRule): ReactNode {

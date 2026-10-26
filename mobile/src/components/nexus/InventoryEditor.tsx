@@ -7,7 +7,7 @@ import { INVENTORY_CATEGORIES, type InventoryData } from "@/lib/nexus/sheets";
 import { useNexus } from "@/lib/nexus/store";
 import { Btn, Empty, Panel } from "./ui";
 
-const blank: BackupInventoryItem = { name: "", category: "equipment", quantity: 1, resource_cost: 0, damage_bonus: 0, protection: 0, notes: "", acquired: true, equipped: false, sort_order: 0 };
+const blank: BackupInventoryItem = { name: "", category: "equipment", quantity: 1, resource_cost: 0, damage_bonus: 0, damage_type: "superficial", protection: 0, notes: "", acquired: true, equipped: false, sort_order: 0 };
 
 export function InventoryEditor({ sheetId }: { sheetId: string }) {
   const { list, get, create, update, remove } = useNexus();
@@ -39,7 +39,7 @@ export function InventoryEditor({ sheetId }: { sheetId: string }) {
   return <Panel title="Inventário" actions={<Btn variant="outline" onClick={() => { setEditing(null); setError(""); setDraft({ ...blank, sort_order: items.length }); }}><Plus className="size-4" aria-hidden />Adicionar item</Btn>}>
     {items.length === 0 ? <Empty>Nenhum item.</Empty> : <ul className="divide-y divide-border">
       {items.map((item) => <li key={item.id} className="flex items-center justify-between gap-2 py-3">
-        <div className="min-w-0"><p className="break-words font-semibold text-ink">{item.data.name} × {item.data.quantity}</p><p className="text-xs text-ink-muted">{INVENTORY_CATEGORIES.find((c) => c.id === item.data.category)?.label} · {item.data.equipped ? "Equipado" : item.data.acquired ? "Adquirido" : "Não adquirido"}</p>
+        <div className="min-w-0"><p className="break-words font-semibold text-ink">{item.data.name} × {item.data.quantity}</p><p className="text-xs text-ink-muted">{INVENTORY_CATEGORIES.find((c) => c.id === item.data.category)?.label} · {item.data.equipped ? "Equipado" : item.data.acquired ? "Adquirido" : "Não adquirido"}{item.data.category === "weapon" ? ` · Dano ${item.data.damage_type === "aggravated" ? "agravado" : "superficial"}` : ""}</p>
           {Object.entries(item.data.custom_values??{}).map(([key,value])=><p className="break-words text-xs text-ink-muted" key={key}>{customFields.find(field=>field.id===key)?.label??key}: {Array.isArray(value)?value.join(", "):typeof value==="boolean"?(value?"Sim":"Não"):String(value)}</p>)}
         </div>
         <div className="flex shrink-0"><Btn size="icon" variant="ghost" className="w-11" aria-label={`Editar ${item.data.name}`} title="Editar item" onClick={() => { const {sheet_id, ...data} = item.data; setDraft(data); setEditing(item.id); setError(""); }}><Pencil className="size-4" /></Btn>
@@ -51,6 +51,7 @@ export function InventoryEditor({ sheetId }: { sheetId: string }) {
         <label className="text-sm font-semibold text-ink">Nome do item<input autoFocus className="field-input mt-1" value={draft.name} maxLength={160} required onChange={(e) => set("name", e.target.value)} /></label>
         <label className="text-sm font-semibold text-ink">Categoria<select className="field-input mt-1" value={draft.category} onChange={(e) => { set("category", e.target.value as BackupInventoryItem["category"]); set("equipped", false); }}>{INVENTORY_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select></label>
         {([ ["quantity", "Quantidade", 1, 999], ["resource_cost", "Custo em recursos", 0, 10], ["damage_bonus", "Bônus de dano", 0, 10], ["protection", "Proteção", 0, 10], ["sort_order", "Ordem", 0, 9999] ] as const).map(([key, label, min, max]) => <label key={key} className="text-sm font-semibold text-ink">{label}<input type="number" className="field-input mt-1" min={min} max={max} step={1} required value={draft[key]} onChange={(e) => set(key, Number(e.target.value))} /></label>)}
+        {draft.category === "weapon" && <label className="text-sm font-semibold text-ink">Tipo de dano<select className="field-input mt-1" value={draft.damage_type ?? "superficial"} onChange={(e) => set("damage_type", e.target.value as NonNullable<BackupInventoryItem["damage_type"]>)}><option value="superficial">Superficial</option><option value="aggravated">Agravado</option></select></label>}
       </div>
       {customFields.map(field=><label key={field.id} className="block text-sm font-semibold text-ink">{field.label}{field.required?" (obrigatório)":""}
         {field.kind==="select"?<select className="field-input mt-1" required={field.required} value={String(draft.custom_values?.[field.id]??"")} onChange={event=>set("custom_values",{...draft.custom_values,[field.id]:event.target.value})}><option value="">Escolha</option>{field.options.map(option=><option key={option}>{option}</option>)}</select>

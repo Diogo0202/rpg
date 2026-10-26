@@ -6,6 +6,9 @@ import {downloadText} from "../lib/download";
 
 type Entity={id:string;kind:string;name:string;body:Record<string,unknown>;version:number};
 type Relation={id:string;from_entity_id:string;to_entity_id:string;relation_type:string;notes:string};
+type JournalLink={id:string;event_id:string;entity_id:string;link_kind:string};
+type JournalEvent={id:string;title:string;status:string;occurred_on:string};
+const linkLabels:Record<string,string>={consequence:"Consequência",involves:"Envolvido",reward:"Recompensa",setting:"Cenário"};
 const labels:Record<string,string>={character:"Personagem",npc:"NPC ou antagonista",item:"Item",rule:"Regra",location:"Local",quest:"Missão",event:"Evento",scene:"Cena"};
 
 export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:string;viewerId:string;canManage:boolean}){
@@ -15,10 +18,14 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
   const [query,setQuery]=useState(""),[filter,setFilter]=useState("all"),[threatFilter,setThreatFilter]=useState("all"),[creatureFilter,setCreatureFilter]=useState("all");
   const [from,setFrom]=useState(""),[to,setTo]=useState(""),[relation,setRelation]=useState("aliado");
   const [busy,setBusy]=useState(false),[message,setMessage]=useState(""),[revision,setRevision]=useState(0);
+  const [journalLinks,setJournalLinks]=useState<JournalLink[]>([]),[journalEvents,setJournalEvents]=useState<JournalEvent[]>([]);
 
   useEffect(()=>{let active=true;async function load(){try{
     const client=createClient();const [a,b]=await Promise.all([client.from("world_entities").select("id,kind,name,body,version").eq("campaign_id",campaignId).order("name"),client.from("world_relations").select("id,from_entity_id,to_entity_id,relation_type,notes").eq("campaign_id",campaignId)]);
     if(!active)return;if(a.error||b.error)throw new Error();setEntities((a.data??[])as Entity[]);setRelations((b.data??[])as Relation[]);
+    // Cross view of journal consequences; optional so a missing migration does not hide the world.
+    const [c,d]=await Promise.all([client.from("campaign_event_entity_links").select("id,event_id,entity_id,link_kind").eq("campaign_id",campaignId),client.from("campaign_events").select("id,title,status,occurred_on").eq("campaign_id",campaignId)]);
+    if(!active)return;setJournalLinks(c.error?[]:(c.data??[])as JournalLink[]);setJournalEvents(d.error?[]:(d.data??[])as JournalEvent[]);
   }catch{if(active)setMessage("Não foi possível carregar o mundo. Confira conexão, permissões e migrations.");}}void load();return()=>{active=false;};},[campaignId,revision]);
 
   async function write(operation:()=>PromiseLike<{error:unknown;data?:unknown}>,success:string){if(!canManage)return;setBusy(true);setMessage("");try{
@@ -40,6 +47,7 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
         <label>Ameaça<select value={threatFilter} onChange={event=>setThreatFilter(event.target.value)}>{["all","minor","moderate","major","critical","cataclysmic"].map(value=><option key={value} value={value}>{value==="all"?"Todas":value}</option>)}</select></label></div>
       <div className="actions"><button className="quiet" type="button" onClick={()=>setRevision(value=>value+1)}>Atualizar</button><button className="quiet" type="button" onClick={()=>downloadText("mundo-da-campanha.json",JSON.stringify({format:"rpg-nexus-world",version:1,entities:visible.map(({kind,name,body})=>({kind,name,body})),relations:relations.map(item=>({from:entityName(item.from_entity_id),to:entityName(item.to_entity_id),relation:item.relation_type,notes:item.notes}))},null,2))}>Exportar JSON</button></div>
       {visible.map(item=><article className="inventory-item" key={item.id}><h3>{item.name}</h3><small>{labels[item.kind]} · {String(item.body.system??"")} · {String(item.body.threat??"")}</small><p className="inventory-notes">{String(item.body.description??"")}</p>{Boolean(item.body.hook)&&<p>Gancho: {String(item.body.hook)}</p>}{Boolean(item.body.source)&&<p>Fonte: {String(item.body.source)}</p>}
+        {(()=>{const linked=journalLinks.filter(link=>link.entity_id===item.id);return linked.length>0&&<div aria-label={`Diário ligado a ${item.name}`}><small>No diário:</small><ul>{linked.map(link=>{const entry=journalEvents.find(event=>event.id===link.event_id);return <li key={link.id}>{linkLabels[link.link_kind]??link.link_kind} · {entry?.title??"Evento do diário"}{entry?` (${entry.occurred_on})`:""}</li>;})}</ul></div>;})()}
         {canManage&&<div className="actions"><button className="quiet" type="button" disabled={busy} onClick={()=>{setEditing(item);setName(item.name);setKind(item.kind);setDescription(String(item.body.description??""));setCreature(String(item.body.creature??"other"));setThreat(String(item.body.threat??"moderate"));setSystem(String(item.body.system??""));setHook(String(item.body.hook??""));setSource(String(item.body.source??""));}}>Editar {item.name}</button><button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>createClient().from("world_entities").delete().eq("id",item.id).eq("campaign_id",campaignId).eq("version",item.version).select("id"),"Registro removido.")}>Excluir {item.name}</button></div>}
       </article>)}{visible.length===0&&<p>Nenhum registro encontrado.</p>}
       <h3>Relações</h3>{relations.map(item=><p key={item.id}>{entityName(item.from_entity_id)} · {item.relation_type} · {entityName(item.to_entity_id)} {canManage&&<button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>createClient().from("world_relations").delete().eq("id",item.id).eq("campaign_id",campaignId).select("id"),"Relação removida.")}>Remover relação</button>}</p>)}

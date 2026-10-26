@@ -26,6 +26,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Calculadora de XP e histórico local de estimativas. O cálculo não altera automaticamente os atributos nem o saldo da ficha.
 - Diário com sessões, eventos cronológicos e facções, incluindo relógio de tensão e exportação JSON ou Markdown.
 - Biblioteca do mundo com edição de entidades e relações. O conteúdo original gerado pode ser salvo nela.
+- Temas de cor escolhidos por aparelho, no site e no celular: Padrão, Caçador e Demon Lord (trincheira profana, inspirado em Shadow of the Demon Lord).
 - Editor de mapas visto de cima (SVG, só 2D): muros com desenho livre, casas com piso e muros fechados, portas encaixadas no muro (aberta, fechada, trancada, secreta), sombras, objetos e pins de personagem, NPC e item. O kit segue o sistema: medieval no Um Anel e no Shadow of the Demon Lord, cidade moderna no Vampiro V5 e no Caçador. Mapas gerados abrem como fundo. Exportação em JSON.
 - Pins de personagem usam o retrato enviado na criação da ficha (obrigatório). A foto é recortada em 512×512 WebP no navegador, sem dados de localização, e fica no bucket privado `character-portraits`, legível pelos membros da campanha.
 - Só o narrador edita mapas. Mapas compartilhados chegam aos jogadores pela RPC `get_player_map`, sem pins, sombras e notas marcados como "só Mestre"; cada jogador arrasta apenas o pin da própria ficha (`move_own_pin`).

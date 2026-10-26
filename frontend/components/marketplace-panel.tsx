@@ -3,10 +3,10 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "../lib/supabase/client";
 import type { MarketplaceCard } from "../lib/marketplace-public";
+import { MarketplaceModerationPanel } from "./marketplace-moderation-panel";
 import styles from "./marketplace-panel.module.css";
 
 type Campaign = { id: string; name: string };
-type ModerationReport = { id: string; system_id: string; reporter_id: string; reason: string; status: string; created_at: string; system_name: string; author_name: string };
 type TemplateDraft = Record<string, unknown> & { name: string; version: number; fields: unknown[] };
 type PublishPayload = { template: TemplateDraft; description: string; tags: string[]; author_name: string; dependencies: string[]; rights_confirmed: true };
 
@@ -60,10 +60,6 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
   const [dependencies, setDependencies] = useState("");
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [reportReason, setReportReason] = useState<Record<string, string>>({});
-  const [moderationReports, setModerationReports] = useState<ModerationReport[]>([]);
-  const [moderationNotes, setModerationNotes] = useState<Record<string, string>>({});
-  const [moderationBusy, setModerationBusy] = useState(false);
-  const [moderationMessage, setModerationMessage] = useState("");
 
   const headers = useMemo(() => token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null, [token]);
 
@@ -164,34 +160,6 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
     finally { setBusy(false); }
   }
 
-  async function loadModerationReports() {
-    setModerationBusy(true); setModerationMessage("");
-    try {
-      if (!API) throw new Error("A API pública não está configurada.");
-      if (!token) throw new Error("Entre na sua conta para abrir a fila de moderação.");
-      const value = await decode(await fetch(`${API}/api/v1/marketplace/moderation/reports?page=1&limit=20`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }));
-      if (!value || typeof value !== "object" || !Array.isArray((value as { items?: unknown }).items)) throw new Error("A API enviou uma fila de denúncias inválida.");
-      setModerationReports((value as { items: ModerationReport[] }).items);
-      setModerationMessage("Fila de denúncias carregada.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível carregar as denúncias.";
-      setModerationMessage(message.startsWith("Ação não permitida.") ? "Sua conta não tem permissão para acessar a fila de moderação." : message);
-    } finally { setModerationBusy(false); }
-  }
-
-  async function resolveReport(report: ModerationReport, action: "restore" | "remove") {
-    setModerationBusy(true); setModerationMessage("");
-    try {
-      const note = moderationNotes[report.id]?.trim() || null;
-      await authorizedPost(`/api/v1/marketplace/moderation/reports/${encodeURIComponent(report.id)}/resolve`, { action, note });
-      setModerationReports((current) => current.filter((item) => item.id !== report.id));
-      setModerationMessage(action === "remove" ? "Denúncia resolvida e modelo removido." : "Denúncia resolvida. O modelo foi restaurado quando não havia outra denúncia aberta.");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Não foi possível resolver a denúncia.";
-      setModerationMessage(message.startsWith("Ação não permitida.") ? "Sua conta não tem permissão para moderar denúncias." : message);
-    } finally { setModerationBusy(false); }
-  }
-
   const visibleItems = items.filter((item) => !hiddenReports.includes(item.id));
   return <div className={styles.wrap}>
     <div className={styles.intro}>
@@ -218,19 +186,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
       <button type="submit">Buscar</button>
     </form>
 
-    {token && <details className={styles.moderation}>
-      <summary>Moderação de denúncias</summary>
-      <p>A fila só é consultada quando você solicita. A API verifica a permissão da sua conta.</p>
-      <button type="button" disabled={moderationBusy} onClick={() => void loadModerationReports()}>{moderationBusy ? "Carregando…" : "Carregar denúncias"}</button>
-      {moderationMessage && <p role="status">{moderationMessage}</p>}
-      {moderationReports.map((report) => <article className={styles.moderationItem} key={report.id}>
-        <h3>{report.system_name}</h3><p>Autor: {report.author_name} · Estado: {report.status}</p>
-        <p>{report.reason}</p><time dateTime={report.created_at}>{new Date(report.created_at).toLocaleString("pt-BR")}</time>
-        <label>Nota de resolução<textarea maxLength={2000} value={moderationNotes[report.id] ?? ""} onChange={(event) => setModerationNotes((current) => ({ ...current, [report.id]: event.target.value }))} /></label>
-        <div className={styles.cardActions}><button type="button" disabled={moderationBusy} onClick={() => void resolveReport(report, "restore")}>Restaurar se não houver outra denúncia</button><button type="button" disabled={moderationBusy} onClick={() => void resolveReport(report, "remove")}>Remover modelo</button></div>
-      </article>)}
-      {moderationReports.length === 0 && moderationMessage === "Fila de denúncias carregada." && <p>A fila está vazia.</p>}
-    </details>}
+    <MarketplaceModerationPanel token={token} />
 
     {message && <p className={styles.message} role="status">{message}</p>}
     {loading ? <p className={styles.empty} aria-live="polite">Carregando modelos…</p> : visibleItems.length ? <section className={styles.cards} aria-label="Modelos publicados">

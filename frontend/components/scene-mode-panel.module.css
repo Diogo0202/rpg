@@ -44,3 +44,8 @@
 .primaryButton:disabled, .secondaryButton:disabled, .dangerButton:disabled { opacity: .56; cursor: not-allowed; }
 @media (max-width: 760px) { .columns { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 520px) { .header { align-items: flex-start; } .statusCard { align-items: stretch; flex-direction: column; } .actions { align-items: stretch; } }
+.live { display: inline-flex; align-items: center; gap: .4rem; color: #b8b3a8; font-size: .72rem; font-weight: 750; }
+.liveDot { width: .55rem; height: .55rem; border-radius: 50%; background: #6f756d; }
+.connected .liveDot { background: #6fcf97; }
+.connecting .liveDot, .reconnecting .liveDot { background: #e2b04a; }
+.offline .liveDot { background: #d26a5c; }

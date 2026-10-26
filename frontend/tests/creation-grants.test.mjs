@@ -99,6 +99,24 @@ test("a homebrew clan with a new discipline is created, granted and removable", 
   assert.ok(removed.fields.some((item) => item.id === "disc_fortitude"), "official disciplines stay");
 });
 
+test("the narrator can open the advantage catalog to homebrew names", async () => {
+  const { allowHomebrew } = await import("../lib/creation-grants.ts");
+  const labels = new Map(template.fields.map((field) => [field.id, field.label]));
+  const values = { ...base(), vantagens: ["Pacto Antigo ••", "Aliados •••••"] };
+  const closed = grantProblems(template, values, new Set(["vantagens"]), labels);
+  assert.ok(closed.some((problem) => problem.includes("Pacto Antigo •• fora do catálogo")));
+  const open = allowHomebrew(template, "vantagens_pontos", true);
+  assert.equal(grantProblems(open, values, new Set(["vantagens"]), labels).some((problem) => problem.includes("fora do catálogo")), false);
+  assert.ok(grantProblems(open, { ...values, vantagens: ["Bela •"] }, new Set(["vantagens"]), labels).some((problem) => problem.includes("Bela aceita 2 pontos")),
+    "catalog costs still apply to listed names");
+});
+
+test("removing a homebrew clan keeps the catalog, range and specialty rules", () => {
+  const homebrew = addHomebrewClan(template, { name: "Filhos da Fuligem", disciplines: ["disc_fortitude"], newDisciplines: [] });
+  const ids = removeHomebrewClan(homebrew, "Filhos da Fuligem").creation_rules.map((rule) => rule.id);
+  for (const id of ["defeitos_pontos", "cla_geracao", "especializacoes"]) assert.ok(ids.includes(id), id);
+});
+
 test("the backend fixture matches the V5 starter", async () => {
   const { readFile } = await import("node:fs/promises");
   const fixture = JSON.parse(await readFile(new URL("../../backend/tests/fixtures/v5_starter.json", import.meta.url), "utf8"));

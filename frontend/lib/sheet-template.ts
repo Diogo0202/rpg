@@ -25,6 +25,15 @@ export type SheetField = {
   /** Hard limits for number fields, enforced by the API and the database on every write. */
   min?: number | null;
   max?: number | null;
+  /** Structured text, enforced on every write: length of a text or of each collection item. */
+  max_length?: number | null;
+  /** Collection size; an empty list counts as "not filled", so `required` forces the first item. */
+  min_items?: number | null;
+  max_items?: number | null;
+  /** Closed list for collection items. */
+  item_options?: string[] | null;
+  /** Text field that must be filled together with this one (set it on both). */
+  paired_with?: string | null;
 };
 
 /**
@@ -43,8 +52,23 @@ export type GrantCase = Grant & { equals: string; choices?: GrantChoice[]; homeb
 export type PowerEntry = { name: string; level: number; requires?: { field: string; min: number } | null };
 /** Powers of one discipline. `count` and `max_level` are "dots" (the discipline's value) or a fixed number. */
 export type PowerSource = { field: string; label: string; powers: PowerEntry[]; count?: "dots" | number; max_level?: "dots" | number };
-export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; cases: GrantCase[] };
+/** While the number in `field` lies in a band, its `add` joins the rule's base (V5 Blood Potency by generation). */
+export type GrantBaseBy = { field: string; bands: Array<{ min: number; max: number; add?: Record<string, number> }> };
+export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; base_by?: GrantBaseBy | null; cases: GrantCase[] };
 export type PowerPicksRule = { type: "power_picks"; id: string; label: string; collection: string; fields: string[]; sources: PowerSource[] };
+/** Points of a collection's own items ("••" or a trailing number) plus `fields` must equal `points`; granted items are extra. */
+export type CollectionPointsRule = {
+  type: "collection_points"; id: string; label: string; collection: string; fields: string[]; points: number; exact?: boolean;
+  /** Closed list of mechanical names and the points each may take; `allow_homebrew` lets the narrator accept other names. */
+  catalog?: CatalogEntry[]; allow_homebrew?: boolean;
+};
+export type CatalogEntry = { name: string; costs: number[] };
+export type RangeLimit = { min: number; max: number };
+export type SelectRangeDefault = { ranges?: Record<string, RangeLimit>; exclude?: Record<string, string[]> };
+/** While `field` holds a value, numbers stay in range and other selects avoid listed values (V5 clan and generation). `fields` stays empty. */
+export type SelectRangesRule = { type: "select_ranges"; id: string; label: string; field: string; fields: string[]; cases: Array<SelectRangeDefault & { equals: string[] }>; default?: SelectRangeDefault | null };
+/** Free "Habilidade (especialização)" items: one per `required` skill with dots plus `free`. `fields` stays empty. */
+export type SpecialtyPicksRule = { type: "specialty_picks"; id: string; label: string; collection: string; skills: Array<{ field: string; label: string }>; required: string[]; free: number; fields: string[] };
 export type PriorityGroup = { label: string; fields: string[] };
 export type PriorityPool = {
   id: string; label: string; base?: number; base_from?: string[]; base_from_highest?: string[]; highest_count?: number; cost: number; budgets: number[]; groups: PriorityGroup[];
@@ -59,7 +83,10 @@ export type CreationRule =
   | { type: "group_sum"; id: string; label: string; fields: string[]; min?: number | null; max?: number | null }
   | { type: "points_budget"; id: string; label: string; fields: string[]; costs: Record<string, number>; budget: number; exact?: boolean }
   | SelectGrantsRule
-  | PowerPicksRule;
+  | PowerPicksRule
+  | CollectionPointsRule
+  | SelectRangesRule
+  | SpecialtyPicksRule;
 
 /**
  * System-neutral resource such as V5 Willpower or D&D Inspiration.

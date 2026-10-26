@@ -211,3 +211,110 @@ button:disabled { cursor:not-allowed;opacity:.55; }
 .generation-ai { display: grid; gap: .5rem; margin-top: 1rem; }
 .generation-ai textarea { width: 100%; min-height: 4.5rem; padding: .55rem .7rem; font: inherit; resize: vertical; }
 .generation-secret { margin: .6rem 0; padding: .6rem .8rem; background: rgba(128, 30, 35, .18); line-height: 1.45; }
+
+/* Demônio: A Queda is scoped to its selected sheet model. */
+.content[data-system-theme="demon-the-fallen"] {
+  --ink: #2d2524;
+  --paper: #f1e8db;
+  --panel: #f7f0e7;
+  --line: #c7b8aa;
+  --accent: #9b382b;
+  --moss: #5f3d3e;
+  --muted: #5f534c;
+  padding: clamp(16px, 3vw, 30px);
+  border: 1px solid var(--line);
+  border-top: 5px solid #d98a6d;
+  background: var(--paper);
+  color: var(--ink);
+}
+.content[data-system-theme="demon-the-fallen"] > .actions {
+  margin-top: 0;
+  padding: 14px;
+  background: #151719;
+}
+.content[data-system-theme="demon-the-fallen"] > .actions .primary {
+  border-color: #d98a6d;
+  background: #d98a6d;
+  color: #18161a;
+}
+.content[data-system-theme="demon-the-fallen"] > .actions .quiet {
+  border-color: #cbbeb0;
+  color: #f2e8d8;
+}
+.content[data-system-theme="demon-the-fallen"] .sheet-intro {
+  border-left-color: #d98a6d;
+  background: #151719;
+  color: #f2e8d8;
+}
+.content[data-system-theme="demon-the-fallen"] .sheet-intro .eyebrow { color: #dab878; }
+.content[data-system-theme="demon-the-fallen"] .sheet-intro > p { color: #cbbeb0; }
+.content[data-system-theme="demon-the-fallen"] .sheet-preview-card {
+  background: linear-gradient(160deg, #fff9f0, #e7d8c7);
+  box-shadow: 7px 7px 0 #c7b8aa;
+}
+
+/* A escolha fica no aparelho e acompanha todas as páginas do site. */
+.theme-switcher { position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:100;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);box-shadow:0 6px 22px #11182030;font:600 12px Arial,Helvetica,sans-serif; }
+.theme-switcher select { min-height:32px;padding:4px 26px 4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer; }
+.theme-switcher select:focus-visible { outline:3px solid var(--accent);outline-offset:2px; }
+
+:root[data-theme="hunter"] { --ink:#142a38;--paper:#f6f3ed;--panel:#fffdf8;--line:#a8a49e;--accent:#b53b18;--moss:#235463;--muted:#4d5961; }
+:root[data-theme="hunter"] body { background:#17191b; }
+:root[data-theme="hunter"] .landing { background:radial-gradient(circle at 78% 12%,#8e321e 0,#3d2220 22%,transparent 52%),#17191b;color:#f6f3ed; }
+:root[data-theme="hunter"] .landing .eyebrow,:root[data-theme="hunter"] .landing .quiet { color:#ff7b2c; }
+:root[data-theme="hunter"] .landing-copy,:root[data-theme="hunter"] .landing-grid p { color:#d1e5e9; }
+:root[data-theme="hunter"] .landing .primary { background:#ff7b2c;border-color:#ff7b2c;color:#151719; }
+:root[data-theme="hunter"] .landing .quiet { border-color:#ff7b2c; }
+:root[data-theme="hunter"] .rail { background:#17191b;color:#f6f3ed; }
+:root[data-theme="hunter"] .rail .nav { color:#f6f3ed; }
+:root[data-theme="hunter"] .rail .nav.active { background:#ff7b2c;border-left-color:#ff7b2c;color:#151719; }
+:root[data-theme="hunter"] .rail .nav.active small { color:#142a38; }
+:root[data-theme="hunter"] .rail .brand span { background:#ff7b2c;color:#151719; }
+:root[data-theme="hunter"] .rail .privacy { border-color:#62666a; }
+:root[data-theme="hunter"] .workspace { background:var(--paper); }
+:root[data-theme="hunter"] .hero-panel { background:linear-gradient(125deg,#fffdf8,#ece5da); }
+:root[data-theme="hunter"] .world-card { background:#142a38;color:#f6f3ed; }
+:root[data-theme="hunter"] .world-card p { color:#d1e5e9; }
+:root[data-theme="hunter"] .world-card .eyebrow { color:#ff7b2c; }
+:root[data-theme="hunter"] .auth-page { background:radial-gradient(circle at 83% 11%,#8e321e 0,transparent 35%),#17191b; }
+:root[data-theme="hunter"] .auth-card { background:var(--panel);box-shadow:14px 14px 0 #b53b18; }
+:root[data-theme="hunter"] .campaign-hub { background:radial-gradient(circle at 92% 0%,#8e321e 0,transparent 29%),#17191b;color:#f6f3ed; }
+:root[data-theme="hunter"] .hub-brand,:root[data-theme="hunter"] .hub-intro p:last-child { color:#f6f3ed; }
+:root[data-theme="hunter"] .campaign-hub .hub-header { border-color:#62666a; }
+:root[data-theme="hunter"] .campaign-hub .hub-header .quiet { border-color:#ff7b2c;color:#ff7b2c; }
+:root[data-theme="hunter"] .campaign-card { background:var(--panel);color:var(--ink); }
+:root[data-theme="hunter"] .campaign-hub .hub-intro .eyebrow { color:#ff7b2c; }
+:root[data-theme="hunter"] .campaign-hub .panel-title { border-color:#62666a; }
+:root[data-theme="hunter"] .theme-switcher { background:#17191b;border-color:#ff7b2c;color:#f6f3ed;box-shadow:0 6px 22px #0008; }
+:root[data-theme="hunter"] .theme-switcher select { background:#17191b;border-color:#ff7b2c;color:#f6f3ed; }
+/* Demon Lord: trincheira profana (lama e ferro, pergaminho queimado, sangue e ouro sacro). */
+:root[data-theme="demon-lord"] { --ink:#241c14;--paper:#ebe0c9;--panel:#f6efdf;--line:#b8a585;--accent:#8f1d14;--moss:#4f4a2c;--muted:#5c4e3d; }
+:root[data-theme="demon-lord"] body { background:#15130f; }
+:root[data-theme="demon-lord"] .landing { background:radial-gradient(circle at 78% 12%,#5a1a12 0,#2a1a12 22%,transparent 52%),#15130f;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .landing .eyebrow,:root[data-theme="demon-lord"] .landing .quiet { color:#c9a14a; }
+:root[data-theme="demon-lord"] .landing-copy,:root[data-theme="demon-lord"] .landing-grid p { color:#d8ccb4; }
+:root[data-theme="demon-lord"] .landing .primary { background:#c9a14a;border-color:#c9a14a;color:#15130f; }
+:root[data-theme="demon-lord"] .landing .quiet { border-color:#c9a14a; }
+:root[data-theme="demon-lord"] .rail { background:#15130f;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .rail .nav { color:#ebe0c9; }
+:root[data-theme="demon-lord"] .rail .nav.active { background:#2a241c;border-left-color:#c9a14a;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .rail .nav.active small { color:#c9a14a; }
+:root[data-theme="demon-lord"] .rail .brand span { background:#8f1d14;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .rail .privacy { border-color:#4a3f30; }
+:root[data-theme="demon-lord"] .workspace { background:var(--paper); }
+:root[data-theme="demon-lord"] .hero-panel { background:linear-gradient(125deg,#f6efdf,#e0d2b6); }
+:root[data-theme="demon-lord"] .world-card { background:#2a241c;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .world-card p { color:#d8ccb4; }
+:root[data-theme="demon-lord"] .world-card .eyebrow { color:#c9a14a; }
+:root[data-theme="demon-lord"] .auth-page { background:radial-gradient(circle at 83% 11%,#5a1a12 0,transparent 35%),#15130f; }
+:root[data-theme="demon-lord"] .auth-card { background:var(--panel);box-shadow:14px 14px 0 #8f1d14; }
+:root[data-theme="demon-lord"] .campaign-hub { background:radial-gradient(circle at 92% 0%,#5a1a12 0,transparent 29%),#15130f;color:#ebe0c9; }
+:root[data-theme="demon-lord"] .hub-brand,:root[data-theme="demon-lord"] .hub-intro p:last-child { color:#ebe0c9; }
+:root[data-theme="demon-lord"] .campaign-hub .hub-header { border-color:#4a3f30; }
+:root[data-theme="demon-lord"] .campaign-hub .hub-header .quiet { border-color:#c9a14a;color:#c9a14a; }
+:root[data-theme="demon-lord"] .campaign-card { background:var(--panel);color:var(--ink); }
+:root[data-theme="demon-lord"] .campaign-hub .hub-intro .eyebrow { color:#c9a14a; }
+:root[data-theme="demon-lord"] .campaign-hub .panel-title { border-color:#4a3f30; }
+:root[data-theme="demon-lord"] .theme-switcher { background:#15130f;border-color:#c9a14a;color:#ebe0c9;box-shadow:0 6px 22px #0008; }
+:root[data-theme="demon-lord"] .theme-switcher select { background:#15130f;border-color:#c9a14a;color:#ebe0c9; }
+@media(max-width:520px) { .theme-switcher { top:calc(10px + env(safe-area-inset-top));right:10px;bottom:auto; } }

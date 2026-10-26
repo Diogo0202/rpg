@@ -167,3 +167,205 @@ def test_roll_requires_signed_in_user(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("SUPABASE_PUBLISHABLE_KEY", raising=False)
     response = TestClient(action_test_app).post("/api/v1/v5/roll", json={"pool": 2, "hunger": 0, "difficulty": 1})
     assert response.status_code == 503
+
+
+SHEET_ID = "74000000-0000-4000-8000-000000000001"
+CAMPAIGN_ID = "72000000-0000-4000-8000-000000000001"
+ATTACK = {"sheet_id": SHEET_ID, "campaign_id": CAMPAIGN_ID}
+
+
+def fake_weapon(monkeypatch: pytest.MonkeyPatch, weapon: dict[str, object] | None, calls: list[str] | None = None) -> None:
+    from app.services.v5_actions import EquippedWeapon
+
+    async def loader(attack, authorization):  # type: ignore[no-untyped-def]
+        if calls is not None:
+            calls.append(authorization)
+        return EquippedWeapon.model_validate(weapon) if weapon else None
+
+    monkeypatch.setattr("app.routes.v5_actions.load_equipped_weapon", loader)
+
+
+def test_attack_adds_server_read_weapon_bonus_and_damage_type(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    calls: list[str] = []
+    fake_weapon(monkeypatch, {"id": "75000000-0000-4000-8000-000000000002", "name": "Estaca flamejante", "damage_bonus": 2, "damage_type": "aggravated"}, calls)
+    rng_values(monkeypatch, [6, 7, 8, 9])
+    response = client.post("/api/v1/v5/roll", json={"pool": 4, "hunger": 0, "difficulty": 2, "attack": ATTACK},
+                           headers={"Authorization": "Bearer user-token"})
+    assert response.status_code == 200
+    attack = response.json()["attack"]
+    assert attack["margin"] == 2
+    assert attack["weapon_bonus"] == 2
+    assert attack["damage"] == 4
+    assert attack["damage_type"] == "aggravated"
+    assert [source["label"] for source in attack["sources"]] == ["Margem de sucesso", "Arma equipada: Estaca flamejante"]
+    assert calls == ["Bearer user-token"]
+
+
+def test_failed_attack_deals_no_damage_and_unarmed_is_superficial(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    fake_weapon(monkeypatch, None)
+    rng_values(monkeypatch, [2, 3])
+    failed = client.post("/api/v1/v5/roll", json={"pool": 2, "hunger": 0, "difficulty": 2, "attack": ATTACK})
+    assert failed.status_code == 200
+    assert failed.json()["attack"] == {
+        "weapon": None, "margin": 0, "weapon_bonus": 0, "damage": 0, "damage_type": "superficial",
+        "sources": [{"label": "Margem de sucesso", "value": 0}],
+    }
+
+
+def test_attack_rejects_client_supplied_weapon_values(client: TestClient) -> None:
+    response = client.post("/api/v1/v5/roll", json={
+        "pool": 2, "hunger": 0, "difficulty": 1,
+        "attack": {**ATTACK, "damage_bonus": 10},
+    })
+    assert response.status_code == 422
+
+
+def test_roll_without_attack_does_not_read_inventory(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    calls: list[str] = []
+    fake_weapon(monkeypatch, None, calls)
+    rng_values(monkeypatch, [6, 6])
+    response = request(client)
+    assert response.status_code == 200
+    assert response.json()["attack"] is None
+    assert calls == []
+
+
+class FakeResponse:
+    def __init__(self, status_code: int, body: object) -> None:
+        self.status_code = status_code
+        self._body = body
+
+    def json(self) -> object:
+        return self._body
+
+
+def fake_supabase(monkeypatch: pytest.MonkeyPatch, response: FakeResponse, seen: dict[str, object]) -> None:
+    class FakeClient:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        async def __aenter__(self) -> "FakeClient":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+        async def get(self, url: str, headers: dict[str, str], params: dict[str, str]) -> FakeResponse:
+            seen.update(url=url, headers=headers, params=params)
+            return response
+
+    monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.test")
+    monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "publishable")
+    monkeypatch.setattr("app.routes.v5_actions.httpx.AsyncClient", FakeClient)
+
+
+def test_weapon_loader_filters_equipped_acquired_weapon_with_user_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from app.routes.v5_actions import load_equipped_weapon
+    from app.services.v5_actions import AttackContext
+
+    seen: dict[str, object] = {}
+    fake_supabase(monkeypatch, FakeResponse(200, [{"id": "75000000-0000-4000-8000-000000000001", "name": "Faca", "damage_bonus": 1, "damage_type": "superficial"}]), seen)
+    weapon = asyncio.run(load_equipped_weapon(AttackContext.model_validate(ATTACK), "Bearer user-token"))
+    assert weapon is not None and weapon.damage_bonus == 1
+    assert seen["url"] == "https://example.supabase.test/rest/v1/character_inventory"
+    assert seen["headers"]["Authorization"] == "Bearer user-token"  # type: ignore[index]
+    params = seen["params"]
+    assert params["equipped"] == "is.true" and params["acquired"] == "is.true" and params["category"] == "eq.weapon"  # type: ignore[index]
+    assert params["sheet_id"] == f"eq.{SHEET_ID}"  # type: ignore[index]
+
+
+def test_weapon_loader_rejects_invalid_rows_and_denied_access(monkeypatch: pytest.MonkeyPatch) -> None:
+    import asyncio
+
+    from fastapi import HTTPException
+
+    from app.routes.v5_actions import load_equipped_weapon
+    from app.services.v5_actions import AttackContext
+
+    context = AttackContext.model_validate(ATTACK)
+    for response, status in (
+        (FakeResponse(403, {}), 403),
+        (FakeResponse(200, [{"id": "75000000-0000-4000-8000-000000000001", "name": "Canhão", "damage_bonus": 99}]), 503),
+        (FakeResponse(200, [{}, {}]), 503),
+    ):
+        fake_supabase(monkeypatch, response, {})
+        with pytest.raises(HTTPException) as caught:
+            asyncio.run(load_equipped_weapon(context, "Bearer user-token"))
+        assert caught.value.status_code == status
+    with pytest.raises(HTTPException) as missing:
+        asyncio.run(load_equipped_weapon(context, None))
+    assert missing.value.status_code == 401
+
+
+ROLL_ID = "76000000-0000-4000-8000-000000000001"
+
+
+def stored_row(**overrides: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "id": ROLL_ID, "sheet_id": SHEET_ID, "campaign_id": CAMPAIGN_ID, "difficulty": 2,
+        "outcome": {"successes": 5, "success": True}, "rerolled_at": None,
+    }
+    row.update(overrides)
+    return row
+
+
+def fake_roll_read(monkeypatch: pytest.MonkeyPatch, rows: object, seen: dict[str, object] | None = None) -> None:
+    async def read(method, path, authorization, *, params=None, payload=None):  # type: ignore[no-untyped-def]
+        if seen is not None:
+            seen.update(method=method, path=path, authorization=authorization, params=params)
+        return rows
+
+    monkeypatch.setattr("app.routes.v5_actions._supabase_request", read)
+
+
+def test_stored_attack_uses_stored_outcome_and_server_weapon(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    seen: dict[str, object] = {}
+    calls: list[str] = []
+    fake_roll_read(monkeypatch, [stored_row()], seen)
+    fake_weapon(monkeypatch, {"id": "75000000-0000-4000-8000-000000000002", "name": "Espada", "damage_bonus": 2, "damage_type": "superficial"}, calls)
+    response = client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack", headers={"Authorization": "Bearer user-token"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["roll_id"] == ROLL_ID and body["sheet_id"] == SHEET_ID and body["rerolled"] is False
+    assert body["attack"]["margin"] == 3 and body["attack"]["damage"] == 5
+    assert seen["path"] == "v5_roll_records" and seen["authorization"] == "Bearer user-token"
+    assert seen["params"]["id"] == f"eq.{ROLL_ID}"  # type: ignore[index]
+    assert calls == ["Bearer user-token"]
+
+
+def test_stored_attack_after_failed_or_rerolled_roll(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    fake_weapon(monkeypatch, None)
+    fake_roll_read(monkeypatch, [stored_row(outcome={"successes": 1, "success": False})])
+    failed = client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack", json={"use_equipped_weapon": True})
+    assert failed.status_code == 200 and failed.json()["attack"]["damage"] == 0
+
+    fake_roll_read(monkeypatch, [stored_row(outcome={"successes": 4, "success": True}, rerolled_at="2026-10-26T12:01:00+00:00")])
+    rerolled = client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack")
+    assert rerolled.status_code == 200
+    assert rerolled.json()["rerolled"] is True and rerolled.json()["attack"]["damage"] == 2
+
+
+def test_stored_attack_without_weapon_skips_inventory(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    calls: list[str] = []
+    fake_weapon(monkeypatch, None, calls)
+    fake_roll_read(monkeypatch, [stored_row()])
+    response = client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack", json={"use_equipped_weapon": False})
+    assert response.status_code == 200 and response.json()["attack"]["weapon"] is None
+    assert calls == []
+
+
+def test_stored_attack_rejects_missing_or_invalid_rolls(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    fake_weapon(monkeypatch, None)
+    fake_roll_read(monkeypatch, [])
+    assert client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack").status_code == 404
+    fake_roll_read(monkeypatch, [stored_row(outcome={"successes": "9", "success": True})])
+    assert client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack").status_code == 502
+    assert client.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack", json={"damage": 10}).status_code == 422
+    assert client.post("/api/v1/v5/rolls/not-a-uuid/attack").status_code == 422
+
+
+def test_stored_attack_requires_session() -> None:
+    with TestClient(action_test_app) as unauthenticated:
+        assert unauthenticated.post(f"/api/v1/v5/rolls/{ROLL_ID}/attack").status_code in {401, 503}

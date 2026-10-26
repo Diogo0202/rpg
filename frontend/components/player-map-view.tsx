@@ -6,6 +6,7 @@ import { createClient } from "../lib/supabase/client";
 import { parseMapDocument, type MapDocumentV2 } from "../lib/map-document";
 import { distance } from "../lib/map-geometry";
 import { kitForSystem } from "../lib/map-kits";
+import { redactForViewer, viewerMasks } from "../lib/map-visibility";
 import { MapCanvas, PIN_RADIUS, type CanvasPointer } from "./map-editor/map-canvas";
 import { usePortraitUrls } from "./portrait-picker";
 import styles from "./saved-maps-panel.module.css";
@@ -69,6 +70,15 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
   }, [selectedId, revision]);
 
   const movable = useMemo(() => new Set((loaded?.document.pins ?? []).filter((pin) => pin.kind === "character" && pin.sheet_id && ownSheetIds.has(pin.sheet_id)).map((pin) => pin.id)), [loaded, ownSheetIds]);
+  // The database already removed what is under fog (and out of sight); here the
+  // same rules run again on the redacted copy so dragging the own pin updates
+  // the visible area live, and the canvas masks fog and shadowed space.
+  const view = useMemo(() => {
+    if (!loaded) return null;
+    const viewer = { userId: viewerId, ownSheetIds };
+    const document = redactForViewer(loaded.document, viewer);
+    return { document, vision: viewerMasks(document, viewer) };
+  }, [loaded, viewerId, ownSheetIds]);
   const portraitUrls = usePortraitUrls((loaded?.document.pins ?? []).map((pin) => pin.portrait_path));
 
   function onPointer(event: CanvasPointer) {
@@ -110,9 +120,9 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
     </header>
     <p className={styles.message} role="status" aria-live="polite">{message}</p>
     {maps.length === 0 ? <p className={styles.empty}>O narrador ainda não compartilhou nenhum mapa.</p>
-      : loaded ? <div className={editorStyles.stage}>
-        <MapCanvas document={loaded.document} kit={kitForSystem(loaded.system_key ?? loaded.document.system_key)} portraitUrls={portraitUrls}
-          mode="player" movablePinIds={movable} label={`Mapa ${loaded.name}, visto de cima`} onPointer={onPointer} />
+      : loaded && view ? <div className={editorStyles.stage}>
+        <MapCanvas document={view.document} kit={kitForSystem(loaded.system_key ?? loaded.document.system_key)} portraitUrls={portraitUrls}
+          mode="player" movablePinIds={movable} label={`Mapa ${loaded.name}, visto de cima`} onPointer={onPointer} vision={view.vision} />
       </div> : <p className={styles.empty}>Carregando mapa…</p>}
   </section>;
 }

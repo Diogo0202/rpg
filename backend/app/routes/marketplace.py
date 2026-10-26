@@ -4,7 +4,7 @@ from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 
 from app.services import marketplace
 
@@ -31,11 +31,47 @@ class CloneRequest(BaseModel):
     idempotency_key: StrictStr = Field(min_length=8, max_length=100)
 
 
+def _required_reason(value: str) -> str:
+    result = value.strip()
+    if len(result) < 3:
+        raise ValueError("informe o motivo da decisão")
+    return result
+
+
 class ResolveReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     action: Literal["restore", "remove"]
-    note: StrictStr | None = Field(default=None, max_length=2000)
+    note: StrictStr = Field(min_length=3, max_length=2000)
+
+    @field_validator("note")
+    @classmethod
+    def trimmed_note(cls, value: str) -> str:
+        return _required_reason(value)
+
+
+class ModerateSystemRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["hide", "restore", "remove"]
+    note: StrictStr = Field(min_length=3, max_length=2000)
+
+    @field_validator("note")
+    @classmethod
+    def trimmed_note(cls, value: str) -> str:
+        return _required_reason(value)
+
+
+# Leituras de moderação: somente campos desta lista chegam ao cliente (nenhum id de usuário).
+_QUEUE_FIELDS = ("id", "system_id", "system_name", "author_name", "system_status", "reason", "created_at", "open_reports")
+_SYSTEM_FIELDS = ("id", "name", "author_name", "status", "updated_at", "open_reports")
+_HISTORY_FIELDS = ("id", "system_id", "system_name", "action", "previous_status", "current_status", "note", "from_report", "by_me", "created_at")
+
+
+def _rows(value: Any, fields: tuple[str, ...]) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        raise HTTPException(status_code=503, detail="resposta inválida da moderação")
+    return [{field: row.get(field) for field in fields} for row in value if isinstance(row, dict)]
 
 
 def _card(row: dict[str, Any], *, detail: bool = False) -> dict[str, Any]:
@@ -131,10 +167,48 @@ async def list_moderation_reports(
 ) -> dict[str, Any]:
     await marketplace.current_user_id(authorization)
     reports = await marketplace.request_user(
-        "POST", "rpc/marketplace_list_reports", authorization,
+        "POST", "rpc/marketplace_moderation_queue", authorization,
         payload={"p_page": page, "p_limit": limit},
     )
-    return {"items": reports, "page": page, "limit": limit}
+    return {"items": _rows(reports, _QUEUE_FIELDS), "page": page, "limit": limit}
+
+
+@router.get("/moderation/me")
+async def moderation_access(authorization: str | None = Header(default=None)) -> dict[str, bool]:
+    """Diz à interface se a sessão é moderadora; a decisão vem do banco, nunca do cliente."""
+    await marketplace.current_user_id(authorization)
+    result = await marketplace.request_user("POST", "rpc/marketplace_is_moderator", authorization, payload={})
+    return {"is_moderator": result is True}
+
+
+@router.get("/moderation/systems")
+async def list_moderation_systems(
+    status: Literal["published", "hidden", "removed"] | None = Query(default=None),
+    q: str | None = Query(default=None, max_length=120),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=50),
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    await marketplace.current_user_id(authorization)
+    rows = await marketplace.request_user(
+        "POST", "rpc/marketplace_moderation_systems", authorization,
+        payload={"p_status": status, "p_q": q.strip() if q and q.strip() else None, "p_page": page, "p_limit": limit},
+    )
+    return {"items": _rows(rows, _SYSTEM_FIELDS), "page": page, "limit": limit}
+
+
+@router.get("/moderation/log")
+async def list_moderation_log(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, ge=1, le=50),
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    await marketplace.current_user_id(authorization)
+    rows = await marketplace.request_user(
+        "POST", "rpc/marketplace_moderation_history", authorization,
+        payload={"p_page": page, "p_limit": limit},
+    )
+    return {"items": _rows(rows, _HISTORY_FIELDS), "page": page, "limit": limit}
 
 
 @router.post("/moderation/reports/{report_id}/resolve")
@@ -149,3 +223,19 @@ async def resolve_moderation_report(
         payload={"p_report_id": str(report_id), "p_action": payload.action, "p_resolution_note": payload.note},
     )
     return {"ok": True}
+
+
+@router.post("/moderation/systems/{system_id}")
+async def moderate_system(
+    system_id: UUID,
+    payload: ModerateSystemRequest,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    await marketplace.current_user_id(authorization)
+    status = await marketplace.request_user(
+        "POST", "rpc/marketplace_moderate_system", authorization,
+        payload={"p_system_id": str(system_id), "p_action": payload.action, "p_note": payload.note},
+    )
+    if status not in {"published", "hidden", "removed"}:
+        raise HTTPException(status_code=503, detail="resposta inválida da moderação")
+    return {"ok": True, "status": status}

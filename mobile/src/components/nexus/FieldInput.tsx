@@ -24,10 +24,16 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
   const errId = `${id}-err`;
   const value = values[field.id];
   if (!isFieldActive(template, field, values)) return null;
-  const describedBy = error ? errId : undefined;
+  // Paired fields (Convicção and Pedra de Toque) are filled together: one asks for the other.
+  const partner = field.paired_with ? template.fields.find((item) => item.id === field.paired_with) : undefined;
+  const partnerFilled = partner ? filledText(values[partner.id]) : false;
+  const needed = field.required || (partnerFilled && !filledText(value));
+  const hintId = `${id}-hint`;
+  const hint = partner ? <p id={hintId} className="mt-1 text-xs text-ink-muted">Preencha junto com {partner.label}.</p> : null;
+  const describedBy = [error ? errId : "", partner ? hintId : ""].filter(Boolean).join(" ") || undefined;
   const label = (
     <label htmlFor={id} className="mb-1 block text-sm font-semibold text-ink">
-      {field.label}{field.required && <span className="text-destructive" aria-hidden> *</span>}
+      {field.label}{needed && <span className="text-destructive" aria-hidden> *</span>}
     </label>
   );
   const err = error ? <p id={errId} className="mt-1 text-xs font-semibold text-destructive">{error}</p> : null;
@@ -95,36 +101,73 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
   }
   if (field.kind === "collection") return <CollectionInput id={id} field={field} value={Array.isArray(value) ? value : []} locked={lockedItems ?? []} onChange={onChange} error={error} />;
   const long = ["notas", "ambicao", "desejo", "apoiadores"].includes(field.id);
+  const text = typeof value === "string" ? value : "";
+  const limit = typeof field.max_length === "number" ? field.max_length : field.character_name ? 120 : 10000;
+  // Declared limits show a counter; values imported past the limit stay visible for the error to name.
+  const counter = typeof field.max_length === "number"
+    ? <p className={`mt-1 text-right text-xs ${text.length > field.max_length ? "font-semibold text-destructive" : "text-ink-muted"}`} aria-live="polite">{text.length}/{field.max_length}</p>
+    : null;
   return (
     <div>
       {label}
       {long ? (
-        <textarea id={id} className="field-input min-h-20" value={typeof value === "string" ? value : ""} maxLength={10000}
-          aria-invalid={!!error} aria-describedby={describedBy} onChange={(e) => onChange(field.id, e.target.value)} />
+        <textarea id={id} className="field-input min-h-20" value={text} maxLength={Math.max(limit, text.length)}
+          aria-invalid={!!error} aria-describedby={describedBy} aria-required={needed || undefined} onChange={(e) => onChange(field.id, e.target.value)} />
       ) : (
-        <input id={id} type="text" className="field-input" value={typeof value === "string" ? value : ""} maxLength={field.character_name ? 120 : 10000}
-          aria-invalid={!!error} aria-describedby={describedBy} onChange={(e) => onChange(field.id, e.target.value)} />
+        <input id={id} type="text" className="field-input" value={text} maxLength={Math.max(limit, text.length)}
+          aria-invalid={!!error} aria-describedby={describedBy} aria-required={needed || undefined} onChange={(e) => onChange(field.id, e.target.value)} />
       )}
+      {counter}
+      {hint}
       {err}
     </div>
   );
 }
 
+function filledText(value: FieldValue | undefined): boolean {
+  return typeof value === "string" && Boolean(value.trim());
+}
+
 function CollectionInput({ id, field, value, locked, onChange, error }: { id: string; field: SheetField; value: string[]; locked: string[]; onChange: Props["onChange"]; error?: string | undefined }) {
   const [draft, setDraft] = useState("");
-  const add = () => {
-    const t = draft.trim();
-    if (!t || value.includes(t) || value.length >= 200) return;
-    onChange(field.id, [...value, t.slice(0, 500)]); setDraft("");
+  const errId = `${id}-err`;
+  const hintId = `${id}-hint`;
+  const itemLimit = typeof field.max_length === "number" ? field.max_length : 500;
+  const maxItems = typeof field.max_items === "number" ? field.max_items : 200;
+  const closed = Array.isArray(field.item_options) ? field.item_options : null;
+  const available = closed ? closed.filter((option) => !value.includes(option)) : [];
+  const full = value.length >= maxItems;
+  const add = (raw = draft) => {
+    const t = raw.trim();
+    if (!t || value.includes(t) || full) return;
+    if (closed && !closed.includes(t)) return;
+    onChange(field.id, [...value, t.slice(0, itemLimit)]); setDraft("");
   };
+  const range = typeof field.min_items === "number" && typeof field.max_items === "number"
+    ? `de ${field.min_items} a ${field.max_items} itens`
+    : typeof field.max_items === "number" ? `até ${field.max_items} itens`
+    : typeof field.min_items === "number" ? `ao menos ${field.min_items} itens` : "";
+  const hint = [range && `${value.length} escolhidos · ${range}`, typeof field.max_length === "number" && !closed ? `até ${field.max_length} caracteres cada` : ""].filter(Boolean).join(" · ");
+  const describedBy = [error ? errId : "", hint ? hintId : ""].filter(Boolean).join(" ") || undefined;
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-semibold text-ink">{field.label}</label>
-      <div className="flex gap-2">
-        <input id={id} className="field-input" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={500}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder="Adicionar item" />
-        <Btn variant="ink" onClick={add} aria-label={`Adicionar em ${field.label}`}>+</Btn>
-      </div>
+      <label htmlFor={id} className="mb-1 block text-sm font-semibold text-ink">{field.label}{field.required && <span className="text-destructive" aria-hidden> *</span>}</label>
+      {closed ? (
+        // Closed list: only the model's options can be picked, once each.
+        <select id={id} className="field-input" value="" disabled={full || available.length === 0} aria-invalid={!!error} aria-describedby={describedBy}
+          onChange={(e) => add(e.target.value)}>
+          <option value="">{full ? "Limite de itens atingido" : "Escolher item…"}</option>
+          {available.map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      ) : (
+        <div className="flex gap-2">
+          <input id={id} className="field-input" value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={itemLimit} disabled={full}
+            aria-invalid={!!error} aria-describedby={describedBy}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} placeholder={full ? "Limite de itens atingido" : "Adicionar item"} />
+          <Btn variant="ink" onClick={() => add()} disabled={full} aria-label={`Adicionar em ${field.label}`}>+</Btn>
+        </div>
+      )}
+      {hint && <p id={hintId} className="mt-1 text-xs text-ink-muted">{hint}</p>}
       {value.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
           {value.map((item) => (
@@ -138,7 +181,7 @@ function CollectionInput({ id, field, value, locked, onChange, error }: { id: st
           ))}
         </ul>
       )}
-      {error && <p className="mt-1 text-xs font-semibold text-destructive">{error}</p>}
+      {error && <p id={errId} className="mt-1 text-xs font-semibold text-destructive">{error}</p>}
     </div>
   );
 }

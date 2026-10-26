@@ -59,3 +59,12 @@ As distribuições acompanham `creation_rules`, conferidas no assistente, no bac
 Os testes cobrem cada distribuição aceita, falta e excesso de pontos, seleção de modo, validade do credo/Ímpeto e cálculo dos recursos no servidor. O teste de navegador do assistente web passa em 390 e 1440 pixels com o componente real e a rede externa bloqueada. O teste de componente mobile verifica o seletor e a contagem, incluindo a rejeição de uma distribuição que pertence a outro modo.
 
 Esses testes não confirmam aplicação do modelo no Supabase hospedado. A revisão dos registros textuais continua com o narrador.
+
+## Versão 3: traços estruturados (Frente J, 26/10/2026)
+
+- Credo e Ímpeto continuam listas fechadas e obrigatórias.
+- Pilares (lista livre) virou até três pares `conviccao_N` (160 caracteres) e `pedra_toque_N` (120), preenchidos juntos (`paired_with`). O primeiro par é obrigatório. **Conferir no livro** a quantidade de pares.
+- Redenção tem limite de 240 caracteres, Célula de 120. Desespero da ficha vai de 0 a 5 e `em_desespero` marca o estado.
+- Os limites (`max_length`, `min_items`, `max_items`, `item_options`, `paired_with`) valem na API, no assistente web e mobile e no banco (trigger `character_sheets_validate_text_constraints`, migration `20261026190000`).
+- Compatibilidade: fichas v1/v2 continuam ligadas ao modelo já aprovado. `migrate_hunter_traits` / `migrateHunterTraits` (endpoint `/api/v1/system-rolls/hunter/traits` com `migrate: true`) separam cada pilar em Pedra de Toque e Convicção (`Pedra: Convicção` ou `Convicção (Pedra)`), corrigem Credo/Ímpeto por nome sem acento e levam excedentes e textos cortados para Notas, com avisos.
+- Células (ATL-04) ficam em `hunter_cells`, `hunter_cell_members`, `hunter_cell_targets` e `hunter_cell_bonds`, com RLS: membros leem, dono e mestres editam. O painel fica na área Sistemas.

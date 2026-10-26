@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import os
 from typing import Any, Literal
+from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from pydantic import BaseModel, Field, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator, model_validator
 
+from app.services.combat_blocks import CombatSystem, CombatTier
 from app.services.content_generator import generate_content
+from app.services.supabase_rpc import call_rpc
 from app.services.tactical_maps import generate_tactical_map
 
 
@@ -57,6 +60,8 @@ class ContentGenerationRequest(BaseModel):
     seed: StrictInt | None = Field(default=None, ge=0, lt=2**64)
     system: str | None = Field(default=None, max_length=120)
     system_fields: dict[str, Any] | None = Field(default=None, max_length=40)
+    combat_system: CombatSystem | None = None
+    difficulty: CombatTier = "padrao"
 
     @field_validator("system_fields")
     @classmethod
@@ -87,7 +92,81 @@ def generate_campaign_content(payload: ContentGenerationRequest, _: None = Depen
             seed=payload.seed,
             system=payload.system,
             system_fields=payload.system_fields,
+            combat_system=payload.combat_system,
+            difficulty=payload.difficulty,
         )
         return result.model_dump(mode="json")
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+# Campos que só o narrador vê: world_entities é lido por todos os membros.
+NARRATOR_ONLY_DETAILS = frozenset({"secret", "story_hook", "weakness", "encounter_hook", "combat_block"})
+
+
+class ContentApplyRequest(BaseModel):
+    """GER-06: o servidor regenera o conteúdo pela seed; o cliente não envia estatísticas."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["npc", "enemy"]
+    seed: StrictInt = Field(ge=0, lt=2**64)
+    combat_system: CombatSystem | None = None
+    difficulty: CombatTier = "padrao"
+    save_entity: StrictBool = True
+    combat_id: UUID | None = None
+    idempotency_key: UUID
+
+    @model_validator(mode="after")
+    def coherent_target(self) -> "ContentApplyRequest":
+        if not self.save_entity and self.combat_id is None:
+            raise ValueError("escolha salvar no mundo, inserir no combate ou ambos")
+        if self.combat_id is not None and self.combat_system is None:
+            raise ValueError("informe o sistema do bloco de combate para inserir no combate")
+        return self
+
+
+def generated_entity_body(content: dict[str, Any]) -> dict[str, Any]:
+    details = {key: value for key, value in content["details"].items() if key not in NARRATOR_ONLY_DETAILS}
+    return {
+        "description": content["summary"],
+        "generated": {"kind": content["kind"], "name": content["name"], "summary": content["summary"], "details": details, "seed": content["seed"]},
+        "role": "antagonist" if content["kind"] == "enemy" else "neutral",
+        "source": "Gerador original RPG-Atlas",
+    }
+
+
+@router.post("/campaigns/{campaign_id}/content/apply", status_code=201)
+async def apply_generated_content(
+    campaign_id: UUID,
+    payload: ContentApplyRequest,
+    _: None = Depends(require_signed_in_user),
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    try:
+        content = generate_content(
+            payload.kind, seed=payload.seed, combat_system=payload.combat_system, difficulty=payload.difficulty,
+        ).model_dump(mode="json")
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    block = content["details"].get("combat_block")
+    result = await call_rpc("rpg_apply_generated_content", authorization or "", {
+        "p_campaign_id": str(campaign_id),
+        "p_idempotency_key": str(payload.idempotency_key),
+        "p_source_kind": "generator",
+        "p_source_ref": {
+            "kind": payload.kind, "seed": payload.seed, "combat_system": payload.combat_system,
+            "difficulty": payload.difficulty if block else None, "generator": "content_generator",
+        },
+        "p_name": content["name"],
+        "p_entity_kind": "npc",
+        "p_entity_body": generated_entity_body(content),
+        "p_save_entity": payload.save_entity,
+        "p_combat_id": str(payload.combat_id) if payload.combat_id else None,
+        "p_initiative": block["initiative"] if block and payload.combat_id else None,
+        "p_health": block["health"] if block and payload.combat_id else None,
+        "p_combat_block": block,
+    })
+    if not isinstance(result, dict):
+        raise HTTPException(status_code=503, detail="Supabase não confirmou a aplicação")
+    return {"application": result, "content": content}

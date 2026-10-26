@@ -244,9 +244,9 @@ Evidências: [inventário](frontend/components/character-inventory-panel.tsx), [
 - **ATL-01 | 75% | Em processo:** sessões com sequência, título, data, resumo e estado; eventos ligados a sessão/facção e exibidos cronologicamente.
 - **ATL-02 | 75% | Em processo:** facções com objetivo, relógio configurável, tensão e consequência de ruptura. Falta teste autenticado e preferências de alerta.
 - **ATL-03 | 75% | Em processo:** cues musicais por sessão, tipo de cena, duração, brief, notas, URL HTTPS e player sem autoplay. Falta executar a migration e conferir o fluxo real.
-- **ATL-04 | 0% | Não implementada:** células de Caçador com membros, antagonistas e vínculos persistidos.
+- **ATL-04 | 75% | Em processo:** células de Caçador persistidas (nome, Perigo, Desespero, notas, membros, antagonistas/alvos e vínculos) com RLS e painel na área Sistemas; pgTAP local aprovado. Falta aplicar a migration no destino e testar com contas reais.
 - **ATL-05 | 75% | Em processo:** rolador autenticado de Caçador com parada base, dificuldade, Desespero adicional opcional e dados separados; informa necessidade de decisão sobre Overreach/Despair. Sem gasto de recursos, controle completo da célula ou aplicação automática de consequências.
-- **ATL-06 | 50% | Em processo:** rolador autenticado inicial de O Um Anel com d12/d6, escolha favorecida/desfavorecida e Cansado por Vigor/Carga. Referência completa de regras ainda em revisão; Miserável, Sombra e eventos de jornada pendentes.
+- **ATL-06 | 75% | Em processo:** rolador de O Um Anel com Cansado (Carga + Cansaço), Miserável (Olho de Sauron como falha automática), Ferido, teste de Sombra e eventos de jornada; ficha v2 com Corpo/Coração/Astúcia, TN derivado e bases por cultura. Números marcados para conferência em docs/UM_ANEL_FICHA.md.
 - **ATL-07 | 0% | Não implementada:** mapas narrativos Shadowlords com regiões, rotas, encontros e bênçãos.
 - **ATL-08 | 0% | Não implementada:** favoritos de NPCs, edição pessoal, exportação e dossiê do narrador com seções ordenáveis.
 - **ATL-09 | 0% | Não implementada:** catálogo de ritos de O Um Anel com favoritos e referências autorizadas.

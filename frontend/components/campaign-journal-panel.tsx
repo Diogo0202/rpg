@@ -90,6 +90,15 @@ const EVENT_STATUS_LABELS: Record<EventStatus, string> = {
   consequence: "Consequência",
 };
 
+const LINKABLE_KINDS = ["npc", "item", "quest", "location"] as const;
+type LinkableKind = (typeof LINKABLE_KINDS)[number];
+type LinkKind = "consequence" | "involves" | "reward" | "setting";
+type LinkableEntity = { id: string; kind: LinkableKind; name: string };
+type EventEntityLink = { id: string; event_id: string; entity_id: string; link_kind: LinkKind; notes: string };
+
+const ENTITY_KIND_LABELS: Record<LinkableKind, string> = { npc: "NPC", item: "Item", quest: "Missão", location: "Local" };
+const LINK_KIND_LABELS: Record<LinkKind, string> = { consequence: "Consequência", involves: "Envolve", reward: "Recompensa", setting: "Cenário" };
+
 function dateLabel(value: string | null): string {
   if (!value) return "Sem data";
   const date = new Date(`${value.slice(0, 10)}T00:00:00`);
@@ -144,6 +153,9 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
   const [showSessionForm, setShowSessionForm] = useState(false);
   const [showFactionForm, setShowFactionForm] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [worldEntities, setWorldEntities] = useState<LinkableEntity[]>([]);
+  const [entityLinks, setEntityLinks] = useState<EventEntityLink[]>([]);
+  const [linkDrafts, setLinkDrafts] = useState<Record<string, { entity_id: string; link_kind: LinkKind }>>({});
   const campaignRef = useRef(campaignId);
   const refreshRef = useRef<() => void>(() => undefined);
   campaignRef.current = campaignId;
@@ -168,6 +180,9 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     setShowSessionForm(false);
     setShowFactionForm(false);
     setShowEventForm(false);
+    setWorldEntities([]);
+    setEntityLinks([]);
+    setLinkDrafts({});
 
     async function load() {
       const currentRequest = ++requestId;
@@ -183,6 +198,14 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
         setSessions((sessionResult.data ?? []) as CampaignSession[]);
         setFactions((factionResult.data ?? []) as CampaignFaction[]);
         setEvents((eventResult.data ?? []) as CampaignEvent[]);
+        // Links are optional: a missing migration must not hide the rest of the journal.
+        const [entityResult, linkResult] = await Promise.all([
+          supabase.from("world_entities").select("id,kind,name").eq("campaign_id", requestCampaignId).in("kind", [...LINKABLE_KINDS]).order("name", { ascending: true }),
+          supabase.from("campaign_event_entity_links").select("id,event_id,entity_id,link_kind,notes").eq("campaign_id", requestCampaignId),
+        ]);
+        if (!active || currentRequest !== requestId) return;
+        setWorldEntities(entityResult.error ? [] : (entityResult.data ?? []) as LinkableEntity[]);
+        setEntityLinks(linkResult.error ? [] : (linkResult.data ?? []) as EventEntityLink[]);
       } catch {
         if (active && currentRequest === requestId) setMessage("Não foi possível carregar o diário desta campanha.");
       } finally {
@@ -418,9 +441,46 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     }
   }
 
+  async function addEntityLink(item: CampaignEvent) {
+    const draft = linkDrafts[item.id];
+    if (!canManage || !draft?.entity_id) return;
+    const requestCampaignId = campaignId;
+    setSaving(true);
+    setMessage("");
+    try {
+      const { error } = await createClient().from("campaign_event_entity_links").insert({ campaign_id: requestCampaignId, event_id: item.id, entity_id: draft.entity_id, link_kind: draft.link_kind });
+      if (!currentCampaign(requestCampaignId)) return;
+      if (error) throw error;
+      setLinkDrafts((current) => { const next = { ...current }; delete next[item.id]; return next; });
+      setMessage("Vínculo com o mundo salvo.");
+      refreshRef.current();
+    } catch {
+      if (currentCampaign(requestCampaignId)) setMessage("Não foi possível ligar o registro. Ele pode já estar ligado com esse tipo.");
+    } finally {
+      if (currentCampaign(requestCampaignId)) setSaving(false);
+    }
+  }
+
+  async function removeEntityLink(link: EventEntityLink) {
+    if (!canManage) return;
+    const requestCampaignId = campaignId;
+    setSaving(true);
+    try {
+      const { data, error } = await createClient().from("campaign_event_entity_links").delete().eq("id", link.id).eq("campaign_id", requestCampaignId).select("id").maybeSingle();
+      if (!currentCampaign(requestCampaignId)) return;
+      if (error || !data) throw error ?? new Error("stale row");
+      setMessage("Vínculo removido.");
+      refreshRef.current();
+    } catch {
+      if (currentCampaign(requestCampaignId)) setMessage("Não foi possível remover o vínculo. Atualize a lista.");
+    } finally {
+      if (currentCampaign(requestCampaignId)) setSaving(false);
+    }
+  }
+
   function exportJson() {
     try {
-      saveFile(`diario-${safePart(campaignId)}.json`, JSON.stringify({ campaign_id: campaignId, exported_at: new Date().toISOString(), sessions, factions, events }, null, 2), "application/json;charset=utf-8");
+      saveFile(`diario-${safePart(campaignId)}.json`, JSON.stringify({ campaign_id: campaignId, exported_at: new Date().toISOString(), sessions, factions, events, entity_links: entityLinks }, null, 2), "application/json;charset=utf-8");
       setMessage("Arquivo JSON do diário salvo.");
     } catch {
       setMessage("Não foi possível gerar o arquivo JSON.");
@@ -579,6 +639,21 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
                 <div className={styles.recordHeading}><h4>{item.title}</h4><span className={styles.badge}>{EVENT_STATUS_LABELS[item.status]}</span></div>
                 <p className={styles.recordText}>{item.description || "Sem descrição registrada."}</p>
                 <p className={styles.recordMeta}>Sessão: {session ? `Sessão ${session.sequence}: ${session.title}` : "Sem vínculo"} · Facção: {faction?.name ?? "Sem vínculo"}</p>
+                {(() => {
+                  const links = entityLinks.filter((link) => link.event_id === item.id);
+                  const draft = linkDrafts[item.id] ?? { entity_id: "", link_kind: item.status === "consequence" ? "consequence" as LinkKind : "involves" as LinkKind };
+                  return <div className={styles.recordMeta} aria-label={`Registros do mundo ligados a ${item.title}`}>
+                    {links.length ? <ul className={styles.entityLinks}>{links.map((link) => {
+                      const entity = worldEntities.find((entry) => entry.id === link.entity_id);
+                      return <li key={link.id}>{LINK_KIND_LABELS[link.link_kind] ?? link.link_kind}: <strong>{entity?.name ?? "Registro do mundo"}</strong>{entity ? ` (${ENTITY_KIND_LABELS[entity.kind]})` : ""}{canManage && <button type="button" className={styles.textButton} disabled={saving} onClick={() => void removeEntityLink(link)}>Desligar</button>}</li>;
+                    })}</ul> : <span>Nenhum NPC, item, missão ou local ligado.</span>}
+                    {canManage && worldEntities.length > 0 && <div className={styles.rowActions}>
+                      <label htmlFor={inputId(`link-entity-${item.id}`)}>Ligar a<select id={inputId(`link-entity-${item.id}`)} value={draft.entity_id} disabled={saving} onChange={(event) => setLinkDrafts((current) => ({ ...current, [item.id]: { ...draft, entity_id: event.target.value } }))}><option value="">Selecione</option>{LINKABLE_KINDS.map((kind) => <optgroup key={kind} label={ENTITY_KIND_LABELS[kind]}>{worldEntities.filter((entry) => entry.kind === kind).map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</optgroup>)}</select></label>
+                      <label htmlFor={inputId(`link-kind-${item.id}`)}>Tipo<select id={inputId(`link-kind-${item.id}`)} value={draft.link_kind} disabled={saving} onChange={(event) => setLinkDrafts((current) => ({ ...current, [item.id]: { ...draft, link_kind: event.target.value as LinkKind } }))}>{Object.entries(LINK_KIND_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                      <button type="button" className={styles.secondaryButton} disabled={saving || !draft.entity_id} onClick={() => void addEntityLink(item)}>Ligar</button>
+                    </div>}
+                  </div>;
+                })()}
                 {canManage && <div className={styles.rowActions}><button type="button" className={styles.textButton} disabled={saving} onClick={() => { setEventDraft({ id: item.id, session_id: item.session_id ?? "", faction_id: item.faction_id ?? "", title: item.title, description: item.description, occurred_on: item.occurred_on, status: item.status }); setShowEventForm(true); }}>Editar</button><button type="button" className={styles.dangerButton} disabled={saving} onClick={() => void deleteEvent(item)}>Excluir</button></div>}
               </li>;
             })}

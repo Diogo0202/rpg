@@ -6,6 +6,7 @@ import { createClient } from "../lib/supabase/client";
 import { downloadText } from "../lib/download";
 import { createEmptyDocument, parseMapDocument } from "../lib/map-document";
 import { kitForSystem } from "../lib/map-kits";
+import { MAX_IMPORT_BYTES, prepareMapImport } from "../lib/map-transfer";
 import { MapCanvas } from "./map-editor/map-canvas";
 import { MapEditor, type EditableMap } from "./map-editor/map-editor";
 import editorStyles from "./map-editor/map-editor.module.css";
@@ -116,6 +117,39 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     } finally { setBusy(false); }
   }
 
+  async function importJson(file: File) {
+    if (file.size > MAX_IMPORT_BYTES) { setMessage("O arquivo passa de 5 MB."); return; }
+    setBusy(true);
+    const requestCampaign = campaignId;
+    try {
+      const client = createClient();
+      const [text, sheetResult, entityResult, memberResult] = await Promise.all([
+        file.text(),
+        client.from("character_sheets").select("id,owner_id").eq("campaign_id", campaignId),
+        client.from("world_entities").select("id").eq("campaign_id", campaignId),
+        client.from("campaign_members").select("user_id").eq("campaign_id", campaignId),
+      ]);
+      if (sheetResult.error || entityResult.error) throw new Error("Não foi possível conferir fichas e entidades da campanha.");
+      const sheets = (sheetResult.data ?? []) as { id: string; owner_id: string }[];
+      const prepared = prepareMapImport(text, file.name.replace(/\.json$/i, ""), {
+        sheetIds: new Set(sheets.map((row) => row.id)),
+        entityIds: new Set((entityResult.data ?? []).map((row) => row.id as string)),
+        playerIds: new Set([...sheets.map((row) => row.owner_id), ...((memberResult.data ?? []) as { user_id: string }[]).map((row) => row.user_id)]),
+      });
+      if (!prepared.ok) throw new Error(prepared.error);
+      const { data, error } = await client.from("maps")
+        .insert({ campaign_id: campaignId, name: prepared.name, created_by: viewerId, system_key: prepared.system_key, document: prepared.document })
+        .select(MAP_COLUMNS).single();
+      if (campaignRef.current !== requestCampaign) return;
+      if (error || !data) throw new Error("O banco recusou o mapa importado. Confira estruturas, pins e névoa.");
+      setMaps((items) => [data as EditableMap, ...items]);
+      setSelectedId((data as EditableMap).id);
+      setMessage(["Mapa importado.", ...prepared.warnings].join(" "));
+    } catch (problem) {
+      if (campaignRef.current === requestCampaign) setMessage(problem instanceof Error ? problem.message : "Não foi possível importar o mapa.");
+    } finally { setBusy(false); }
+  }
+
   function exportJson(map: EditableMap) {
     try {
       downloadText(`${mapFilePart(map.name)}.json`, JSON.stringify({ name: map.name, system_key: map.system_key, document: map.document }, null, 2));
@@ -140,6 +174,10 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
             {maps.map((item) => <option key={item.id} value={item.id}>{item.name}{item.shared_with_players ? " · compartilhado" : ""}</option>)}
           </select></label>}
         {selected && <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => exportJson(selected)}>Exportar JSON</button>}
+        <label className={styles.secondaryButton} htmlFor={`${uid}-import`}>Importar JSON
+          <input id={`${uid}-import`} type="file" accept="application/json,.json" disabled={busy} hidden
+            onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void importJson(file); }} />
+        </label>
       </div>
       <form className={styles.toolbar} onSubmit={createMap} aria-label="Novo mapa">
         <label htmlFor={`${uid}-new-name`}>Novo mapa<input id={`${uid}-new-name`} value={newName} maxLength={160} placeholder="Ex.: Taverna do Pônei" onChange={(event) => setNewName(event.target.value)} /></label>

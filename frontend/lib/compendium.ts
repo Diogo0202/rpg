@@ -13,23 +13,27 @@ export type CompendiumEntry = {
   duration: string;
   description: string;
   source: { title: string; page?: number; kind: "homebrew" | "licensed" };
+  /** local = example bundled with the app; campaign = approved by the campaign narrator. */
+  origin?: "local" | "campaign";
 };
 
-export const compendiumEntries = entriesJson as CompendiumEntry[];
-const searchIndex = new Fuse(compendiumEntries, {
+export const compendiumEntries = (entriesJson as CompendiumEntry[]).map((entry) => ({ ...entry, origin: "local" as const }));
+const fuseOptions = {
   keys: ["title", "tags", "description"],
   threshold: 0.38,
   ignoreLocation: true,
   includeScore: true,
-});
+};
+const searchIndex = new Fuse(compendiumEntries, fuseOptions);
 
-export function searchCompendium(query: string): CompendiumEntry[] {
+export function searchCompendium(query: string, entries: CompendiumEntry[] = compendiumEntries): CompendiumEntry[] {
   const term = query.trim();
-  if (!term) return compendiumEntries;
-  return searchIndex.search(term).map(({ item }) => item);
+  if (!term) return entries;
+  const index = entries === compendiumEntries ? searchIndex : new Fuse(entries, fuseOptions);
+  return index.search(term).map(({ item }) => item);
 }
 
-export function findCompendiumEntry(name: string): CompendiumEntry | undefined {
+export function findCompendiumEntry(name: string, entries: CompendiumEntry[] = compendiumEntries): CompendiumEntry | undefined {
   const normalized = name.trim().toLocaleLowerCase("pt-BR");
-  return compendiumEntries.find((entry) => entry.title.toLocaleLowerCase("pt-BR") === normalized);
+  return entries.find((entry) => entry.title.toLocaleLowerCase("pt-BR") === normalized);
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ThemeSwitcher } from "../components/theme-switcher";
 import { getSiteMetadataConfig } from "../lib/site-metadata";
 import "./globals.css";
 
@@ -36,7 +37,7 @@ export const viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="pt-BR">
-      <body data-clarity-mask="True">{children}</body>
+      <body data-clarity-mask="True">{children}<ThemeSwitcher /></body>
     </html>
   );
 }

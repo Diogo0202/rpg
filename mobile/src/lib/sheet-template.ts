@@ -22,7 +22,16 @@ export type SheetField = {
   creation_step?: CreationStep | null;
   identity_kind?: IdentityKind | null;
   character_name?: boolean;
+  /** Structured text limits (mirrors frontend/lib/sheet-template.ts). */
+  max_length?: number | null;
+  min_items?: number | null;
+  max_items?: number | null;
+  item_options?: string[] | null;
+  paired_with?: string | null;
 };
+
+/** Resource adjusted by RPC (mirrors frontend/lib/sheet-template.ts); declared for shared rule modules. */
+export type MetaCurrency = { id: string; label: string; field: string; mode: "pool" | "track"; max?: number | null; max_field?: string | null };
 
 /**
  * Declarative creation rules, numbers only (mirrors frontend/lib/sheet-template.ts
@@ -40,8 +49,23 @@ export type GrantCase = Grant & { equals: string; choices?: GrantChoice[]; homeb
 export type PowerEntry = { name: string; level: number; requires?: { field: string; min: number } | null };
 /** Powers of one discipline. `count` and `max_level` are "dots" (the discipline's value) or a fixed number. */
 export type PowerSource = { field: string; label: string; powers: PowerEntry[]; count?: "dots" | number; max_level?: "dots" | number };
-export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; cases: GrantCase[] };
+/** While the number in `field` lies in a band, its `add` joins the rule's base (V5 Blood Potency by generation). */
+export type GrantBaseBy = { field: string; bands: Array<{ min: number; max: number; add?: Record<string, number> }> };
+export type SelectGrantsRule = { type: "select_grants"; id: string; label: string; field: string; fields: string[]; base?: Record<string, number>; base_by?: GrantBaseBy | null; cases: GrantCase[] };
 export type PowerPicksRule = { type: "power_picks"; id: string; label: string; collection: string; fields: string[]; sources: PowerSource[] };
+/** Points of a collection's own items ("••" or a trailing number) plus `fields` must equal `points`; granted items are extra. */
+export type CollectionPointsRule = {
+  type: "collection_points"; id: string; label: string; collection: string; fields: string[]; points: number; exact?: boolean;
+  /** Closed list of mechanical names and the points each may take; `allow_homebrew` lets the narrator accept other names. */
+  catalog?: CatalogEntry[]; allow_homebrew?: boolean;
+};
+export type CatalogEntry = { name: string; costs: number[] };
+export type RangeLimit = { min: number; max: number };
+export type SelectRangeDefault = { ranges?: Record<string, RangeLimit>; exclude?: Record<string, string[]> };
+/** While `field` holds a value, numbers stay in range and other selects avoid listed values (V5 clan and generation). `fields` stays empty. */
+export type SelectRangesRule = { type: "select_ranges"; id: string; label: string; field: string; fields: string[]; cases: Array<SelectRangeDefault & { equals: string[] }>; default?: SelectRangeDefault | null };
+/** Free "Habilidade (especialização)" items: one per `required` skill with dots plus `free`. `fields` stays empty. */
+export type SpecialtyPicksRule = { type: "specialty_picks"; id: string; label: string; collection: string; skills: Array<{ field: string; label: string }>; required: string[]; free: number; fields: string[] };
 export type PriorityGroup = { label: string; fields: string[] };
 export type PriorityPool = { id: string; label: string; base?: number; base_from?: string[]; base_from_highest?: string[]; highest_count?: number; cost: number; budgets: number[]; groups: PriorityGroup[]; allowed?: { field: string; cases: Record<string, string[]> } | null };
 export type PriorityPoints = { type: "priority_points"; id: string; label: string; freebies: number; exact?: boolean; pools: PriorityPool[]; fields: string[] };
@@ -51,7 +75,10 @@ export type CreationRule =
   | { type: "group_sum"; id: string; label: string; fields: string[]; min?: number | null; max?: number | null }
   | { type: "points_budget"; id: string; label: string; fields: string[]; costs: Record<string, number>; budget: number; exact?: boolean }
   | SelectGrantsRule
-  | PowerPicksRule;
+  | PowerPicksRule
+  | CollectionPointsRule
+  | SelectRangesRule
+  | SpecialtyPicksRule;
 
 export type SheetTemplate = {
   name: string;

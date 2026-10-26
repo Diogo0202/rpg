@@ -34,6 +34,7 @@ from app.routes.system_rolls import router as system_rolls_router
 from app.routes.ai_assistance import router as ai_assistance_router
 from app.routes.mobile_sync import router as mobile_sync_router
 from app.routes.marketplace import router as marketplace_router
+from app.routes.campaign_invites import router as campaign_invites_router
 
 app = FastAPI(title="RPG-Atlas API", version="0.1.0")
 app.include_router(generation_router)
@@ -48,6 +49,7 @@ app.include_router(system_rolls_router)
 app.include_router(ai_assistance_router)
 app.include_router(mobile_sync_router)
 app.include_router(marketplace_router)
+app.include_router(campaign_invites_router)
 
 # Em produção a lista vem do ambiente. Não abrimos CORS para qualquer origem.
 origins = [
@@ -66,7 +68,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
-    expose_headers=["Retry-After", "X-Request-ID"],
+    expose_headers=["Retry-After", "X-Request-ID", "X-Chronicle-Activity"],
 )
 
 

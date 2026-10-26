@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { addHomebrewClan, grantRules, homebrewClans, parsePowerLines, powerRules, removeHomebrewClan, type HomebrewDiscipline } from "../lib/creation-grants";
+import { addHomebrewClan, allowHomebrew, collectionPointRules, grantRules, homebrewClans, parsePowerLines, powerRules, removeHomebrewClan, type HomebrewDiscipline } from "../lib/creation-grants";
 import type { SheetTemplate } from "../lib/sheet-template";
 
 type DraftDiscipline = { label: string; powers: string; rituals: string };
@@ -23,6 +23,7 @@ export function HomebrewClanEditor({ template, onChange }: { template: SheetTemp
   const sources = powerRules(template).find((rule) => rule.collection === "disciplinas")?.sources ?? [];
   const disciplines = clanRule.fields.map((id) => ({ id, label: template.fields.find((field) => field.id === id)?.label ?? id, powers: sources.find((source) => source.field === id)?.powers.length ?? 0 }));
   const total = picked.length + drafts.length;
+  const catalogRules = collectionPointRules(template).filter((rule) => (rule.catalog?.length ?? 0) > 0);
 
   function save() {
     try {
@@ -72,6 +73,13 @@ export function HomebrewClanEditor({ template, onChange }: { template: SheetTemp
         <button className="primary" type="button" disabled={!name.trim() || total === 0} onClick={save}>Adicionar clã</button>
       </div>
     </div>
+    {catalogRules.length > 0 && <div className="sheet-wide">
+      <p className="homebrew-subtitle">Vantagens e Defeitos fora do catálogo</p>
+      {catalogRules.map((rule) => <label className="sheet-required" key={rule.id}>
+        <input type="checkbox" checked={rule.allow_homebrew === true} onChange={(event) => onChange(allowHomebrew(template, rule.id, event.target.checked))} />
+        Aceitar {rule.label.toLowerCase()} da casa (nomes fora da lista do modelo)
+      </label>)}
+    </div>}
     {message && <p className="sheet-feedback" aria-live="polite">{message}</p>}
   </fieldset>;
 }

@@ -8,11 +8,11 @@ import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 
 /**
- * Development-only harness: the creation wizard on a Vampire (V5 or V3) or Shadow of the Demon Lord
+ * Development-only harness: the creation wizard on a Vampire (V5 or V3), Shadow of the Demon Lord or Demônio: A Queda
  * starter with in-memory values, so distribution modes, counters, priority points and ancestry grants
  * can be checked without Supabase. Served only by app/dev/sheet-wizard, which returns 404 outside `next dev`.
  */
-const STARTERS = SYSTEM_STARTERS.filter((item) => item.id === "vampire-v5" || item.id === "vampire-v3" || item.id === "shadow-demon-lord");
+const STARTERS = SYSTEM_STARTERS.filter((item) => item.id === "vampire-v5" || item.id === "vampire-v3" || item.id === "shadow-demon-lord" || item.id === "demon-the-fallen");
 const TEMPLATE_ID = "00000000-0000-4000-8000-0000000000d1";
 
 export function SheetCreationWizardFixture() {
@@ -28,8 +28,9 @@ export function SheetCreationWizardFixture() {
     setSchema(next.template);
     setValues({ ...next.values });
   }
-  return <main style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
-    <div role="group" aria-label="Sistema do modelo" style={{ display: "flex", gap: 8, marginTop: 24 }}>
+  return <main data-system-theme={schema.system_key === "demon-the-fallen" ? "demon-the-fallen" : undefined}
+    className="content" style={{ maxWidth: 1180, margin: "0 auto", padding: "0 24px" }}>
+    <div role="group" aria-label="Sistema do modelo" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 24 }}>
       {STARTERS.map((item) => <button key={item.id} type="button" aria-pressed={starterId === item.id} onClick={() => choose(item.id)}
         style={{ minHeight: 40, padding: "8px 14px", border: "1px solid #425e4b", background: starterId === item.id ? "#425e4b" : "transparent", color: starterId === item.id ? "#fff" : "inherit", cursor: "pointer" }}>{item.label}</button>)}
     </div>

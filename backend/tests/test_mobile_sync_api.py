@@ -173,6 +173,52 @@ def test_maps_record_accepts_all_server_columns(monkeypatch):
     assert response.status_code == 200, response.text
 
 
+def inventory_snapshot(**overrides):
+    data = {
+        "id": ENTITY_ID, "sheet_id": "60000000-0000-0000-0000-000000000001", "campaign_id": CAMPAIGN_ID,
+        "name": "Estaca", "category": "weapon", "quantity": 1, "resource_cost": 0, "damage_bonus": 1,
+        "damage_type": "aggravated", "protection": 0, "notes": "", "acquired": True, "equipped": True,
+        "sort_order": 0, "custom_values": {}, "version": 2, "updated_at": "2026-10-27T00:00:00Z",
+    }
+    data.update(overrides)
+    return {
+        "protocol_version": 1, "campaign_id": CAMPAIGN_ID, "cursor": 1, "has_more": False,
+        "records": [{"entity_type": "character_inventory", "entity_id": ENTITY_ID, "version": 2, "data": {k: v for k, v in data.items() if v is not ...}}],
+        "next_after_id": ENTITY_ID,
+    }
+
+
+def test_inventory_snapshot_carries_weapon_damage_type(monkeypatch):
+    stub_upstream(monkeypatch, body=inventory_snapshot())
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/snapshot?entity_type=character_inventory", headers={"Authorization": JWT})
+    assert response.status_code == 200, response.text
+    assert response.json()["records"][0]["data"]["damage_type"] == "aggravated"
+
+
+def test_inventory_snapshot_without_damage_type_is_rejected_as_stale_dto(monkeypatch):
+    stub_upstream(monkeypatch, body=inventory_snapshot(damage_type=...))
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/snapshot?entity_type=character_inventory", headers={"Authorization": JWT})
+    assert response.status_code == 502
+
+
+def test_inventory_damage_type_is_writable_and_advertised(monkeypatch):
+    change = [{"path": ["damage_type"], "before": {"exists": True, "value": "superficial"}, "after": {"exists": True, "value": "aggravated"}}]
+    parsed = SyncPushRequest.model_validate(push_payload([mutation(action="update", entity_type="character_inventory", base_version=1, changes=change)]))
+    assert parsed.mutations[0].changes[0].path == ["damage_type"]
+    calls = []
+
+    async def fake_upstream(method, path, authorization, *, params=None, payload=None):
+        calls.append(path)
+        if path == "campaigns":
+            return [{"id": CAMPAIGN_ID, "owner_id": "10000000-0000-0000-0000-000000000009"}]
+        return [{"role": "player"}]
+
+    monkeypatch.setattr(mobile_sync, "_upstream", fake_upstream)
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/capabilities", headers={"Authorization": JWT})
+    assert response.status_code == 200, response.text
+    assert "damage_type" in response.json()["entity_fields"]["character_inventory"]
+
+
 @pytest.mark.parametrize(("event_version", "current_version", "expected_status"), [(2, 3, 200), (3, 2, 502)])
 def test_change_accepts_newer_current_record_but_never_older(monkeypatch, event_version, current_version, expected_status):
     body = {

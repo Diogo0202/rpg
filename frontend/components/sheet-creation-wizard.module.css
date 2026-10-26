@@ -217,3 +217,54 @@
 .rules:focus-visible { outline: 3px solid var(--accent, #b84a31); outline-offset: 2px; }
 .rules ul { margin: 0; padding-left: 18px; }
 .rules p { margin: 0; }
+
+/* The Demon sheet uses a dark frame and light writing surfaces on both layouts. */
+:global([data-system-theme="demon-the-fallen"]) .header {
+  padding: clamp(16px, 3vw, 26px);
+  border-left: 4px solid #d98a6d;
+  background: #151719;
+  color: #f2e8d8;
+}
+:global([data-system-theme="demon-the-fallen"]) .header .eyebrow { color: #dab878; }
+:global([data-system-theme="demon-the-fallen"]) .header .intro { color: #cbbeb0; }
+:global([data-system-theme="demon-the-fallen"]) .header .editorLink {
+  border-color: #cbbeb0;
+  color: #f2e8d8;
+}
+:global([data-system-theme="demon-the-fallen"]) .card,
+:global([data-system-theme="demon-the-fallen"]) .desktopPreview {
+  box-shadow: 7px 7px 0 #c7b8aa;
+}
+:global([data-system-theme="demon-the-fallen"]) .stepNumber {
+  background: #44353a;
+  color: #f2e8d8;
+}
+:global([data-system-theme="demon-the-fallen"]) .templateSelected,
+:global([data-system-theme="demon-the-fallen"]) .choiceSelected,
+:global([data-system-theme="demon-the-fallen"]) .modeSelected,
+:global([data-system-theme="demon-the-fallen"]) .powerChecked {
+  border-color: #9b382b;
+  background: #e7d8c7;
+  box-shadow: inset 3px 0 #9b382b;
+}
+:global([data-system-theme="demon-the-fallen"]) .next,
+:global([data-system-theme="demon-the-fallen"]) .finish {
+  border-color: #d98a6d !important;
+  background: #d98a6d;
+  color: #18161a;
+}
+:global([data-system-theme="demon-the-fallen"]) .tallyDone,
+:global([data-system-theme="demon-the-fallen"]) .priorityBonus {
+  background: #9b382b;
+  color: #fff9f0;
+}
+:global([data-system-theme="demon-the-fallen"]) .reviewGroup h4,
+:global([data-system-theme="demon-the-fallen"]) .readonly output,
+:global([data-system-theme="demon-the-fallen"]) .readonlyTag { color: #7f3028; }
+:global([data-system-theme="demon-the-fallen"]) .desktopPreview {
+  background: linear-gradient(160deg, #fff9f0, #e7d8c7);
+}
+:global([data-system-theme="demon-the-fallen"]) .previewRow strong { color: #7f3028; }
+@media (max-width: 600px) {
+  :global([data-system-theme="demon-the-fallen"]) .card { box-shadow: 4px 4px 0 #c7b8aa; }
+}

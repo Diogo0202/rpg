@@ -47,6 +47,10 @@ A ajuda da etapa de recursos apresenta essas regras como opcionais da campanha. 
 - Web: painel de rolagens da sessão, detectado pelo campo `sistema` da ficha.
 - Mobile: aba "d20 Demon Lord" no rolador local, sem envio à mesa.
 
+## Tema "Demon Lord"
+
+Opção de tema escolhida por aparelho (seletor "Tema" no site; Mais → Configurações → Aparência no celular), independente do sistema da campanha. Paleta "trincheira profana": lama e ferro `#15130f`, pergaminho queimado `#ebe0c9`, tinta sépia `#241c14`, sangue `#8f1d14` e ouro sacro `#c9a14a`. Os pares de texto passam de 4,5:1 (teste em `frontend/tests/theme.test.mjs`). Painéis com cores fixas no próprio CSS continuam iguais em todos os temas.
+
 ## Aplicação por campanha
 
 O starter nasce na versão 1. Para usar na campanha, o gestor carrega "Shadow of the Demon Lord" no editor de modelos, salva e aprova. Mudanças futuras no starter não alteram modelos já aprovados no Supabase; publique uma nova versão.

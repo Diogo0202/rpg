@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.services.combat_blocks import CombatSystem, CombatTier, build_combat_block
+
 
 ContentKind = Literal["npc", "enemy", "item"]
 
@@ -102,6 +104,8 @@ def generate_content(
     seed: int | None = None,
     system: str | None = None,
     system_fields: dict[str, Any] | None = None,
+    combat_system: CombatSystem | None = None,
+    difficulty: CombatTier = "padrao",
 ) -> GeneratedContent:
     """Gera um NPC, inimigo ou item original e retorna a seed usada."""
     actual_seed = secrets.randbits(64) if seed is None else seed
@@ -166,6 +170,12 @@ def generate_content(
         summary = f"{name} é um item {quality} cujo efeito é que {effect}."
     else:
         raise ValueError("tipo deve ser npc, enemy ou item")
+
+    if combat_system is not None:
+        if kind == "item":
+            raise ValueError("itens não têm bloco de combate")
+        # RNG separado: o bloco de combate não altera o restante do conteúdo da seed.
+        details["combat_block"] = build_combat_block(combat_system, difficulty, actual_seed).model_dump(mode="json")
 
     return GeneratedContent(
         kind=kind,

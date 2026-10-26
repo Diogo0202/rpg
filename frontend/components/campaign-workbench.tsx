@@ -26,8 +26,9 @@ import { SecondInquisitionPanel } from "./second-inquisition-panel";
 import { ChronicleDiagnosticPanel } from "./chronicle-diagnostic-panel";
 import { SystemRollPanel } from "./system-roll-panel";
 import { AiAssistancePanel } from "./ai-assistance-panel";
+import { CampaignMembersPanel } from "./campaign-members-panel";
 
-type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "cofre" | "inventario" | "acoes" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai";
+type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "cofre" | "inventario" | "acoes" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai" | "participantes";
 type Book = { name: string; kind: string; state: "Pronto" | "Em revisão" | "Na fila" };
 
 const initialBooks: Book[] = [];
@@ -54,6 +55,7 @@ const areas: Array<{ id: Area; label: string; detail: string }> = [
   { id: "geracao", label: "Geração", detail: "Mapas, personagens e itens" },
   { id: "v5", label: "V5: risco", detail: "Fome, críticos e Vontade" },
   { id: "ai", label: "Assistente IA", detail: "Pedidos e preparação privada" },
+  { id: "participantes", label: "Participantes", detail: "Convites, papéis e campanha" },
 ];
 
 type WorkbenchProps = { campaignId: string; campaignName: string; viewerId: string; isOwner: boolean; canManageTemplates: boolean; canEditSheets: boolean };
@@ -113,11 +115,11 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
         {area === "si" && canManageTemplates && <SecondInquisitionPanel campaignId={campaignId} canManage={canManageTemplates} />}
         {area === "cronica" && canManageTemplates && <ChronicleDiagnosticPanel campaignId={campaignId} canManage={canManageTemplates} />}
         {area === "efeitos" && <CharacterEffectsPanel campaignId={campaignId} canEdit={canEditSheets} />}
-        {area === "compendio" && <CompendiumPanel />}
+        {area === "compendio" && <CompendiumPanel campaignId={campaignId} viewerId={viewerId} canReview={canManageTemplates} />}
         {area === "cofre" && <LocalVaultPanel campaignId={campaignId} viewerId={viewerId} canEditSheets={canEditSheets} canManageTemplates={canManageTemplates} />}
         {area === "inventario" && <CharacterInventoryPanel campaignId={campaignId} canEdit={canEditSheets} />}
-        {area === "acoes" && <V5ActionPanel campaignId={campaignId} canEdit={canEditSheets} />}
-        {area === "sistemas" && <SystemRollPanel />}
+        {area === "acoes" && <V5ActionPanel campaignId={campaignId} canEdit={canEditSheets} canNarrate={canManageTemplates} />}
+        {area === "sistemas" && <SystemRollPanel campaignId={campaignId} canManage={canManageTemplates} />}
         {area === "diario" && <CampaignJournalPanel campaignId={campaignId} canManage={canManageTemplates} />}
         {area === "experiencia" && <><SheetResourcesPanel viewerId={viewerId} canManage={canManageTemplates} /><ExperiencePanel viewerId={viewerId} /></>}
         {area === "mapa" && (canManageTemplates
@@ -130,6 +132,7 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
         {area === "geracao" && <GenerationPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
         {area === "v5" && <V5ProbabilityPanel />}
         {area === "ai" && <AiAssistancePanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />}
+        {area === "participantes" && <CampaignMembersPanel campaignId={campaignId} viewerId={viewerId} isOwner={isOwner} canManage={canManageTemplates} />}
       </section>
     </main>
   );

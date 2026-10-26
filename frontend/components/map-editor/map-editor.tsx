@@ -4,13 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "../../lib/supabase/client";
 import {
-  houseStructures, MAX_POINTS, newMapId, parseMapDocument, redactForPlayers, removeElement, validateMapDocument,
+  houseStructures, MAX_POINTS, newMapId, parseMapDocument, removeElement, validateMapDocument,
   type MapDocumentV2, type MapPin, type MapStructure,
 } from "../../lib/map-document";
 import {
   distance, nearestOnPolyline, pointAlongPolyline, pointInPolygon, rectanglePoints, snapAngle, snapToGrid, snapToPoints, translatePoints, type Point,
 } from "../../lib/map-geometry";
 import { findProp, kitForSystem, type MapKit } from "../../lib/map-kits";
+import { fogCellRect, redactForViewer, viewerMasks } from "../../lib/map-visibility";
+import { buildUniversalVtt, vttImageSize } from "../../lib/map-transfer";
+import { blobToBase64, downloadBlob, rasterizeMapSvg } from "../../lib/map-raster";
+import { MAX_FOG_REGIONS, type FogRegion, type MapFog } from "../../lib/map-document";
 import { usePortraitUrls } from "../portrait-picker";
 import { ALL_LAYERS, MapCanvas, PIN_RADIUS, type CanvasDraft, type CanvasPointer, type LayerVisibility } from "./map-canvas";
 import { PinCreator, type EntityOption, type SheetOption } from "./pin-creator";
@@ -27,7 +31,7 @@ export type EditableMap = {
   updated_at: string;
 };
 
-type Tool = "select" | "pan" | "wall" | "house" | "door" | "shadow" | "prop" | "pin" | "erase";
+type Tool = "select" | "pan" | "wall" | "house" | "door" | "shadow" | "prop" | "pin" | "fog" | "erase";
 const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "select", label: "Selecionar", hint: "Clique para escolher, arraste para mover. Delete apaga." },
   { id: "pan", label: "Mover vista", hint: "Arraste para navegar. Use a roda do mouse ou dois dedos para zoom." },
@@ -37,6 +41,7 @@ const TOOLS: { id: Tool; label: string; hint: string }[] = [
   { id: "shadow", label: "Sombra", hint: "Clique os cantos da área escura. Duplo clique ou Enter termina." },
   { id: "prop", label: "Objeto", hint: "Escolha um objeto do kit e clique onde colocá-lo." },
   { id: "pin", label: "Pin", hint: "Clique no mapa para criar um pin de personagem, NPC ou item." },
+  { id: "fog", label: "Névoa", hint: "Clique numa célula ou arraste um retângulo para revelar ou ocultar, para todos ou para um jogador." },
   { id: "erase", label: "Borracha", hint: "Clique em qualquer elemento para removê-lo." },
 ];
 const SYSTEMS = [
@@ -47,6 +52,11 @@ const SYSTEMS = [
   { id: "shadow-demon-lord", label: "Shadow of the Demon Lord (medieval)" },
 ];
 const HISTORY_LIMIT = 100;
+const EMPTY_FOG: MapFog = { enabled: false, line_of_sight: false, regions: [] };
+
+function mapFilePart(value: string): string {
+  return value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "mapa";
+}
 const SNAP_RADIUS = 140;
 const HIT_RADIUS = 160;
 
@@ -110,7 +120,7 @@ export const supabaseMapData: MapEditorData = {
   async loadReferences(campaignId) {
     const client = createClient();
     const [sheetResult, entityResult] = await Promise.all([
-      client.from("character_sheets").select("id,name,portrait_path").eq("campaign_id", campaignId).order("name"),
+      client.from("character_sheets").select("id,name,portrait_path,owner_id").eq("campaign_id", campaignId).order("name"),
       client.from("world_entities").select("id,name,kind").eq("campaign_id", campaignId).in("kind", ["npc", "item"]).order("name"),
     ]);
     return { sheets: (sheetResult.data ?? []) as SheetOption[], entities: (entityResult.data ?? []) as EntityOption[] };
@@ -176,6 +186,11 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
   const [propKind, setPropKind] = useState(kit.props[0].id);
   const [shadowOpacity, setShadowOpacity] = useState(0.55);
   const [shadowGmOnly, setShadowGmOnly] = useState(false);
+  const [fogMode, setFogMode] = useState<"reveal" | "hide">("reveal");
+  const [fogTarget, setFogTarget] = useState<string>("all");
+  const [previewViewer, setPreviewViewer] = useState<string>("all");
+  const [exporting, setExporting] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDocument(initial.document); setPast([]); setFuture([]); setName(map.name); setShared(map.shared_with_players);
@@ -198,6 +213,19 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
   }, [campaignId, data]);
 
   const portraitPaths = useMemo(() => Object.fromEntries(sheets.map((sheet) => [sheet.id, sheet.portrait_path])), [sheets]);
+  // Fog targets: one entry per sheet owner, labelled by that player's sheets.
+  const players = useMemo(() => {
+    const byOwner = new Map<string, string[]>();
+    for (const sheet of sheets) if (sheet.owner_id) byOwner.set(sheet.owner_id, [...(byOwner.get(sheet.owner_id) ?? []), sheet.name]);
+    return [...byOwner].map(([id, names]) => ({ id, label: names.join(", "), sheetIds: new Set(sheets.filter((sheet) => sheet.owner_id === id).map((sheet) => sheet.id)) }));
+  }, [sheets]);
+  const preview = useMemo(() => {
+    if (!previewPlayers || !document) return null;
+    const player = players.find((item) => item.id === previewViewer);
+    const viewer = { userId: player?.id ?? null, ownSheetIds: player?.sheetIds ?? new Set<string>() };
+    const shown = redactForViewer(document, viewer);
+    return { shown, vision: viewerMasks(shown, viewer) };
+  }, [previewPlayers, previewViewer, document, players]);
   const signedUrls = usePortraitUrls(data.portraitUrls ? [] : sheets.map((sheet) => sheet.portrait_path));
   const portraitUrls = data.portraitUrls ?? signedUrls;
 
@@ -303,6 +331,9 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
           setSelectedId(prop.id);
           return;
         }
+        case "fog":
+          setRect({ from: point, to: point });
+          return;
         case "pin":
           setPinDraft({ isNew: true, pin: { id: newMapId(), kind: "character", label: "", x: Math.round(point[0]), y: Math.round(point[1]), gm_only: false, size: "medium" } });
           return;
@@ -324,7 +355,7 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
         setDocument(moveElement(current.base, current.id, dx, dy, point));
         return;
       }
-      if (rectRef.current) { setRect({ ...rectRef.current, to: snapGrid ? snapToGrid(point, document.grid.size) : point }); return; }
+      if (rectRef.current) { setRect({ ...rectRef.current, to: snapGrid && tool !== "fog" ? snapToGrid(point, document.grid.size) : point }); return; }
       if (draftPoints.length) setCursor(snap(point, event.shift));
       return;
     }
@@ -335,6 +366,11 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
         drag.current = null;
       }
       const finished = rectRef.current;
+      if (finished && tool === "fog") {
+        addFogRegion(fogCellRect(finished.from, point, document.grid.size, document.width, document.height));
+        setRect(null);
+        return;
+      }
       if (finished) {
         const end = snapGrid ? snapToGrid(point, document.grid.size) : point;
         const corners = rectanglePoints(finished.from, end);
@@ -386,6 +422,67 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
     setMessage(pinDraft.isNew ? "Pin colocado no mapa." : "Pin atualizado.");
   }
 
+  function updateFog(patch: Partial<MapFog>) {
+    if (!document) return;
+    commit({ ...document, fog: { ...(document.fog ?? EMPTY_FOG), ...patch } });
+  }
+
+  function addFogRegion(points: Point[]) {
+    if (!document) return;
+    const fog = document.fog ?? { ...EMPTY_FOG, enabled: true };
+    if (fog.regions.length >= MAX_FOG_REGIONS) { setMessage(`A névoa aceita até ${MAX_FOG_REGIONS} regiões. Use "Limpar" ou regiões maiores.`); return; }
+    const region: FogRegion = { id: newMapId(), mode: fogMode, points, players: fogTarget === "all" ? null : [fogTarget] };
+    commit({ ...document, fog: { ...fog, regions: [...fog.regions, region] } });
+    setMessage(`${fogMode === "reveal" ? "Área revelada" : "Área coberta de névoa"} para ${fogTarget === "all" ? "todos os jogadores" : players.find((item) => item.id === fogTarget)?.label ?? "o jogador"}.${fog.enabled ? "" : " Ative a névoa para valer na mesa."}`);
+  }
+
+  function regionTargets(region: FogRegion): boolean {
+    return fogTarget === "all" ? region.players === null : region.players !== null && region.players.includes(fogTarget);
+  }
+
+  function clearTargetRegions() {
+    if (!document?.fog) return;
+    updateFog({ regions: document.fog.regions.filter((region) => !regionTargets(region)) });
+    setMessage("Regiões de névoa deste alvo removidas.");
+  }
+
+  function fillTarget(mode: "reveal" | "hide") {
+    if (!document) return;
+    const fog = document.fog ?? { ...EMPTY_FOG, enabled: true };
+    const region: FogRegion = { id: newMapId(), mode, points: [[0, 0], [document.width, 0], [document.width, document.height], [0, document.height]], players: fogTarget === "all" ? null : [fogTarget] };
+    // A whole-map region overrides everything before it for this target, so those can go.
+    commit({ ...document, fog: { ...fog, regions: [...fog.regions.filter((item) => !regionTargets(item)), region] } });
+    setMessage(mode === "reveal" ? "Mapa inteiro revelado para o alvo." : "Mapa inteiro coberto de névoa para o alvo.");
+  }
+
+  async function exportPng() {
+    const svg = stageRef.current?.querySelector("svg");
+    if (!svg || !document || exporting) return;
+    setExporting(true);
+    try {
+      const size = vttImageSize(document);
+      downloadBlob(`${mapFilePart(name)}.png`, await rasterizeMapSvg(svg, document.width, document.height, size.width, size.height));
+      setMessage("PNG do mapa salvo.");
+    } catch (problem) {
+      setMessage(problem instanceof Error ? problem.message : "Não foi possível exportar o PNG.");
+    } finally { setExporting(false); }
+  }
+
+  async function exportVtt() {
+    const svg = stageRef.current?.querySelector("svg");
+    if (!svg || !document || exporting) return;
+    setExporting(true);
+    try {
+      const size = vttImageSize(document);
+      const png = await rasterizeMapSvg(svg, document.width, document.height, size.width, size.height);
+      const vtt = buildUniversalVtt(document, await blobToBase64(png));
+      downloadBlob(`${mapFilePart(name)}.dd2vtt`, new Blob([JSON.stringify(vtt)], { type: "application/json" }));
+      setMessage(`Universal VTT salvo: ${vtt.line_of_sight.length} trechos de muro e ${vtt.portals.length} portas.`);
+    } catch (problem) {
+      setMessage(problem instanceof Error ? problem.message : "Não foi possível exportar o Universal VTT.");
+    } finally { setExporting(false); }
+  }
+
   async function createEntity(kind: "npc" | "item", entityName: string): Promise<EntityOption> {
     const entity = await data.createEntity(campaignId, viewerId, kind, entityName);
     setEntities((items) => [...items, entity]);
@@ -416,7 +513,9 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
   const selectedPin = selectedId ? document.pins.find((pin) => pin.id === selectedId) ?? null : null;
   const draft: CanvasDraft = rect ? { type: "rect", from: rect.from, to: rect.to }
     : draftPoints.length ? { type: "polyline", points: draftPoints, cursor, closed: tool !== "wall" } : null;
-  const shown = previewPlayers ? redactForPlayers(document) : document;
+  const shown = preview?.shown ?? document;
+  const fog = document.fog ?? EMPTY_FOG;
+  const targetRegions = fog.regions.filter(regionTargets).length;
   const activeHint = TOOLS.find((item) => item.id === tool)?.hint ?? "";
   const placedSheetIds = new Set(document.pins.flatMap((pin) => pin.sheet_id ? [pin.sheet_id] : []));
 
@@ -430,11 +529,12 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
           {draftPoints.length > 0 && <button type="button" className={styles.tool} onClick={finishPolyline}>Concluir traço</button>}
         </div>
       </div>
-      <p className={styles.hint}>{previewPlayers ? "Prévia do que os jogadores veem: pins e sombras só do Mestre ficam ocultos." : activeHint}</p>
-      <div className={styles.stage}>
+      <p className={styles.hint}>{previewPlayers ? "Prévia do que os jogadores veem: pins e sombras só do Mestre ficam ocultos, e a névoa e a linha de visão valem para o jogador escolhido." : activeHint}</p>
+      <div className={styles.stage} ref={stageRef}>
         <MapCanvas document={shown} kit={kit} portraitUrls={portraitUrls} portraitPaths={portraitPaths} mode={previewPlayers ? "player" : "editor"}
           selectedId={previewPlayers ? null : selectedId} draft={draft} layers={layers} label={`Mapa ${name}, visto de cima`}
-          onPointer={onPointer} panMode={tool === "pan"} />
+          onPointer={onPointer} panMode={tool === "pan"} vision={preview?.vision ?? null}
+          fogOutlines={!previewPlayers && (tool === "fog" || fog.enabled) ? fog.regions : null} />
       </div>
       <p className={styles.status} role="status" aria-live="polite">{message || (dirty ? "Alterações ainda não salvas." : "")}</p>
     </div>
@@ -456,11 +556,43 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
         <label className={styles.check}><input type="checkbox" checked={snapGrid} onChange={(event) => setSnapGrid(event.target.checked)} />Ímã na grade</label>
         <label className={styles.check}><input type="checkbox" checked={shared} onChange={(event) => { setShared(event.target.checked); setDirty(true); }} />Compartilhar com os jogadores</label>
         <label className={styles.check}><input type="checkbox" checked={previewPlayers} onChange={(event) => { setPreviewPlayers(event.target.checked); setSelectedId(null); }} />Ver como jogador</label>
+        {previewPlayers && <label>Prévia de
+          <select value={previewViewer} onChange={(event) => setPreviewViewer(event.target.value)}>
+            <option value="all">Jogador sem regiões próprias</option>
+            {players.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>}
         <div className={styles.row}>
           <button type="button" className={`${styles.tool} ${styles.primary}`} disabled={saving} onClick={() => void save()}>{saving ? "Salvando…" : "Salvar mapa"}</button>
           <button type="button" className={`${styles.tool} ${styles.danger}`} disabled={saving} onClick={onDelete}>Excluir</button>
         </div>
+        <div className={styles.row}>
+          <button type="button" className={styles.tool} disabled={exporting} onClick={() => void exportPng()} title="Imagem do mapa como está desenhado agora (com a prévia de jogador, se ativa)">Exportar PNG</button>
+          <button type="button" className={styles.tool} disabled={exporting} onClick={() => void exportVtt()} title="Arquivo .dd2vtt com imagem, muros (linha de visão) e portas">Exportar Universal VTT</button>
+        </div>
       </section>
+
+      {!pinDraft && tool === "fog" && <section className={styles.card} aria-label="Névoa">
+        <h4>Névoa e visão</h4>
+        <label className={styles.check}><input type="checkbox" checked={fog.enabled} onChange={(event) => updateFog({ enabled: event.target.checked })} />Névoa ativa (o que não foi revelado some para o jogador)</label>
+        <label className={styles.check}><input type="checkbox" checked={fog.line_of_sight} onChange={(event) => updateFog({ line_of_sight: event.target.checked })} />Linha de visão a partir do pin do personagem</label>
+        <div className={styles.row}>
+          <button type="button" className={styles.tool} aria-pressed={fogMode === "reveal"} onClick={() => setFogMode("reveal")}>Revelar</button>
+          <button type="button" className={styles.tool} aria-pressed={fogMode === "hide"} onClick={() => setFogMode("hide")}>Ocultar</button>
+        </div>
+        <label>Para quem
+          <select value={fogTarget} onChange={(event) => setFogTarget(event.target.value)}>
+            <option value="all">Todos os jogadores</option>
+            {players.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+          </select>
+        </label>
+        <div className={styles.row}>
+          <button type="button" className={styles.tool} onClick={() => fillTarget("reveal")}>Revelar tudo</button>
+          <button type="button" className={styles.tool} onClick={() => fillTarget("hide")}>Cobrir tudo</button>
+          <button type="button" className={`${styles.tool} ${styles.danger}`} disabled={targetRegions === 0} onClick={clearTargetRegions}>Limpar ({targetRegions})</button>
+        </div>
+        <p className={styles.hint}>A região mais recente vence. Muros e portas fechadas bloqueiam a visão; portas abertas deixam ver. {fog.regions.length}/{MAX_FOG_REGIONS} regiões.</p>
+      </section>}
 
       {pinDraft && <PinCreator key={pinDraft.pin.id} kit={kit} pin={pinDraft.pin} isNew={pinDraft.isNew} sheets={sheets} entities={entities}
         portraitUrls={portraitUrls} placedSheetIds={placedSheetIds} onSubmit={submitPin} onCancel={() => setPinDraft(null)} onCreateEntity={createEntity} />}
@@ -530,7 +662,7 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
 
       <section className={styles.card} aria-label="Camadas">
         <h4>Camadas</h4>
-        {([["areas", "Pisos e casas"], ["shadows", "Sombras"], ["walls", "Muros e portas"], ["props", "Objetos"], ["pins", "Pins"], ["grid", "Grade"]] as const).map(([key, label]) =>
+        {([["areas", "Pisos e casas"], ["shadows", "Sombras"], ["walls", "Muros e portas"], ["props", "Objetos"], ["pins", "Pins"], ["grid", "Grade"], ["fog", "Regiões de névoa"]] as const).map(([key, label]) =>
           <label key={key} className={styles.check}><input type="checkbox" checked={layers[key]} onChange={(event) => setLayers({ ...layers, [key]: event.target.checked })} />{label}</label>)}
         <p className={styles.hint}>{document.structures.length} estruturas · {document.pins.length} pins</p>
       </section>

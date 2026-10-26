@@ -48,6 +48,16 @@
 .history strong { color: #8f4731; }
 .penalty { color: #a04730; font-weight: bold; }
 .message { padding: 9px 11px; border-left: 3px solid #a35134; background: #f8eee8; color: #743d2c; font: 12px/1.45 Arial, sans-serif; }
+.dice { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.card .die { width: 32px; min-height: 32px; padding: 0; border: 2px solid #3a4840; background: #fffef9; color: #26332d; font: bold 14px Georgia, serif; }
+.card .die[aria-pressed="true"] { border-color: #b84a31; background: #f3d9cf; }
+.card .hungerDie { border-color: #8e3c37; background: #8e3c37; color: #fff; }
+.card .die:disabled { cursor: default; opacity: 1; }
+.rerollRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.chronicle { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid #b7c3b5; color: #4b6152; font-size: 10px; letter-spacing: .04em; }
+.targetForm { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: end; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #d7cfbb; }
+.targetForm .inlineLabel { grid-column: 1 / -1; max-width: none; display: flex; align-items: center; gap: 6px; }
+.targetForm .inlineLabel input { min-height: 0; }
 @keyframes arrive { from { opacity: .5; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 850px) { .layout { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .header { align-items: start; flex-direction: column; padding: 16px; } .card { padding: 15px; } .selectGrid { grid-template-columns: 1fr; } .manualForm { align-items: stretch; flex-direction: column; } .manualForm label { width: 100%; } .trackHeading { align-items: start; flex-direction: column; } }

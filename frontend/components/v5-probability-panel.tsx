@@ -5,6 +5,8 @@ import { createClient } from "../lib/supabase/client";
 import { useCharacterSession } from "../lib/character-session";
 import { ModifierExplanation, type ModifierPreview } from "./character-effects-panel";
 import { deriveDamageState } from "./v5-action-panel";
+import { V5ProbabilityCurve } from "./v5-probability-curve";
+import { V5WillpowerReroll } from "./v5-willpower-reroll";
 
 type Roll = { success: number; messy_critical: number; bestial_failure: number };
 type Comparison = { without_reroll: Roll; with_reroll: Roll; reroll_limit: number; modifier_preview: ModifierPreview; hunger_dice: number };
@@ -93,10 +95,12 @@ export function V5ProbabilityPanel() {
       <label>Dados comuns para Vontade<input type="number" min={0} max={3} value={rerolls} onChange={(event) => setRerolls(Number(event.target.value))} /></label>
       <p className="probability-note" role="status">{loading ? "Atualizando probabilidades…" : "As probabilidades são atualizadas ao mudar os valores."}</p>
       {message && <p className="auth-message" role="status">{message}</p>}
-      <p className="probability-note">A comparação presume que Vontade rerrola até {rerolls} dados comuns que falharam. Dados de Fome ficam fora da rerrolagem.</p>
+      <p className="probability-note">Com Vontade, o cálculo testa todas as escolhas de até {rerolls} dados comuns (falhas, 6-9 e 10) e usa a melhor: maior chance de atingir a dificuldade; no empate, menor risco de crítico sujo e menos dados. Dados de Fome ficam fora da rerrolagem.</p>
     </article>
     <div className="probability-results">
       {result ? <><Outcome title="Sem rerrolagem" roll={result.without_reroll} /><Outcome title={`Com Vontade · até ${result.reroll_limit} dados`} roll={result.with_reroll} /><p className="probability-note">Crítico sujo e sucesso são eventos simultâneos. As probabilidades das linhas não devem ser somadas.</p></> : <article className="generation-card generator-empty">Defina a parada da cena e calcule a curva para comparar os riscos.</article>}
+      <V5ProbabilityCurve hunger={hunger} rerolls={rerolls} />
+      {character && <V5WillpowerReroll sheetId={character.id} pool={pool} difficulty={difficulty} contextTags={contextTags} />}
     </div>
   </section>;
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { CampaignInvitesInbox, type PendingInvite } from "../../components/campaign-invites-inbox";
 import { CreateCampaignForm } from "../../components/create-campaign-form";
 import { createClient, isSupabaseConfigured } from "../../lib/supabase/server";
 
@@ -32,12 +33,16 @@ export default async function CampaignPage() {
     .from("campaigns")
     .select("id, name, description, owner_id, updated_at")
     .order("updated_at", { ascending: false });
+  const { data: pendingInvites } = await supabase.rpc("list_my_campaign_invites");
 
   return (
     <main className="campaign-hub">
       <header className="hub-header">
         <Link className="brand hub-brand" href="/"><span>R</span><strong>RPG<br />ATLAS</strong></Link>
-        <form action="/auth/signout" method="post"><button className="quiet" type="submit">Sair</button></form>
+        <div className="actions" style={{ margin: 0 }}>
+          <Link className="quiet" href="/app/perfil">Perfil</Link>
+          <form action="/auth/signout" method="post"><button className="quiet" type="submit">Sair</button></form>
+        </div>
       </header>
       <div className="hub-intro">
         <p className="eyebrow">ÁREA PRIVADA / CAMPANHAS</p>
@@ -60,7 +65,10 @@ export default async function CampaignPage() {
             ))}
           </div>
         </section>
-        <CreateCampaignForm />
+        <div>
+          <CreateCampaignForm />
+          <CampaignInvitesInbox invites={(pendingInvites ?? []) as PendingInvite[]} />
+        </div>
       </div>
     </main>
   );

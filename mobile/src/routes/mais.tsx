@@ -68,7 +68,7 @@ function MaisHome() {
           <Btn
             key={id}
             variant={section === id ? "ink" : "outline"}
-            className={section === id ? undefined : "parchment text-ink"}
+            className={section === id ? undefined : "bg-card text-card-foreground"}
             onClick={() => setSection(id)}
           >
             <Icon className="size-4" aria-hidden />
@@ -407,7 +407,7 @@ export function SettingsPanel() {
         <ConnectionPanel />
         <Panel title="Aparência">
           <p className="mb-3 text-sm text-ink-muted">
-            Escolha a iluminação das fichas neste aparelho.
+            Escolha as cores do aplicativo neste aparelho.
           </p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Tema do aplicativo">
             <Btn
@@ -423,6 +423,20 @@ export function SettingsPanel() {
               onClick={() => changeTheme("dark")}
             >
               Escuro
+            </Btn>
+            <Btn
+              variant={themeMode === "hunter" ? "forest" : "outline"}
+              aria-pressed={themeMode === "hunter"}
+              onClick={() => changeTheme("hunter")}
+            >
+              Caçador
+            </Btn>
+            <Btn
+              variant={themeMode === "demon-lord" ? "forest" : "outline"}
+              aria-pressed={themeMode === "demon-lord"}
+              onClick={() => changeTheme("demon-lord")}
+            >
+              Demon Lord
             </Btn>
           </div>
         </Panel>

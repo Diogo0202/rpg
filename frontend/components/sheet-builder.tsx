@@ -15,6 +15,8 @@ import { AiSheetRequest } from "./ai-assistance-panel";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { PortraitPicker } from "./portrait-picker";
 import { HomebrewClanEditor } from "./homebrew-clan-editor";
+import { SheetVersionHistory } from "./sheet-version-history";
+import { deleteCampaignSheet } from "../lib/sheet-history";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
 type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
 const SHEET_COLUMNS = "id, name, template_id, owner_id, values, version, effects, portrait_path";
@@ -62,6 +64,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   const [loadError, setLoadError] = useState("");
   const [calculationError, setCalculationError] = useState("");
   const [portraitPath, setPortraitPath] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -132,6 +135,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     setCalculated({});
     setRollResults({});
     setFeedback("");
+    setConfirmDelete(false);
     selectCharacter(stored);
     setMode("editor");
   }
@@ -238,6 +242,47 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     } catch (error) {
       if (isCurrent()) setFeedback(error instanceof Error ? error.message : "Não foi possível salvar a ficha.");
     } finally { setBusy(false); }
+  }
+
+  // FIC-11: only campaign managers may delete (RLS); the API checks the version.
+  async function deleteSheet() {
+    if (busy || !sheetId || !canManageTemplates) return;
+    const api = process.env.NEXT_PUBLIC_API_URL;
+    if (!api) { setFeedback("A API de fichas não está configurada."); return; }
+    setBusy(true);
+    const removedId = sheetId;
+    const removedName = sheetName;
+    try {
+      const { data, error } = await createClient().auth.getSession();
+      if (error || !data.session) throw new Error("Entre na campanha para excluir a ficha.");
+      await deleteCampaignSheet(api, data.session.access_token, removedId, sheetVersion);
+      editorRevision.current += 1;
+      setSheets((current) => current.filter((item) => item.id !== removedId));
+      selectCharacter(null);
+      setSheetId(""); setSheetName(""); setSheetVersion(0); setPortraitPath(null);
+      setValues({}); setCalculated({}); setRollResults({});
+      setFeedback(`Ficha ${removedName || "selecionada"} excluída.`);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "Não foi possível excluir a ficha.");
+    } finally {
+      setConfirmDelete(false);
+      setBusy(false);
+    }
+  }
+
+  function applyRestoredSheet(restored: Record<string, unknown>) {
+    const stored = { effects: [], ...restored } as unknown as StoredSheet;
+    setSheets((current) => current.map((item) => item.id === stored.id ? { ...item, ...stored } : item));
+    if (stored.id !== sheetId) return;
+    editorRevision.current += 1;
+    setSheetVersion(stored.version);
+    setSheetName(stored.name);
+    const nameField = characterNameField(template);
+    setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
+    setCalculated({});
+    setRollResults({});
+    selectCharacter(stored);
+    setFeedback(`Ficha restaurada. Versão atual: ${stored.version}.`);
   }
 
   function updateField(fieldId: string, update: Partial<SheetField>) {
@@ -465,7 +510,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const result = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }, controller.signal);
+        const result = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }, controller.signal) as { values: Record<string, unknown> };
         if (!controller.signal.aborted) {
           setCalculated(result.values as Record<string, unknown>);
           setCalculationError("");
@@ -498,7 +543,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       await authenticatedPost("/api/v1/templates/validate", template);
       if (!isCurrent()) return;
 
-      const calculationPayload = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues });
+      const calculationPayload = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }) as { values: Record<string, unknown> };
       if (!isCurrent()) return;
       const nextValues = calculationPayload.values as Record<string, unknown>;
       setCalculated(nextValues);
@@ -526,7 +571,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   return (
-    <section className="content">
+    <section className="content" data-system-theme={template.system_key === "demon-the-fallen" ? "demon-the-fallen" : undefined}>
       <nav className="actions" aria-label="Modo das fichas">
         <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={startCreation}>Criar personagem</button>
         <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => setMode("editor")}>Fichas e modelos</button>
@@ -568,8 +613,18 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           <div className="actions">
             <button className="primary" type="button" onClick={saveSheet} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
             <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>
+            {sheetId && canManageTemplates && !confirmDelete ? <button className="quiet" type="button" onClick={() => setConfirmDelete(true)}>Excluir ficha</button> : null}
           </div>
+          {sheetId && canManageTemplates && confirmDelete ? <div className="sheet-feedback" role="alertdialog" aria-label="Confirmar exclusão da ficha">
+            <p>Excluir “{sheetName || "esta ficha"}” apaga a ficha e todo o histórico de versões. Não é possível desfazer.</p>
+            <div className="actions">
+              <button className="primary" type="button" onClick={deleteSheet} disabled={busy}>Confirmar exclusão</button>
+              <button className="quiet" type="button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+            </div>
+          </div> : null}
         </article>
+        {sheetId ? <SheetVersionHistory key={sheetId} sheetId={sheetId} sheetVersion={sheetVersion} template={template} viewerId={viewerId}
+          canRestore={canEditSheets} busy={busy} onRestored={applyRestoredSheet} /> : null}
         <article className="sheet-intro">
           <div>
             <p className="eyebrow">OFICINA DE FICHAS / {templateId ? "MODELO SALVO" : "RASCUNHO"}</p>
@@ -719,7 +774,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           })}
         </div>
 
-        {template.fields.some((field) => field.kind === "collection" && ["disciplinas", "vantagens"].includes(field.id)) && <details><summary>Adicionar do compêndio</summary><CompendiumPanel selectedNames={[...(Array.isArray(values.disciplinas) ? values.disciplinas as string[] : []), ...(Array.isArray(values.vantagens) ? values.vantagens as string[] : [])].filter((name) => typeof name === "string")} onSelect={(name) => {
+        {template.fields.some((field) => field.kind === "collection" && ["disciplinas", "vantagens"].includes(field.id)) && <details><summary>Adicionar do compêndio</summary><CompendiumPanel campaignId={campaignId} viewerId={viewerId} selectedNames={[...(Array.isArray(values.disciplinas) ? values.disciplinas as string[] : []), ...(Array.isArray(values.vantagens) ? values.vantagens as string[] : [])].filter((name) => typeof name === "string")} onSelect={(name) => {
           const entry = findCompendiumEntry(name);
           const fieldId = entry?.type === "discipline" ? "disciplinas" : "vantagens";
           if (!template.fields.some((field) => field.id === fieldId && field.kind === "collection")) { setFeedback("O modelo não possui a coleção correspondente ao verbete."); return; }

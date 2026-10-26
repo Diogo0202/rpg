@@ -23,7 +23,7 @@ function List() {
   const { ficha } = Route.useSearch();
   const sheets = list<SheetData>("character_sheets");
   const selected = sheets.find((s) => s.id === ficha);
-  if (selected) return <><PageHeader title={selected.data.name} actions={<Link to="/fichas" search={{}} className={btn({variant: "outline"})}>Todas as fichas</Link>} /><SheetEditor key={selected.id} sheet={selected} /></>;
+  if (selected) return <div className="sheet-system-theme space-y-4" data-system-theme={selected.data.system_key === "demon-the-fallen" ? "demon-the-fallen" : undefined}><PageHeader title={selected.data.name} actions={<Link to="/fichas" search={{}} className={btn({variant: "outline"})}>Todas as fichas</Link>} /><SheetEditor key={selected.id} sheet={selected} /></div>;
   return (
     <><PageHeader title="Fichas" actions={<><SheetImport onImported={(id) => { void navigate({to: "/fichas", search: {ficha: id}}); }} /><Link to="/fichas/nova" className={btn()}>Nova ficha</Link></>} />
     {!sheets.length && <Empty>Nenhuma ficha ainda.</Empty>}

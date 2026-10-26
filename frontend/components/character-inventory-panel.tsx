@@ -4,13 +4,16 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession } from "../lib/character-session";
 import { createClient } from "../lib/supabase/client";
 import type { SheetField, FieldValue } from "../lib/sheet-template";
+import { CharacterShoppingLists } from "./character-shopping-lists";
 import { ATLAS_EQUIPMENT,filterAtlasEquipment,type AtlasEquipmentCategory,type AtlasEra,type AtlasDamageKind } from "../lib/atlas-equipment";
 
 const categories = { weapon: "Arma", armor: "Armadura", equipment: "Equipamento", clothing: "Roupa", dwelling: "Moradia", vehicle: "Veículo", mount: "Montaria", animal: "Animal" };
 type Category = keyof typeof categories;
-type Item = { custom_values?:Record<string,FieldValue>;id:string;name:string;category:Category;quantity:number;resource_cost:number;damage_bonus:number;protection:number;notes:string;acquired:boolean;equipped:boolean;sort_order:number;version:number };
+type Item = { custom_values?:Record<string,FieldValue>;id:string;name:string;category:Category;quantity:number;resource_cost:number;damage_bonus:number;damage_type?:DamageType;protection:number;notes:string;acquired:boolean;equipped:boolean;sort_order:number;version:number };
+type DamageType = "superficial"|"aggravated";
+const damageTypes: Record<DamageType,string> = { superficial:"Superficial", aggravated:"Agravado" };
 type Draft = Omit<Item,"id"|"equipped"|"version">;
-const empty: Draft = { name:"",category:"equipment",quantity:1,resource_cost:0,damage_bonus:0,protection:0,notes:"",acquired:false,sort_order:0 };
+const empty: Draft = { name:"",category:"equipment",quantity:1,resource_cost:0,damage_bonus:0,damage_type:"superficial",protection:0,notes:"",acquired:false,sort_order:0 };
 
 export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:string;canEdit:boolean }) {
   const { character } = useCharacterSession();
@@ -32,6 +35,33 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
   const [catalogDamage,setCatalogDamage]=useState<AtlasDamageKind>("all");
   const [catalogMax,setCatalogMax]=useState(10);
   const [catalogComparison,setCatalogComparison]=useState<string[]>([]);
+  const [favorites,setFavorites]=useState<string[]>([]);
+  const [onlyFavorites,setOnlyFavorites]=useState(false);
+
+  useEffect(()=>{
+    let active=true;setFavorites([]);
+    if(!character)return;
+    const id=character.id;
+    void (async()=>{
+      const {data,error}=await createClient().from("character_catalog_favorites").select("catalog_item_id").eq("sheet_id",id).eq("campaign_id",campaignId);
+      if(active&&!error&&selected.current===id)setFavorites((data??[]).map(row=>String(row.catalog_item_id)));
+    })();
+    return()=>{active=false;};
+  },[campaignId,character?.id]);
+
+  async function toggleFavorite(itemId:string){
+    if(!character)return;
+    const id=character.id;const isFavorite=favorites.includes(itemId);
+    const client=createClient();
+    const {data:auth}=await client.auth.getUser();
+    if(!auth.user){setMessage("Entre na campanha para salvar favoritos.");return;}
+    const {error}=isFavorite
+      ?await client.from("character_catalog_favorites").delete().eq("user_id",auth.user.id).eq("sheet_id",id).eq("catalog_item_id",itemId)
+      :await client.from("character_catalog_favorites").insert({user_id:auth.user.id,sheet_id:id,campaign_id:campaignId,catalog_item_id:itemId});
+    if(selected.current!==id)return;
+    if(error){setMessage("Não foi possível atualizar o favorito.");return;}
+    setFavorites(current=>isFavorite?current.filter(value=>value!==itemId):[...current,itemId]);
+  }
 
   useEffect(()=>{
     setItems([]);setCustomFields([]);setEditing(null);setDraft(empty);setComparison([]);setMessage("");
@@ -82,7 +112,7 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
   if(!character)return <section className="content generation-card"><h2>Inventário e lista de compras</h2><p>Selecione uma ficha salva na barra da sessão.</p></section>;
   const filtered=items.filter(item=>(category==="all"||item.category===category)&&(!onlyPending||!item.acquired)&&`${item.name} ${item.notes}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")));
   const resources=typeof character.values.recursos==="number"?character.values.recursos:null;
-  const catalog=filterAtlasEquipment(ATLAS_EQUIPMENT,{query:catalogQuery,category:catalogCategory,era:catalogEra,maxResources:catalogMax,damageKind:catalogDamage});
+  const catalog=filterAtlasEquipment(ATLAS_EQUIPMENT,{query:catalogQuery,category:catalogCategory,era:catalogEra,maxResources:catalogMax,damageKind:catalogDamage}).filter(item=>!onlyFavorites||favorites.includes(item.id));
 
   return <section className="content inventory-layout" aria-busy={busy}>
     <article className="generation-card">
@@ -99,12 +129,12 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         <h3>{item.name} {item.equipped&&<small>Equipado</small>}</h3>
         <p>{categories[item.category]} · Quantidade {item.quantity} · Recursos {item.resource_cost} · {item.acquired?"Adquirido":"Pendente"}</p>
         {resources!==null&&item.resource_cost>resources&&<p className="notice">Custo acima de Recursos {resources} da ficha.</p>}
-        {item.category==="weapon"&&<p>Bônus de dano: +{item.damage_bonus}.</p>}
-        {item.category==="armor"&&<p>Proteção: {item.protection}.</p>}
+        {item.category==="weapon"&&<p>Bônus de dano: +{item.damage_bonus} · {damageTypes[item.damage_type??"superficial"]}{item.equipped?" · entra no ataque V5":""}.</p>}
+        {item.category==="armor"&&<p>Proteção: {item.protection}{item.equipped?" · reduz dano superficial recebido":""}.</p>}
         <p className="inventory-notes">{item.notes}</p>
         {Object.entries(item.custom_values??{}).map(([key,value])=><p key={key}>{customFields.find(field=>field.id===key)?.label??key}: {Array.isArray(value)?value.join(", "):typeof value==="boolean"?(value?"Sim":"Não"):String(value)}</p>)}
         <div className="actions">
-          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>{setEditing(item);setDraft({name:item.name,category:item.category,quantity:item.quantity,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus,protection:item.protection,notes:item.notes,acquired:item.acquired,sort_order:item.sort_order,custom_values:item.custom_values??{}});}}>Editar {item.name}</button>
+          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>{setEditing(item);setDraft({name:item.name,category:item.category,quantity:item.quantity,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus,damage_type:item.damage_type??"superficial",protection:item.protection,notes:item.notes,acquired:item.acquired,sort_order:item.sort_order,custom_values:item.custom_values??{}});}}>Editar {item.name}</button>
           <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>createClient().from("character_inventory").delete().eq("id",item.id).eq("sheet_id",character.id).eq("version",item.version).select("id"),"Item removido.")}>Excluir {item.name}</button>
           {item.acquired&&["weapon","armor"].includes(item.category)&&<button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>item.equipped
             ?createClient().from("character_inventory").update({equipped:false}).eq("id",item.id).eq("version",item.version).select("id")
@@ -124,9 +154,11 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         <label>Era<select value={catalogEra} onChange={event=>setCatalogEra(event.target.value as AtlasEra|"all")}>{Object.entries({all:"Todas",antiga:"Antiga",medieval:"Medieval","revolucao-industrial":"Revolução Industrial",moderna:"Moderna"}).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         <label>Tipo de dano<select value={catalogDamage} onChange={event=>setCatalogDamage(event.target.value as AtlasDamageKind)}>{Object.entries({all:"Todos",ballistic:"Balístico",cutting:"Cortante",blunt:"Contundente",incapacitating:"Incapacitante",narrative:"Narrativo"}).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         <label>Custo máximo em Recursos<input type="number" min={0} max={10} value={catalogMax} onChange={event=>setCatalogMax(Number(event.target.value))}/></label>
+        <label className="inline-check"><input type="checkbox" checked={onlyFavorites} onChange={event=>setOnlyFavorites(event.target.checked)}/>Somente favoritos ({favorites.length})</label>
       </div>
       {catalog.map(item=><article className="inventory-item" key={item.id}><h3>{item.name}</h3><p>{categories[item.category]} · Recursos {item.resource_cost} · Dano {item.damage_bonus??"sem valor"} · Proteção {item.protection}</p><p>{item.notes}</p>
         {item.animal_profile&&<details><summary>Perfil do animal</summary><p>{item.animal_profile.species} · Força {item.animal_profile.strength} · Destreza {item.animal_profile.dexterity} · Vigor {item.animal_profile.stamina} · Vitalidade {item.animal_profile.health}</p><p>{item.animal_profile.speed} · {item.animal_profile.attack}</p><p>{item.animal_profile.traits.join(", ")}</p></details>}
+        <button className="quiet" type="button" aria-pressed={favorites.includes(item.id)} onClick={()=>void toggleFavorite(item.id)}>{favorites.includes(item.id)?`★ Remover ${item.name} dos favoritos`:`☆ Favoritar ${item.name}`}</button>
         <label className="inline-check"><input type="checkbox" checked={catalogComparison.includes(item.id)} disabled={!catalogComparison.includes(item.id)&&catalogComparison.length>=2} onChange={event=>setCatalogComparison(current=>event.target.checked?[...current,item.id]:current.filter(id=>id!==item.id))}/>Comparar item de referência</label>
         <button className="quiet" type="button" disabled={!canEdit||busy} onClick={()=>{setEditing(null);setDraft({...empty,name:item.name,category:item.category,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus??0,protection:item.protection,notes:[item.notes,item.animal_profile?JSON.stringify(item.animal_profile,null,2):"",`Fonte: ${item.source}`].filter(Boolean).join("\n")});setMessage("Aquisição preparada. Revise o formulário e salve para incluir na lista.");}}>Preparar aquisição</button>
       </article>)}
@@ -137,6 +169,7 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         <label>Nome<input required maxLength={160} value={draft.name} onChange={event=>setDraft({...draft,name:event.target.value})}/></label>
         <label>Categoria<select value={draft.category} onChange={event=>setDraft({...draft,category:event.target.value as Category})}>{Object.entries(categories).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>
         {([ ["quantity","Quantidade",1,999],["resource_cost","Custo em Recursos",0,10],["damage_bonus","Bônus de dano",0,10],["protection","Proteção",0,10],["sort_order","Ordem na lista",0,9999] ] as const).map(([key,label,min,max])=><label key={key}>{label}<input type="number" required min={min} max={max} value={draft[key]} onChange={event=>setDraft({...draft,[key]:Number(event.target.value)})}/></label>)}
+        {draft.category==="weapon"&&<label>Tipo de dano<select value={draft.damage_type??"superficial"} onChange={event=>setDraft({...draft,damage_type:event.target.value as DamageType})}>{Object.entries(damageTypes).map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label>}
         {customFields.map(field=><label key={field.id}>{field.label}{field.required?" (obrigatório)":""}
           {field.kind==="select"?<select required={field.required} value={String(draft.custom_values?.[field.id]??"")} onChange={event=>setDraft({...draft,custom_values:{...draft.custom_values,[field.id]:event.target.value}})}><option value="">Escolha</option>{field.options.map(option=><option key={option}>{option}</option>)}</select>
             :field.kind==="checkbox"?<input type="checkbox" required={field.required} checked={draft.custom_values?.[field.id]===true} onChange={event=>setDraft({...draft,custom_values:{...draft.custom_values,[field.id]:event.target.checked}})}/>
@@ -151,5 +184,6 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         {editing?.equipped&&<p className="notice">Desequipe o item antes de alterar sua categoria ou marcá-lo como pendente.</p>}
       </form>
     </article>
+    <CharacterShoppingLists campaignId={campaignId} sheetId={character.id} canEdit={canEdit} resources={resources} favorites={favorites}/>
   </section>;
 }

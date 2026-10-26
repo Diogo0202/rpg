@@ -53,6 +53,37 @@ def _active_options(
     return False, []
 
 
+def _filled(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _check_text_constraints(field_id: str, field: dict[str, Any], value: Any, values: dict[str, Any]) -> None:
+    """Structured text limits declared by the template (see TemplateField and the 20261026190000 trigger)."""
+    label = field.get("label") or field_id
+    max_length = field.get("max_length")
+    if isinstance(value, str):
+        if isinstance(max_length, int) and len(value) > max_length:
+            raise ValueError(f"{label} aceita até {max_length} caracteres")
+        partner = field.get("paired_with")
+        if isinstance(partner, str) and _filled(value) and not _filled(values.get(partner)):
+            raise ValueError(f"{label} precisa ser preenchido junto com {partner}")
+    elif isinstance(value, list):
+        if isinstance(max_length, int) and any(len(item) > max_length for item in value):
+            raise ValueError(f"cada item de {label} aceita até {max_length} caracteres")
+        minimum, maximum = field.get("min_items"), field.get("max_items")
+        # An empty list means "not filled"; `required` is what forces at least one item.
+        if value and isinstance(minimum, int) and len(value) < minimum:
+            raise ValueError(f"{label} pede ao menos {minimum} itens")
+        if isinstance(maximum, int) and len(value) > maximum:
+            raise ValueError(f"{label} aceita até {maximum} itens")
+        options = field.get("item_options")
+        if isinstance(options, list):
+            if any(item not in options for item in value):
+                raise ValueError(f"{label} só aceita itens da lista do modelo")
+            if len(value) != len(set(value)):
+                raise ValueError(f"{label} tem itens repetidos")
+
+
 def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, Any]]) -> None:
     """Check persisted sheet inputs against the approved template and storage limits."""
     if type(values) is not dict:
@@ -116,6 +147,7 @@ def validate_sheet_values(values: dict[str, Any], fields: dict[str, dict[str, An
             valid = value is None
         if not valid:
             raise ValueError(f"valor incompatível com o campo {field_id}")
+        _check_text_constraints(field_id, field, value, values)
         if kind == "number":
             minimum, maximum = field.get("min"), field.get("max")
             if (isinstance(minimum, int) and value < minimum) or (isinstance(maximum, int) and value > maximum):

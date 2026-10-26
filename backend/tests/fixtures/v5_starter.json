@@ -1636,6 +1636,7 @@
     "field": "predador",
     "fields": [
      "humanidade",
+     "potencia_sangue",
      "disc_animalismo",
      "disc_auspicios",
      "disc_dominacao",
@@ -1651,6 +1652,32 @@
     ],
     "base": {
      "humanidade": 7
+    },
+    "base_by": {
+     "field": "geracao",
+     "bands": [
+      {
+       "min": 14,
+       "max": 16,
+       "add": {
+        "potencia_sangue": 0
+       }
+      },
+      {
+       "min": 12,
+       "max": 13,
+       "add": {
+        "potencia_sangue": 1
+       }
+      },
+      {
+       "min": 10,
+       "max": 11,
+       "add": {
+        "potencia_sangue": 2
+       }
+      }
+     ]
     },
     "cases": [
      {
@@ -3085,6 +3112,636 @@
       ]
      }
     ]
+   },
+   {
+    "type": "collection_points",
+    "id": "vantagens_pontos",
+    "label": "Vantagens",
+    "collection": "vantagens",
+    "fields": [
+     "recursos"
+    ],
+    "points": 7,
+    "catalog": [
+     {
+      "name": "Aliados",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Contatos",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Fama",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Influência",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Refúgio",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Máscara",
+      "costs": [
+       1,
+       2
+      ]
+     },
+     {
+      "name": "Mawla",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Rebanho",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Lacaios",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Status",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Linguística",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Bela",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Deslumbrante",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Farejador de Sangue",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Estômago de Ferro",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Comer Comida",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Camaradas Anarquistas",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Contato na Camarilla",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Sangue Encadeador",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Bebedor Diurno",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Afinidade de Disciplina",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Semblante Vivo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Alquimista Sangue-Ralo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Resiliência Vampírica",
+      "costs": [
+       1
+      ]
+     }
+    ],
+    "allow_homebrew": false
+   },
+   {
+    "type": "collection_points",
+    "id": "defeitos_pontos",
+    "label": "Defeitos",
+    "collection": "defeitos",
+    "fields": [],
+    "points": 2,
+    "catalog": [
+     {
+      "name": "Inimigo",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Infame",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Sem Refúgio",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Refúgio Comprometido",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Refúgio Sinistro",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Refúgio Assombrado",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Antipatizado",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Desprezado",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Cadáver Conhecido",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Identidade Conhecida",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Dívidas de Prestação",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Destituído",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Perseguidores",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Suspeito",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Rejeitado",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Segredo Sombrio",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Analfabeto",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Feio",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Repulsivo",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Exclusão de Presa",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Sede de Matusalém",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Organóvoro",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Vegano",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Predador Óbvio",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Isca de Estaca",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Perdição Folclórica",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Bloqueio Folclórico",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Estigmas",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Vício",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Vício Irremediável",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Arcaico",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Vivendo no Passado",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Escravo do Vínculo",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Viciado em Vínculo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Vínculo Duradouro",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Dentes de Leite",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Temperamento Bestial",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Marcado pela Camarilla",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Maldição de Clã",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Carne Morta",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Fragilidade Mortal",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Rejeitado pelos Anarquistas",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Dependência de Vitae",
+      "costs": [
+       1
+      ]
+     }
+    ],
+    "allow_homebrew": false
+   },
+   {
+    "type": "select_ranges",
+    "id": "cla_geracao",
+    "label": "Clã e geração",
+    "field": "cla",
+    "fields": [],
+    "cases": [
+     {
+      "equals": [
+       "Sangue-Ralo"
+      ],
+      "ranges": {
+       "geracao": {
+        "min": 14,
+        "max": 16
+       }
+      },
+      "exclude": {
+       "predador": [
+        "Sanguessuga"
+       ]
+      }
+     }
+    ],
+    "default": {
+     "ranges": {
+      "geracao": {
+       "min": 10,
+       "max": 13
+      }
+     }
+    }
+   },
+   {
+    "type": "specialty_picks",
+    "id": "especializacoes",
+    "label": "Especializações",
+    "collection": "especialidades",
+    "skills": [
+     {
+      "field": "atletismo",
+      "label": "Atletismo"
+     },
+     {
+      "field": "briga",
+      "label": "Briga"
+     },
+     {
+      "field": "conducao",
+      "label": "Condução"
+     },
+     {
+      "field": "furtividade",
+      "label": "Furtividade"
+     },
+     {
+      "field": "ladroagem",
+      "label": "Ladroagem"
+     },
+     {
+      "field": "oficios",
+      "label": "Ofícios"
+     },
+     {
+      "field": "sobrevivencia",
+      "label": "Sobrevivência"
+     },
+     {
+      "field": "armas_brancas",
+      "label": "Armas Brancas"
+     },
+     {
+      "field": "armas_de_fogo",
+      "label": "Armas de Fogo"
+     },
+     {
+      "field": "etiqueta",
+      "label": "Etiqueta"
+     },
+     {
+      "field": "empatia",
+      "label": "Empatia"
+     },
+     {
+      "field": "intimidacao",
+      "label": "Intimidação"
+     },
+     {
+      "field": "lideranca",
+      "label": "Liderança"
+     },
+     {
+      "field": "manha",
+      "label": "Manha"
+     },
+     {
+      "field": "performance",
+      "label": "Performance"
+     },
+     {
+      "field": "persuasao",
+      "label": "Persuasão"
+     },
+     {
+      "field": "subterfugio",
+      "label": "Subterfúgio"
+     },
+     {
+      "field": "trato_com_animais",
+      "label": "Trato com Animais"
+     },
+     {
+      "field": "academicos",
+      "label": "Acadêmicos"
+     },
+     {
+      "field": "ciencia",
+      "label": "Ciência"
+     },
+     {
+      "field": "consciencia",
+      "label": "Consciência"
+     },
+     {
+      "field": "financas",
+      "label": "Finanças"
+     },
+     {
+      "field": "investigacao",
+      "label": "Investigação"
+     },
+     {
+      "field": "medicina",
+      "label": "Medicina"
+     },
+     {
+      "field": "ocultismo",
+      "label": "Ocultismo"
+     },
+     {
+      "field": "percepcao",
+      "label": "Percepção"
+     },
+     {
+      "field": "tecnologia",
+      "label": "Tecnologia"
+     }
+    ],
+    "required": [
+     "academicos",
+     "oficios",
+     "performance",
+     "ciencia"
+    ],
+    "free": 1,
+    "fields": []
    }
   ],
   "system_key": "vampire-v5"
@@ -3149,7 +3806,7 @@
   "humanidade": 7,
   "manchas": 0,
   "geracao": 13,
-  "potencia_sangue": 0,
+  "potencia_sangue": 1,
   "recursos": 0,
   "saude_superficial": 0,
   "saude_agravada": 0,

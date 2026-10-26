@@ -56,6 +56,8 @@ test("modelos do Atlas exportam o contrato de backup v1 sem metadados de apresen
     for(const field of starter.template.fields)if(field.kind==="select"&&value.values[field.id]===""){
       if(field.required)value.values[field.id]=field.options[0];else delete value.values[field.id];
     }
+    // Required texts, such as the first Hunter Convicção/Pedra de Toque pair, need a value.
+    for(const field of starter.template.fields)if(field.kind==="text"&&field.required&&value.values[field.id]==="")value.values[field.id]="Exemplo";
     for(const field of starter.template.fields)if(field.kind==="number"&&field.required&&value.values[field.id]===undefined){
       value.values[field.id]=field.min??0;
     }

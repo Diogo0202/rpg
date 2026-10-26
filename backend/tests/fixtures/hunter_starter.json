@@ -1,6 +1,6 @@
 {
   "name": "Caçador modular",
-  "version": 2,
+  "version": 3,
   "fields": [
     {
       "id": "sistema",
@@ -79,6 +79,7 @@
       "options": [],
       "expression": null,
       "required": false,
+      "max_length": 120,
       "creation_step": "identity"
     },
     {
@@ -100,12 +101,69 @@
       "creation_step": "story"
     },
     {
-      "id": "pilares",
-      "label": "Pilares",
-      "kind": "collection",
+      "id": "conviccao_1",
+      "label": "Convicção 1",
+      "kind": "text",
+      "required": true,
       "options": [],
       "expression": null,
+      "max_length": 160,
+      "paired_with": "pedra_toque_1",
+      "creation_step": "story"
+    },
+    {
+      "id": "pedra_toque_1",
+      "label": "Pedra de Toque 1",
+      "kind": "text",
+      "required": true,
+      "options": [],
+      "expression": null,
+      "max_length": 120,
+      "paired_with": "conviccao_1",
+      "creation_step": "story"
+    },
+    {
+      "id": "conviccao_2",
+      "label": "Convicção 2",
+      "kind": "text",
       "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 160,
+      "paired_with": "pedra_toque_2",
+      "creation_step": "story"
+    },
+    {
+      "id": "pedra_toque_2",
+      "label": "Pedra de Toque 2",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 120,
+      "paired_with": "conviccao_2",
+      "creation_step": "story"
+    },
+    {
+      "id": "conviccao_3",
+      "label": "Convicção 3",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 160,
+      "paired_with": "pedra_toque_3",
+      "creation_step": "story"
+    },
+    {
+      "id": "pedra_toque_3",
+      "label": "Pedra de Toque 3",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 120,
+      "paired_with": "conviccao_3",
       "creation_step": "story"
     },
     {
@@ -115,7 +173,17 @@
       "options": [],
       "expression": null,
       "required": false,
+      "max_length": 240,
       "creation_step": "story"
+    },
+    {
+      "id": "em_desespero",
+      "label": "Em Desespero",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
     },
     {
       "id": "forca",
@@ -538,6 +606,8 @@
       "options": [],
       "expression": null,
       "required": false,
+      "min": 0,
+      "max": 5,
       "creation_step": "resources"
     },
     {

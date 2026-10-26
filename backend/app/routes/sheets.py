@@ -106,6 +106,8 @@ _RPC_ERRORS = {
     "23514": (422, "valor sairia do limite permitido"),
     "23505": (409, "ID da operação já foi usado para outro ajuste"),
     "22023": (422, "ajuste inválido para esta ficha"),
+    "40001": (409, "ficha alterada em outra sessão; recarregue antes de restaurar"),
+    "P0002": (404, "versão não encontrada no histórico da ficha"),
 }
 
 
@@ -485,6 +487,51 @@ async def list_sheet_events(
             "order": "id.desc",
             "limit": str(limit),
         },
+    )
+
+
+class SheetRestore(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(ge=1)
+
+
+@router.get("/sheets/{sheet_id}/versions")
+async def list_sheet_versions(
+    sheet_id: UUID,
+    limit: int = Query(default=50, ge=1, le=50),
+    authorization: str | None = Header(default=None),
+) -> list[dict[str, Any]]:
+    """Latest snapshots first; RLS shows them only to readers of the sheet."""
+    await _current_user_id(authorization)
+    return await _request(
+        "GET",
+        "character_sheet_versions",
+        authorization,
+        params={
+            "select": "id,version,name,values,author_id,author_name,restored_from,created_at",
+            "sheet_id": f"eq.{sheet_id}",
+            "order": "version.desc",
+            "limit": str(limit),
+        },
+    )
+
+
+@router.post("/sheets/{sheet_id}/versions/{version}/restore")
+async def restore_sheet_version(
+    sheet_id: UUID,
+    version: int,
+    payload: SheetRestore,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Writes an old snapshot as a new version; stale expected versions return 409."""
+    if version < 1:
+        raise HTTPException(status_code=422, detail="versão inválida")
+    await _current_user_id(authorization)
+    return await _rpc(
+        "restore_character_sheet_version",
+        authorization,
+        {"p_sheet_id": str(sheet_id), "p_version": version, "p_expected_version": payload.expected_version},
     )
 
 
