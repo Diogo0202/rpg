@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { MarketplacePanel } from "../../components/marketplace-panel";
 import { SupportLinks } from "../../components/support-links";
+import { InlineAd } from "../../components/ad-slot";
 import { getPublicMarketplaceItems } from "../../lib/marketplace-public";
 import { getSiteMetadataConfig } from "../../lib/site-metadata";
 import styles from "./marketplace.module.css";
@@ -22,6 +23,7 @@ export default async function MarketplacePage() {
       <a className={styles.homeLink} href="/login">Entrar na mesa</a>
     </header>
     <MarketplacePanel initialItems={initial.items} initialError={initial.error} />
+    <InlineAd />
     <SupportLinks />
   </main>;
 }

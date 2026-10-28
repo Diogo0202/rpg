@@ -19,13 +19,13 @@ Os arquivos de referência ficam fora do repositório. Não incluir páginas dig
 - Cálculo das duas maiores Virtudes como base da Vontade na API, nas duas interfaces e no banco.
 - Tormento inicial e Doutrinas permitidas por Casa conferidos nas pp. 99, 101, 103, 105, 107, 109 e 111. A escolha da Casa preenche o Tormento; a validação bloqueia Doutrinas fora das três da Casa e das duas comuns.
 - Migration e teste pgTAP para essa base derivada. Os testes do banco rodaram em PGlite local.
+- Escolha obrigatória de uma Doutrina principal da Casa, com pontuação pelo menos igual às demais. A API e o banco rejeitam escolhas indevidas.
+- Fé atual e Vontade atual começam iguais aos valores máximos. Web e mobile acompanham alterações desses máximos durante a criação.
 
 ## Próximas entregas obrigatórias
 
-1. Exigir a escolha de uma Doutrina fundamental entre as três da Casa e conferir que sua pontuação inicial não fique abaixo das outras. Até essa regra entrar na API e no banco, o modelo não deve ser tratado como criação completa.
-2. Definir e validar os recursos atuais iniciais, especialmente Fé e Vontade, tanto em novas fichas quanto em gravações diretas no banco.
-3. Catalogar cada evocação com página, nível, teste, custo, duração, alcance e efeitos comum e de alto Tormento. Criar testes por entrada do catálogo.
-4. Implementar ativação no servidor com rolagem, gasto atômico de Fé, versão da ficha, idempotência e registro de resultado. Efeitos que dependem do narrador devem pedir sua decisão.
-5. Cobrir formas apocalípticas, poderes inatos, rituais e pactos com o mesmo fluxo.
-6. Cadastrar antagonistas e Terrestres como NPCs privados do narrador, com os Antecedentes exclusivos sob condição explícita.
-7. Conferir em staging com narrador, jogador e outra campanha. Testes locais não comprovam RLS hospedado nem publicação.
+1. Catalogar cada evocação com página, nível, teste, custo, duração, alcance e efeitos comum e de alto Tormento. Criar testes por entrada do catálogo.
+2. Implementar ativação no servidor com rolagem, gasto atômico de Fé, versão da ficha, idempotência e registro de resultado. Efeitos que dependem do narrador devem pedir sua decisão.
+3. Cobrir formas apocalípticas, poderes inatos, rituais e pactos com o mesmo fluxo.
+4. Cadastrar antagonistas e Terrestres como NPCs privados do narrador, com os Antecedentes exclusivos sob condição explícita.
+5. Conferir em staging com narrador, jogador e outra campanha. Testes locais não comprovam RLS hospedado nem publicação.

@@ -59,7 +59,7 @@ test("fixture SotDL validada pelo backend corresponde ao starter e o mobile espe
   assert.deepEqual(fixture, template);
   const mobile = MOBILE_STARTERS.find((item) => item.id === "shadow-demon-lord");
   assert.deepEqual(mobile.template.creation_rules, template.creation_rules);
-  const webIds = template.fields.map((field) => field.id).filter((id) => id !== "experiencia");
+  const webIds = template.fields.map((field) => field.id);
   assert.deepEqual(mobile.template.fields.map((field) => field.id), webIds);
   const mobileData = readFileSync(new URL("../../mobile/src/lib/sotdl-creation-data.ts", import.meta.url), "utf8");
   assert.equal(mobileData, readFileSync(new URL("../lib/sotdl-creation-data.ts", import.meta.url), "utf8"));

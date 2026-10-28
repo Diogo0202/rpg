@@ -22,7 +22,8 @@
     ],
     "allowJs": true,
     "incremental": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "paths": { "@dice3d/*": ["../shared/dice3d/*"] }
   },
   "include": [
     "next-env.d.ts",

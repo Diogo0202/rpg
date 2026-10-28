@@ -65,6 +65,8 @@ const houseSources: Array<[house: string, torment: number, lores: string[]]> = [
 const loreId = (label: string) => DEMON_LORES.find(([, name]) => name === label)![0];
 export const DEMON_HOUSE_LORES: Record<string, string[]> = Object.fromEntries(houseSources.map(([house, , lores]) =>
   [house, [...lores.map(loreId), "dou_fundamento", "dou_humanidade"]]));
+export const DEMON_PRIMARY_LORE_CASES = houseSources.map(([equals, , lores]) => ({ equals, options: lores }));
+export const DEMON_PRIMARY_LORE_FIELDS = Object.fromEntries(DEMON_LORES.map(([id, label]) => [label, id]));
 export const DEMON_TORMENT_CASES: GrantCase[] = houseSources.map(([equals, torment]) =>
   ({ equals, add: { tormento_permanente: torment } }));
 
@@ -72,7 +74,8 @@ const ids = (fields: Array<[string, string]>) => fields.map(([id]) => id);
 
 export const DEMON_PRIORITY_RULE: PriorityPoints = {
   type: "priority_points", id: "criacao_demonio", label: "Criação por prioridades", freebies: 15, exact: true,
-  fields: [], pools: [
+  fields: [], initial_equal: [{ field: "fe_atual", source: "fe_permanente" },
+    { field: "vontade_atual", source: "vontade_max" }], pools: [
     { id: "atributos", label: "Atributos", base: 1, cost: 5, budgets: [7, 5, 3],
       groups: DEMON_ATTRIBUTE_GROUPS.map((group) => ({ label: group.label, fields: ids(group.fields) })) },
     { id: "habilidades", label: "Habilidades", base: 0, cost: 2, budgets: [13, 9, 5],
@@ -81,7 +84,8 @@ export const DEMON_PRIORITY_RULE: PriorityPoints = {
       groups: [{ label: "Antecedentes", fields: ids(DEMON_BACKGROUNDS) }] },
     { id: "doutrinas", label: "Doutrinas", base: 0, cost: 7, budgets: [3],
       groups: [{ label: "Doutrinas", fields: ids(DEMON_LORES) }],
-      allowed: { field: "casa", cases: DEMON_HOUSE_LORES } },
+      allowed: { field: "casa", cases: DEMON_HOUSE_LORES },
+      primary_choice: { field: "doutrina_principal", options: DEMON_PRIMARY_LORE_FIELDS } },
     { id: "virtudes", label: "Virtudes", base: 1, cost: 2, budgets: [3],
       groups: [{ label: "Virtudes", fields: ids(DEMON_VIRTUES) }] },
     { id: "fe", label: "Fé", base: 3, cost: 6, budgets: [0],
@@ -98,6 +102,6 @@ export const DEMON_STEP_HELP: Record<string, string> = {
   identity: "Defina Casa, facção, Natureza, Comportamento e hospedeiro. A Casa define o Tormento inicial e abre três Doutrinas próprias, além das comuns.",
   attributes: "Cada atributo começa em 1. Distribua 7, 5 e 3 pontos entre Físicos, Sociais e Mentais.",
   skills: "Distribua 13, 9 e 5 pontos entre Talentos, Perícias e Conhecimentos. Antes dos pontos bônus, nenhuma habilidade pode passar de 3.",
-  traits: "Distribua 5 pontos em Antecedentes, 3 em Doutrinas e mais 3 nas Virtudes, que começam em 1. A Doutrina fundamental ainda pede conferência do narrador.",
-  resources: "Fé começa em 3. A Força de Vontade inicial soma as duas maiores Virtudes; pontos acima dela custam bônus.",
+  traits: "Distribua 5 pontos em Antecedentes, 3 em Doutrinas e mais 3 nas Virtudes, que começam em 1. Escolha uma Doutrina principal da Casa com pontuação máxima.",
+  resources: "Fé começa em 3. A Força de Vontade inicial soma as duas maiores Virtudes; pontos acima dela custam bônus. Os valores atuais começam iguais aos máximos.",
 };

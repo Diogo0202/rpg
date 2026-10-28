@@ -113,3 +113,89 @@ def roll_sotdl_fate_action(
     _: None = Depends(require_signed_in_user),
 ) -> SotdlFateResponse:
     return roll_sotdl_fate()
+
+
+# ---------------------------------------------------------------------------------------------
+# Vampiro V3 (frente F3): rules in app/services/v3_vampire.py, atomic sheet changes in the v3_* RPCs
+# of supabase/migrations/20261029120000_vampire_v3_complete.sql (called with the user's token).
+from typing import Any, Literal  # noqa: E402
+from uuid import UUID  # noqa: E402
+
+from fastapi import HTTPException  # noqa: E402
+from pydantic import BaseModel, ConfigDict, Field, StrictInt  # noqa: E402
+
+from app.services import supabase_rpc  # noqa: E402
+from app.services.system_rolls import V3RollRequest, V3RollResponse, V3SheetResponse, roll_v3, v3_sheet  # noqa: E402
+
+
+@router.post("/vampire-v3", response_model=V3RollResponse)
+async def roll_vampire_v3_action(
+    payload: V3RollRequest,
+    response: Response,
+    authorization: str | None = Header(default=None),
+    _: None = Depends(require_signed_in_user),
+) -> V3RollResponse:
+    """With use_willpower and a sheet, 1 Willpower is spent atomically before the dice are rolled."""
+    if payload.use_willpower and payload.sheet_id:
+        if not payload.operation_id:
+            raise HTTPException(status_code=422, detail="o gasto de Força de Vontade precisa de operation_id")
+        await supabase_rpc.call_rpc("v3_spend_willpower", authorization or "",
+                                    {"p_sheet_id": payload.sheet_id, "p_operation_id": payload.operation_id})
+    try:
+        result = roll_v3(payload)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    result.willpower_spent = bool(payload.use_willpower and payload.sheet_id)
+    await _record_chronicle(authorization, payload.chronicle, response)
+    return result
+
+
+@router.post("/vampire-v3/sheet", response_model=V3SheetResponse)
+def vampire_v3_sheet_action(
+    payload: SheetValuesRequest,
+    _: None = Depends(require_signed_in_user),
+) -> V3SheetResponse:
+    """Derived numbers (blood, health level) and, with migrate, the sheet without the old predator type."""
+    return v3_sheet(dict(payload.values), payload.migrate)
+
+
+class V3SheetAction(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    operation_id: UUID
+    action: Literal["sangue", "cura", "dano", "sangue_inicial", "frenesi", "rotschreck", "degeneracao"]
+    amount: StrictInt | None = Field(default=None, ge=0, le=50)
+    kind: Literal["contundente", "letal", "agravado"] | None = None
+    difficulty: StrictInt | None = Field(default=None, ge=2, le=10)
+    turn: str | None = Field(default=None, min_length=1, max_length=80, pattern=r"^[A-Za-z0-9:._-]+$")
+
+
+def _v3_rpc(sheet_id: UUID, payload: V3SheetAction) -> tuple[str, dict[str, Any]]:
+    base: dict[str, Any] = {"p_sheet_id": str(sheet_id), "p_operation_id": str(payload.operation_id)}
+    if payload.action in ("sangue", "cura"):
+        if not payload.amount:
+            raise HTTPException(status_code=422, detail="informe a quantidade")
+        key = "p_amount" if payload.action == "sangue" else "p_levels"
+        return ("v3_spend_blood" if payload.action == "sangue" else "v3_heal"), {**base, key: payload.amount, "p_turn": payload.turn}
+    if payload.action == "dano":
+        if not payload.amount or not payload.kind:
+            raise HTTPException(status_code=422, detail="informe o tipo e os níveis de dano")
+        return "v3_apply_damage", {**base, "p_kind": payload.kind, "p_amount": payload.amount}
+    if payload.action == "sangue_inicial":
+        return "v3_set_initial_blood", {**base, "p_value": payload.amount}
+    if payload.difficulty is None:
+        raise HTTPException(status_code=422, detail="informe a dificuldade")
+    if payload.action == "degeneracao":
+        return "v3_degeneration_test", {**base, "p_difficulty": payload.difficulty}
+    return "v3_frenzy_test", {**base, "p_kind": payload.action, "p_difficulty": payload.difficulty}
+
+
+@router.post("/vampire-v3/sheets/{sheet_id}/actions")
+async def vampire_v3_sheet_action_rpc(
+    sheet_id: UUID,
+    payload: V3SheetAction,
+    authorization: str | None = Header(default=None),
+    _: None = Depends(require_signed_in_user),
+) -> Any:
+    function, body = _v3_rpc(sheet_id, payload)
+    return await supabase_rpc.call_rpc(function, authorization or "", body)

@@ -2,6 +2,16 @@
 
 Atualizado em **15/10/2026**, com base no código de `D:\rpg-github`, na [comparação com o RPG Atlas](COMPARACAO_RPG_ATLAS.md) e nas verificações locais desta sessão.
 
+**Nota de 27/10/2026:** os itens abaixo estão desatualizados para Vampiro V5, Vampiro V3 e Caçador. O estado atual e os limites ficam no [checklist final](CHECKLIST_IMPLEMENTACAO_FINAL.md). Têm código completo e testes locais, faltando conferência no livro e validação no ambiente real:
+- FIC-15 e FIC-16, nos trechos de V5, V3 e Caçador.
+- GUI-02.
+- SAN-01, SAN-02 e SAN-03.
+- V5-03, V5-05, V5-06 e V5-07.
+- MOD-07.
+- INV-06.
+- EXP-02.
+- ATL-04 e ATL-05.
+
 **Nota de 17/10/2026:** o [patch de segurança](SEGURANCA.md) acrescenta limites de valores, autenticação e cotas da API por processo, sinais mínimos de Realtime e CSP na impressão. As suítes locais passaram, sem aplicação de migrations remotas. A criação guiada e suas evidências estão no [checklist da entrega](CHECKLIST_CRIACAO_GUIADA.md). Apenas GUI-01 foi reavaliado neste ciclo; os demais percentuais mantêm a avaliação anterior e não certificam operação em produção.
 
 ## Critério dos percentuais

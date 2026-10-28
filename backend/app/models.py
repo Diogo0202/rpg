@@ -193,6 +193,9 @@ class TemplateDraft(BaseModel):
                 for pool in rule.pools:
                     if pool.allowed:
                         expect(pool.allowed.field, FieldKind.select, rule.label)
+                if rule.freebie_items:
+                    for collection in [*rule.freebie_items.spend, *([rule.freebie_items.earn.collection] if rule.freebie_items.earn else [])]:
+                        expect(collection, FieldKind.collection, rule.label)
             elif isinstance(rule, SelectRanges):
                 expect(rule.field, FieldKind.select, rule.label)
                 for case in rule.all_cases():

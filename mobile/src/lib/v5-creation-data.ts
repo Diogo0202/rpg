@@ -209,3 +209,75 @@ export const V5_RITUAL_SOURCES: PowerSource[] = [{
     ["Fuga para o Santuário Verdadeiro", "Coração de Pedra", "Haste da Dissolução Tardia", "Círculo de Proteção contra Cainitas"],
   ),
 }];
+
+/**
+ * F1: mechanical metadata of each Discipline power, numbers and short labels only
+ * (no book text). `rouse` is the number of Rouse Checks to activate (0 = free,
+ * null = varies), `pool` the dice pool or null when there is no roll. Every entry
+ * is marked for the table to check against the book (V5_POWER_METADATA_REVIEW).
+ */
+export type V5PowerMetadata = { discipline: string; name: string; level: number; rouse: number | null; pool: string | null; duration: string; review: true };
+
+const PASSIVE = "Passivo", SCENE = "Uma cena", TURN = "Um turno", NIGHT = "Uma noite", USE = "Um uso", UNTIL = "Até encerrar";
+type Meta = [name: string, rouse: number | null, pool: string | null, duration: string];
+
+const POWER_META: Record<string, Meta[]> = {
+  Animalismo: [["Vínculo Famulus", 3, "Carisma + Trato com Animais", PASSIVE], ["Sentir a Besta", 0, "Determinação + Animalismo", PASSIVE],
+    ["Sussurros Selvagens", 1, "Manipulação + Animalismo", SCENE], ["Suculência Animal", 0, null, PASSIVE], ["Acalmar a Besta", 1, "Carisma + Animalismo", SCENE],
+    ["Colmeia Morta-Viva", 0, null, PASSIVE], ["Subsumir o Espírito", 1, "Manipulação + Animalismo", SCENE], ["Domínio Animal", 2, "Carisma + Animalismo", SCENE],
+    ["Extrair a Besta", 1, "Raciocínio + Animalismo", SCENE]],
+  Auspícios: [["Sentidos Aguçados", 0, "Raciocínio + Auspícios", UNTIL], ["Sentir o Invisível", 0, "Raciocínio + Auspícios", PASSIVE],
+    ["Premonição", 0, "Determinação + Auspícios", PASSIVE], ["Ler a Alma", 1, "Inteligência + Auspícios", TURN], ["Compartilhar os Sentidos", 1, "Determinação + Auspícios", SCENE],
+    ["Toque do Espírito", 1, "Inteligência + Auspícios", TURN], ["Clarividência", 1, "Inteligência + Auspícios", "Alguns minutos"],
+    ["Possessão", 2, "Determinação + Auspícios", UNTIL], ["Telepatia", 1, "Determinação + Auspícios", "Um minuto"]],
+  Dominação: [["Nublar Memória", 0, "Carisma + Dominação", "Indefinida"], ["Compelir", 0, "Carisma + Dominação", TURN],
+    ["Hipnotizar", 1, "Manipulação + Dominação", UNTIL], ["Demência", 1, "Manipulação + Dominação", SCENE], ["Mente Esquecida", 1, "Manipulação + Dominação", "Indefinida"],
+    ["Diretiva Submersa", 0, null, PASSIVE], ["Racionalizar", 0, null, PASSIVE], ["Manipulação em Massa", 1, "Manipulação + Dominação", "Como o poder"],
+    ["Decreto Terminal", 0, null, PASSIVE]],
+  Fortitude: [["Resiliência", 0, null, PASSIVE], ["Mente Inabalável", 0, null, PASSIVE], ["Robustez", 1, null, SCENE], ["Feras Resistentes", 1, "Vigor + Animalismo", SCENE],
+    ["Desafiar a Ruína", 1, "Raciocínio + Sobrevivência", SCENE], ["Fortificar a Fachada Interior", 0, null, PASSIVE], ["Elixir da Resistência", 1, null, NIGHT],
+    ["Carne de Mármore", 2, null, SCENE], ["Proeza pela Dor", 1, null, SCENE]],
+  Ofuscação: [["Manto de Sombras", 0, null, SCENE], ["Silêncio da Morte", 0, null, SCENE], ["Passagem Invisível", 1, "Raciocínio + Ofuscação", SCENE],
+    ["Fantasma na Máquina", 0, null, PASSIVE], ["Máscara das Mil Faces", 1, "Manipulação + Ofuscação", SCENE], ["Ocultar", 1, "Inteligência + Ofuscação", NIGHT],
+    ["Desaparecer", 0, "Raciocínio + Ofuscação", SCENE], ["Ocultar a Reunião", 1, "Como o poder", SCENE], ["Disfarce do Impostor", 1, "Raciocínio + Ofuscação", SCENE]],
+  Potência: [["Corpo Letal", 0, null, PASSIVE], ["Salto Prodigioso", 0, null, PASSIVE], ["Proeza", 1, null, SCENE], ["Alimentação Brutal", 0, null, PASSIVE],
+    ["Centelha de Fúria", 1, "Manipulação + Presença", SCENE], ["Pegada Sobrenatural", 1, null, SCENE], ["Elixir do Poder", 1, null, NIGHT],
+    ["Tremor de Terra", 2, "Força + Potência", USE], ["Punho de Caim", 1, null, TURN]],
+  Presença: [["Fascínio", 0, "Manipulação + Presença", SCENE], ["Intimidar", 0, null, SCENE], ["Beijo Persistente", 0, null, PASSIVE],
+    ["Olhar Aterrorizante", 1, "Carisma + Presença", TURN], ["Encantamento", 1, "Carisma + Presença", "Uma hora"], ["Voz Irresistível", 0, null, PASSIVE],
+    ["Convocar", 1, "Manipulação + Presença", NIGHT], ["Majestade", 2, "Carisma + Presença", SCENE], ["Magnetismo Estelar", 1, null, "Como o poder"]],
+  Metamorfose: [["Olhos da Besta", 0, null, UNTIL], ["Peso da Pena", 0, null, SCENE], ["Armas Ferais", 1, null, SCENE], ["Fusão com a Terra", 1, null, "Um dia"],
+    ["Mudar de Forma", 1, null, SCENE], ["Metamorfose", 1, null, SCENE], ["Forma de Névoa", null, null, SCENE], ["O Coração Liberto", 0, null, PASSIVE]],
+  Rapidez: [["Graça Felina", 0, null, PASSIVE], ["Reflexos Rápidos", 0, null, PASSIVE], ["Ligeireza", 1, null, SCENE], ["Piscar", 1, "Destreza + Atletismo", TURN],
+    ["Travessia", 1, "Destreza + Atletismo", TURN], ["Elixir da Elegância", 1, null, NIGHT], ["Mira Infalível", 2, null, USE],
+    ["Golpe Relâmpago", 1, null, USE], ["Fração de Segundo", 1, null, USE]],
+  "Feitiçaria do Sangue": [["Vitae Corrosiva", null, null, USE], ["Gosto por Sangue", 0, "Determinação + Feitiçaria do Sangue", USE],
+    ["Extinguir Vitae", 1, "Inteligência + Feitiçaria do Sangue", USE], ["Sangue da Potência", 1, "Determinação + Feitiçaria do Sangue", NIGHT],
+    ["Toque do Escorpião", null, "Força + Feitiçaria do Sangue", SCENE], ["Roubo de Vitae", 1, "Raciocínio + Feitiçaria do Sangue", USE],
+    ["Carícia de Baal", 1, "Força + Feitiçaria do Sangue", SCENE], ["Caldeirão de Sangue", 1, "Determinação + Feitiçaria do Sangue", TURN]],
+  Oblívio: [["Manto de Sombra", 0, null, SCENE], ["Visão do Oblívio", 0, null, UNTIL], ["Lançar Sombras", 1, null, SCENE], ["Braços de Ahriman", 1, "Raciocínio + Oblívio", SCENE],
+    ["Aura de Decadência", 1, "Vigor + Oblívio", SCENE], ["Banquete de Paixões", 0, null, PASSIVE], ["Perspectiva das Sombras", 1, null, SCENE],
+    ["Toque do Oblívio", 1, "Força + Oblívio", USE], ["Praga Necrótica", 1, "Inteligência + Oblívio", USE], ["Mortalha Estígia", 1, null, SCENE],
+    ["Passo das Sombras", 1, null, USE], ["Skuld Cumprido", 2, "Vigor + Oblívio", USE], ["Avatar Tenebroso", 2, null, SCENE]],
+  "Alquimia do Sangue-Ralo": [["Longo Alcance", null, null, USE], ["Névoa", null, null, SCENE], ["Envolver", null, null, SCENE], ["Desfracionar", null, null, USE],
+    ["Impulso Aéreo", null, null, SCENE], ["Hieros Gamos Profano", null, null, USE]],
+};
+
+export const V5_POWER_METADATA: V5PowerMetadata[] = Object.entries(POWER_META).flatMap(([discipline, list]) => list.map(([name, rouse, pool, duration]) => ({
+  discipline, name, level: POWERS[discipline].find((power) => power.name === name)?.level ?? 0, rouse, pool, duration, review: true as const,
+})));
+
+export const V5_POWER_METADATA_REVIEW = "Custos de Rouse (Despertar o Sangue), paradas e durações dos poderes de Disciplina: conferir no livro. Fórmulas de Alquimia do Sangue-Ralo ficam sem custo definido.";
+
+/** Metadata for a power by its name, or for a sheet item "Disciplina: Poder". */
+export function v5PowerMetadata(nameOrItem: string): V5PowerMetadata | null {
+  const index = nameOrItem.indexOf(":");
+  const discipline = index > 0 ? nameOrItem.slice(0, index).trim() : null;
+  const name = index > 0 ? nameOrItem.slice(index + 1).trim() : nameOrItem.trim();
+  return V5_POWER_METADATA.find((item) => item.name === name && (!discipline || item.discipline === discipline)) ?? null;
+}
+
+export function describeV5Power(meta: V5PowerMetadata): string {
+  const cost = meta.rouse === null ? "Rouse variável" : meta.rouse === 0 ? "grátis" : `${meta.rouse} Rouse`;
+  return [`Nível ${meta.level}`, cost, meta.pool ?? "sem rolagem", meta.duration].join(" · ");
+}

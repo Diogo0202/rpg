@@ -9,6 +9,7 @@ import {
   type PresenceMember, type PresenceMeta, type PresenceRole, type RealtimeConnection,
 } from "../lib/realtime-sync";
 import styles from "./campaign-presence.module.css";
+import { VoiceSessionPanel } from "./voice-session-panel";
 
 type Ping = { message: string; at: string };
 const ROLE_LABELS: Record<PresenceRole, string> = { narrador: "Narrador", jogador: "Jogador", convidado: "Convidado" };
@@ -21,6 +22,7 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
   const [ping, setPing] = useState<Ping | null>(null);
   const [pingDraft, setPingDraft] = useState("");
   const [notice, setNotice] = useState("");
+  const [voiceRefresh, setVoiceRefresh] = useState(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const rolesRef = useRef<Record<string, PresenceRole>>({});
   const nameRef = useRef("");
@@ -80,10 +82,12 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
           try { navigator.vibrate?.(200); } catch { /* not supported */ }
           if (dismiss) clearTimeout(dismiss);
           dismiss = setTimeout(() => { if (active) setPing(null); }, 10000);
-        }),
+        })
+        // Voice room signal from the API (service key). Only a hint: the panel rereads the row via RLS.
+        .on("broadcast", { event: "voice" }, () => { if (active) setVoiceRefresh((value) => value + 1); }),
       onChannel: (channel) => { channelRef.current = channel; },
       onStatus: (next) => { if (active) setStatus(next); },
-      onResync: () => { track(); recompute(); },
+      onResync: () => { track(); recompute(); if (active) setVoiceRefresh((value) => value + 1); },
     });
     syncRef.current = sync;
     void loadMembership().catch(() => { if (active) setNotice("Não foi possível ler os membros da campanha."); });
@@ -114,6 +118,7 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
       <span className={`${styles.badge} ${styles[status]}`} role="status" aria-live="polite"><span className={styles.dot} aria-hidden="true" />{connectionLabel(status)}</span>
       {status !== "connected" && <button type="button" className={styles.linkButton} onClick={() => syncRef.current?.reconnectNow()}>Reconectar</button>}
     </div>
+    <VoiceSessionPanel campaignId={campaignId} canManage={canManage} refreshKey={voiceRefresh} />
     {ping && <p className={styles.ping} role="alert"><strong>O narrador pediu atenção.</strong>{ping.message ? ` ${ping.message}` : ""}</p>}
     {online.length ? <ul className={styles.list} aria-label="Participantes online">
       {online.map((member) => <li key={member.userId} className={member.role === "narrador" ? styles.narrator : undefined}>

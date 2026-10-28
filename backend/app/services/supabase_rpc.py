@@ -15,6 +15,9 @@ _SQLSTATE_STATUS = {
     "55000": (409, "o combate já foi encerrado"),
     "54000": (409, "o combate atingiu o limite de 50 participantes"),
     "22023": (422, "dados rejeitados pelo banco"),
+    # V3 (v3_* RPCs): limits of the sheet (blood per turn, Willpower left) and a reused operation id.
+    "23514": (422, "limite da ficha atingido (sangue, sangue por turno ou Força de Vontade)"),
+    "23505": (409, "operação já usada para outro ajuste"),
 }
 
 

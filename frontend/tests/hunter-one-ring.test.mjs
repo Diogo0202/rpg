@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { validateField, validateFields } from "../lib/sheet-creation.ts";
 import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
 import { SYSTEM_STARTERS as MOBILE_STARTERS } from "../../mobile/src/lib/system-starters.ts";
-import { hunterTraitProblems, isLegacyHunterSheet, migrateHunterTraits, splitPillar } from "../lib/hunter-traits.ts";
+import { desperationChoices, HUNTER_EDGE_NAMES, HUNTER_PERKS, hunterCreationProblems, hunterEdgeProblems, hunterRollOutcome, hunterTraitProblems, isLegacyHunterSheet, migrateHunterTraits, splitPillar, usableEdges } from "../lib/hunter-traits.ts";
 import { migrateOneRing, ONE_RING_CULTURES, oneRingDerived, oneRingProblems, oneRingStates } from "../lib/one-ring-rules.ts";
 
 const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter").template;
@@ -18,7 +18,7 @@ test("Caçador v3 replaces free Pilares with paired, limited texts", () => {
   assert.equal(fields.conviccao_1.required, true);
   assert.equal(fields.conviccao_2.required, false);
   assert.equal(fields.em_desespero.kind, "checkbox");
-  assert.deepEqual([fields.desespero.min, fields.desespero.max], [0, 5]);
+  assert.equal(fields.desespero, undefined, "Desesperação lives in the cell (F4)");
   const pair = [fields.conviccao_2, fields.pedra_toque_2];
   assert.deepEqual(validateFields(pair, { conviccao_2: "Proteger" }, hunter), { conviccao_2: "Preencha também Pedra de Toque 2." });
   assert.deepEqual(validateFields(pair, { conviccao_2: "Proteger", pedra_toque_2: "Clara" }, hunter), {});
@@ -43,6 +43,40 @@ test("legacy Hunter values migrate like the backend", () => {
   assert.deepEqual(hunterTraitProblems({ credo: "Marcial", impulso: "Juramento", conviccao_1: "a", pedra_toque_1: "b" }), []);
 });
 
+test("Caçador v4: Edges and Perks, creation counts and Despair", () => {
+  const fields = fieldsOf(hunter);
+  assert.equal(hunter.version, 4);
+  assert.deepEqual(fields.triunfos.item_options, HUNTER_EDGE_NAMES);
+  assert.deepEqual(fields.distincoes.item_options, HUNTER_PERKS);
+  assert.equal(fields.equipamento.kind, "collection");
+  assert.deepEqual(hunter.creation_rules.map((rule) => rule.id), ["atributos", "habilidades", "especializacoes", "vantagens_pontos", "defeitos_pontos"]);
+  const specialties = hunter.creation_rules.find((rule) => rule.id === "especializacoes");
+  assert.deepEqual(specialties.required, ["ciencia", "academicos", "oficios", "performance"]);
+  assert.deepEqual(hunter.creation_rules.filter((rule) => rule.type === "collection_points").map((rule) => rule.points), [7, 2]);
+  const base = { credo: "Marcial", impulso: "Juramento", conviccao_1: "a", pedra_toque_1: "b" };
+  assert.deepEqual(hunterCreationProblems({ ...base, triunfos: ["Arsenal", "Frota"], distincoes: ["Arsenal: Excepcional"] }), []);
+  assert.deepEqual(hunterCreationProblems({ ...base, triunfos: ["Biblioteca"], distincoes: ["Biblioteca: Quem São", "Biblioteca: Onde se Escondem"] }), []);
+  assert.ok(hunterCreationProblems({ ...base, triunfos: ["Arsenal"], distincoes: [] }).some((item) => item.startsWith("Na criação")));
+  assert.deepEqual(hunterEdgeProblems({ triunfos: ["Arsenal"], distincoes: ["Frota: Blindagem"] }), ["Distinção Frota: Blindagem pede o Triunfo Frota"]);
+  assert.deepEqual(usableEdges({ triunfos: ["Arsenal"], em_desespero: true }), []);
+  assert.deepEqual(usableEdges({ triunfos: ["Arsenal"] }), ["Arsenal"]);
+  const mobile = MOBILE_STARTERS.find((item) => item.id === "hunter").template;
+  assert.deepEqual(mobile.creation_rules, hunter.creation_rules);
+  assert.deepEqual(mobile.fields.map((field) => field.id), hunter.fields.map((field) => field.id));
+});
+
+test("Caçador roll outcome mirrors the database and the table choice", () => {
+  assert.deepEqual(hunterRollOutcome([10, 6], [10, 1], 4), { successes: 5, success: true, critical_pairs: 1, critical: true, desperation_ones: 1, desperation_consequence: "table_choice" });
+  assert.equal(hunterRollOutcome([2, 3], [1], 1).desperation_consequence, "despair");
+  assert.deepEqual(desperationChoices({ success: true, desperation_ones: 1 }), ["overreach", "despair"]);
+  assert.deepEqual(desperationChoices({ success: false, desperation_ones: 1 }), ["despair"]);
+  assert.deepEqual(desperationChoices({ success: true, desperation_ones: 0 }), []);
+  for (let normal = 1; normal <= 10; normal += 1) for (let desperate = 1; desperate <= 10; desperate += 1) {
+    const expected = (normal >= 6) + (desperate >= 6) + (normal === 10 && desperate === 10 ? 2 : 0);
+    assert.equal(hunterRollOutcome([normal], [desperate], 1).successes, expected);
+  }
+});
+
 test("O Um Anel v2 carries the specific rules and the fixture matches", () => {
   const fields = fieldsOf(oneRing);
   assert.equal(oneRing.version, 2);
@@ -55,7 +89,7 @@ test("O Um Anel v2 carries the specific rules and the fixture matches", () => {
   assert.deepEqual(fixture, JSON.parse(JSON.stringify(oneRing)), "regenerate backend/tests/fixtures/one_ring_starter.json from the starter");
   const mobile = MOBILE_STARTERS.find((item) => item.id === "one-ring").template;
   assert.deepEqual(mobile.creation_rules, oneRing.creation_rules);
-  assert.deepEqual(mobile.fields.map((field) => field.id), oneRing.fields.map((field) => field.id).filter((id) => id !== "experiencia"));
+  assert.deepEqual(mobile.fields.map((field) => field.id), oneRing.fields.map((field) => field.id));
 });
 
 test("O Um Anel derived values, states and problems", () => {

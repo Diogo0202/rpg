@@ -387,3 +387,15 @@ def roll_sotdl_fate() -> SotdlFateResponse:
     die = secrets.randbelow(6) + 1
     outcome, verdict = _FATE.get(die, ("stable", "Estável"))
     return SotdlFateResponse(die=die, outcome=outcome, verdict=verdict)
+
+
+# Vampiro V3 (Revisado): the rules live in app/services/v3_vampire.py (marked for checking in the book);
+# re-exported here so every system roller is reachable from one module.
+from app.services.v3_vampire import (  # noqa: E402
+    V3RollRequest,
+    V3RollResponse,
+    V3SheetResponse,
+    roll_v3,
+    v3_outcome,
+    v3_sheet,
+)

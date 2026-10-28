@@ -13,6 +13,8 @@ import { CompendiumPanel } from "./compendium-panel";
 import { CharacterSessionBar, CharacterSessionProvider } from "../lib/character-session";
 import { LocalVaultPanel } from "./local-vault-panel";
 import { V5ActionPanel } from "./v5-action-panel";
+import { V5BloodPanel } from "./v5-blood-panel";
+import { V5SanguinePanel } from "./v5-sanguine-panel";
 import { CampaignJournalPanel } from "./campaign-journal-panel";
 import { CharacterInventoryPanel } from "./character-inventory-panel";
 import { WorldLibraryPanel } from "./world-library-panel";
@@ -27,8 +29,10 @@ import { ChronicleDiagnosticPanel } from "./chronicle-diagnostic-panel";
 import { SystemRollPanel } from "./system-roll-panel";
 import { AiAssistancePanel } from "./ai-assistance-panel";
 import { CampaignMembersPanel } from "./campaign-members-panel";
+import { AffiliateLinks } from "./affiliate-links";
+import { MarketplaceImportsPanel } from "./marketplace-imports-panel";
 
-type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "cofre" | "inventario" | "acoes" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai" | "participantes";
+type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "marketplace" | "cofre" | "inventario" | "acoes" | "sangue" | "vinculos" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai" | "participantes";
 type Book = { name: string; kind: string; state: "Pronto" | "Em revisão" | "Na fila" };
 
 const initialBooks: Book[] = [];
@@ -42,9 +46,12 @@ const areas: Array<{ id: Area; label: string; detail: string }> = [
   { id: "cronica", label: "Diagnóstico", detail: "Oportunidades da crônica" },
   { id: "efeitos", label: "Condições", detail: "Modificadores da rolagem" },
   { id: "fichas", label: "Fichas", detail: "Templates sem sistema fixo" },
+  { id: "marketplace", label: "Modelos importados", detail: "Revisão do Marketplace" },
   { id: "cofre", label: "Cofre local", detail: "Backup, JSON e impressão" },
   { id: "inventario", label: "Inventário", detail: "Equipamento e aquisições" },
   { id: "acoes", label: "Ações V5", detail: "Dados de Fome e trilhas" },
+  { id: "sangue", label: "Sangue V5", detail: "Rouse, Remorso, Frenesi e Torpor" },
+  { id: "vinculos", label: "Caçada e Vínculos V5", detail: "Ressonância, Vínculo e Regente" },
   { id: "sistemas", label: "Outros roladores", detail: "Caçador e O Um Anel" },
   { id: "diario", label: "Diário", detail: "Sessões, facções e tensão" },
   { id: "experiencia", label: "Experiência", detail: "Saldo, recursos e custos" },
@@ -75,7 +82,7 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
         <div className="brand"><span>R</span><strong>RPG<br />ATLAS</strong></div>
         <p className="campaign">{campaignName}<br /><small>{isOwner ? "Você é o mestre" : "Você é membro"}</small></p>
         <nav>
-          {areas.filter((item) => (!['grupo', 'si', 'cronica'].includes(item.id) || canManageTemplates)).map((item) => (
+          {areas.filter((item) => (!['grupo', 'si', 'cronica', 'marketplace'].includes(item.id) || canManageTemplates)).map((item) => (
             <button key={item.id} type="button" aria-pressed={area === item.id} className={area === item.id ? "nav active" : "nav"} onClick={() => setArea(item.id)}>
               <strong>{item.label}</strong><small>{item.detail}</small>
             </button>
@@ -104,11 +111,13 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
             <article className="list-panel"><div className="panel-title"><h2>Na campanha</h2><span>{books.length} fontes</span></div>
               {books.length === 0 ? <p>Nenhuma fonte autorizada cadastrada nesta campanha.</p> : null}
               {books.map((book) => <div className="book" key={`${book.name}-${book.state}`}><b>{book.name}</b><small>{book.kind}</small><em className={book.state === "Pronto" ? "ready" : "review"}>{book.state}</em></div>)}
+              <AffiliateLinks compact />
             </article>
           </section>
         )}
 
         {area === "fichas" && <SheetBuilder campaignId={campaignId} viewerId={viewerId} canManageTemplates={canManageTemplates} canEditSheets={canEditSheets} />}
+        {area === "marketplace" && canManageTemplates && <MarketplaceImportsPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} onOpenSheets={() => setArea("fichas")} />}
         {area === "regras" && <RulesSearchPanel campaignId={campaignId} />}
         {area === "musica" && <><SpotifyPlaylistPanel campaignId={campaignId} /><MusicCuesPanel campaignId={campaignId} canManage={canManageTemplates} /></>}
         {area === "grupo" && canManageTemplates && <PartyStatusPanel campaignId={campaignId} />}
@@ -119,9 +128,11 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
         {area === "cofre" && <LocalVaultPanel campaignId={campaignId} viewerId={viewerId} canEditSheets={canEditSheets} canManageTemplates={canManageTemplates} />}
         {area === "inventario" && <CharacterInventoryPanel campaignId={campaignId} canEdit={canEditSheets} />}
         {area === "acoes" && <V5ActionPanel campaignId={campaignId} canEdit={canEditSheets} canNarrate={canManageTemplates} />}
+        {area === "sangue" && <V5BloodPanel canEdit={canEditSheets} />}
+        {area === "vinculos" && <V5SanguinePanel campaignId={campaignId} canEdit={canEditSheets} canNarrate={canManageTemplates} />}
         {area === "sistemas" && <SystemRollPanel campaignId={campaignId} canManage={canManageTemplates} />}
         {area === "diario" && <CampaignJournalPanel campaignId={campaignId} canManage={canManageTemplates} />}
-        {area === "experiencia" && <><SheetResourcesPanel viewerId={viewerId} canManage={canManageTemplates} /><ExperiencePanel viewerId={viewerId} /></>}
+        {area === "experiencia" && <><SheetResourcesPanel viewerId={viewerId} canManage={canManageTemplates} /><ExperiencePanel viewerId={viewerId} canManage={canManageTemplates} /></>}
         {area === "mapa" && (canManageTemplates
           ? <SavedMapsPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} />
           : <PlayerMapView campaignId={campaignId} viewerId={viewerId} />)}

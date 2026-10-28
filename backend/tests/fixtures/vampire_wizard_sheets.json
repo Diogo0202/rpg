@@ -9,6 +9,7 @@
    "comportamento": "Galante",
    "seita": "Anarquista",
    "cla": "Brujah",
+   "trilha": "Humanidade",
    "forca": 4,
    "destreza": 3,
    "vigor": 3,
@@ -52,6 +53,7 @@
    "disc_auspicios": 0,
    "disc_rapidez": 2,
    "disc_quimerismo": 0,
+   "disc_dementacao": 0,
    "disc_dominacao": 0,
    "disc_fortitude": 0,
    "disc_necromancia": 0,
@@ -75,12 +77,29 @@
    "ant_lacaios": 0,
    "ant_status": 1,
    "consciencia": 3,
+   "conviccao": 1,
    "autocontrole": 3,
+   "instintos": 1,
    "coragem": 4,
+   "especialidades": [
+    "Força (Agarrar)",
+    "Briga (Socos)"
+   ],
+   "meritos": [
+    "Sentido Aguçado: audição (1)"
+   ],
+   "defeitos": [
+    "Pesadelos •"
+   ],
    "humanidade": 7,
    "forca_vontade": 5,
    "vontade_gasta": 0,
    "pontos_sangue": 0,
+   "dano_contundente": 0,
+   "dano_letal": 0,
+   "dano_agravado": 0,
+   "em_frenesi": false,
+   "em_rotschreck": false,
    "experiencia": 0
   }
  },
@@ -172,10 +191,19 @@
     "Exclusão de Presa: mortais ••",
     "Vício Irremediável ••"
    ],
+   "conviccao_1": "Nunca abandonar os meus",
+   "pedra_toque_1": "Irmã caçula",
+   "principios_cronica": [
+    "Não matar inocentes"
+   ],
+   "ressonancia_atual": "Nenhuma",
+   "intensidade_ressonancia": "Nenhuma",
    "compulsao_atual": "Nenhuma",
+   "torpor": false,
    "experiencia": 0,
    "predador_disciplina": "Rapidez",
-   "predador_especialidade": "Briga (Membros)"
+   "predador_especialidade": "Briga (Membros)",
+   "perdicao": "Fúria Latente"
   }
  }
 }

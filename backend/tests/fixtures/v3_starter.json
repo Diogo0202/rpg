@@ -1,7 +1,7 @@
 {
  "template": {
   "name": "Vampiro V3 essencial",
-  "version": 1,
+  "version": 2,
   "fields": [
    {
     "id": "sistema",
@@ -83,6 +83,24 @@
     "creation_step": "identity"
    },
    {
+    "id": "senhor",
+    "label": "Senhor",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
+    "id": "refugio",
+    "label": "Refúgio",
+    "kind": "text",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "identity"
+   },
+   {
     "id": "cla",
     "label": "Clã",
     "kind": "select",
@@ -108,28 +126,130 @@
     "identity_kind": "clan"
    },
    {
-    "id": "predador",
-    "label": "Tipo de predador (opcional, da casa)",
+    "id": "fraqueza",
+    "label": "Fraqueza do clã",
     "kind": "select",
-    "options": [
-     "Gato de Beco",
-     "Ensacador",
-     "Sanguessuga",
-     "Talhador",
-     "Consensualista",
-     "Criador",
-     "Osíris",
-     "Homem-Areia",
-     "Rainha da Cena",
-     "Sereia",
-     "Assassino de Beira de Estrada",
-     "Extorsionista",
-     "Ladrão de Túmulos"
-    ],
+    "options": [],
     "expression": null,
     "required": false,
-    "creation_step": "identity",
-    "identity_kind": "predator"
+    "depends_on": {
+     "field_id": "cla",
+     "cases": [
+      {
+       "equals": "Assamita",
+       "options": [
+        "Vício em vitae de Membros"
+       ]
+      },
+      {
+       "equals": "Brujah",
+       "options": [
+        "Fúria fácil (+2 na dificuldade para resistir ao frenesi)"
+       ]
+      },
+      {
+       "equals": "Gangrel",
+       "options": [
+        "Traço animal a cada frenesi"
+       ]
+      },
+      {
+       "equals": "Giovanni",
+       "options": [
+        "Beijo doloroso (dano dobrado ao se alimentar)"
+       ]
+      },
+      {
+       "equals": "Lasombra",
+       "options": [
+        "Sem reflexo"
+       ]
+      },
+      {
+       "equals": "Malkaviano",
+       "options": [
+        "Perturbação permanente"
+       ]
+      },
+      {
+       "equals": "Nosferatu",
+       "options": [
+        "Aparência 0"
+       ]
+      },
+      {
+       "equals": "Ravnos",
+       "options": [
+        "Compulsão por um vício ou crime"
+       ]
+      },
+      {
+       "equals": "Seguidores de Set",
+       "options": [
+        "Sensibilidade à luz"
+       ]
+      },
+      {
+       "equals": "Toreador",
+       "options": [
+        "Fascínio pela beleza"
+       ]
+      },
+      {
+       "equals": "Tremere",
+       "options": [
+        "Laço com o clã (um passo a menos)"
+       ]
+      },
+      {
+       "equals": "Tzimisce",
+       "options": [
+        "Terra natal no descanso"
+       ]
+      },
+      {
+       "equals": "Ventrue",
+       "options": [
+        "Paladar exigente (uma presa)"
+       ]
+      },
+      {
+       "equals": "Caitiff",
+       "options": [
+        "Sem clã (estigma social)"
+       ]
+      }
+     ]
+    },
+    "creation_step": "identity"
+   },
+   {
+    "id": "trilha",
+    "label": "Trilha",
+    "kind": "select",
+    "options": [
+     "Humanidade",
+     "Trilha de Caim",
+     "Trilha da Catarse",
+     "Trilha da Besta",
+     "Trilha da Noite",
+     "Trilha da Morte e da Alma",
+     "Trilha da Harmonia",
+     "Trilha do Poder e da Voz Interior",
+     "Trilha das Revelações Malignas",
+     "Trilha da Metamorfose",
+     "Trilha dos Ossos",
+     "Trilha de Lilith",
+     "Trilha de Tifão",
+     "Trilha do Paradoxo",
+     "Trilha do Sangue",
+     "Trilha do Acordo Honrado",
+     "Trilha do Céu",
+     "Trilha dos Reis"
+    ],
+    "expression": null,
+    "required": true,
+    "creation_step": "identity"
    },
    {
     "id": "forca",
@@ -605,6 +725,17 @@
     "creation_step": "traits"
    },
    {
+    "id": "disc_dementacao",
+    "label": "Dementação",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
     "id": "disc_dominacao",
     "label": "Dominação",
     "kind": "number",
@@ -858,8 +989,30 @@
     "creation_step": "traits"
    },
    {
+    "id": "conviccao",
+    "label": "Convicção",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
     "id": "autocontrole",
     "label": "Autocontrole",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": true,
+    "min": 1,
+    "max": 5,
+    "creation_step": "traits"
+   },
+   {
+    "id": "instintos",
+    "label": "Instintos",
     "kind": "number",
     "options": [],
     "expression": null,
@@ -880,8 +1033,35 @@
     "creation_step": "traits"
    },
    {
+    "id": "especialidades",
+    "label": "Especializações",
+    "kind": "collection",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "traits"
+   },
+   {
+    "id": "meritos",
+    "label": "Qualidades",
+    "kind": "collection",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "traits"
+   },
+   {
+    "id": "defeitos",
+    "label": "Defeitos",
+    "kind": "collection",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "traits"
+   },
+   {
     "id": "humanidade",
-    "label": "Humanidade",
+    "label": "Humanidade / Trilha",
     "kind": "number",
     "options": [],
     "expression": null,
@@ -933,6 +1113,84 @@
     "creation_step": "resources"
    },
    {
+    "id": "sangue_max",
+    "label": "Pontos de sangue máximos",
+    "kind": "formula",
+    "options": [],
+    "expression": "10 + ant_geracao",
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
+    "id": "sangue_por_turno",
+    "label": "Sangue por turno",
+    "kind": "formula",
+    "options": [],
+    "expression": "1 + (ant_geracao // 4) * (ant_geracao - 3)",
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
+    "id": "dano_contundente",
+    "label": "Dano contundente",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 7,
+    "creation_step": "resources"
+   },
+   {
+    "id": "dano_letal",
+    "label": "Dano letal",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 7,
+    "creation_step": "resources"
+   },
+   {
+    "id": "dano_agravado",
+    "label": "Dano agravado",
+    "kind": "number",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "min": 0,
+    "max": 7,
+    "creation_step": "resources"
+   },
+   {
+    "id": "vitalidade_dano",
+    "label": "Níveis de Vitalidade marcados",
+    "kind": "formula",
+    "options": [],
+    "expression": "dano_contundente + dano_letal + dano_agravado",
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
+    "id": "em_frenesi",
+    "label": "Em frenesi",
+    "kind": "checkbox",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
+    "id": "em_rotschreck",
+    "label": "Em Rötschreck",
+    "kind": "checkbox",
+    "options": [],
+    "expression": null,
+    "required": false,
+    "creation_step": "resources"
+   },
+   {
     "id": "notas",
     "label": "Notas",
     "kind": "text",
@@ -971,6 +1229,13 @@
     "field": "vontade_gasta",
     "mode": "track",
     "max_field": "forca_vontade"
+   },
+   {
+    "id": "sangue",
+    "label": "Pontos de sangue",
+    "field": "pontos_sangue",
+    "mode": "pool",
+    "max_field": "sangue_max"
    }
   ],
   "creation_rules": [
@@ -980,6 +1245,15 @@
     "label": "Criação por prioridades",
     "freebies": 15,
     "exact": true,
+    "freebie_items": {
+     "spend": [
+      "meritos"
+     ],
+     "earn": {
+      "collection": "defeitos",
+      "max": 7
+     }
+    },
     "fields": [
      "forca",
      "destreza",
@@ -1024,6 +1298,7 @@
      "disc_auspicios",
      "disc_rapidez",
      "disc_quimerismo",
+     "disc_dementacao",
      "disc_dominacao",
      "disc_fortitude",
      "disc_necromancia",
@@ -1047,7 +1322,9 @@
      "ant_lacaios",
      "ant_status",
      "consciencia",
+     "conviccao",
      "autocontrole",
+     "instintos",
      "coragem",
      "humanidade",
      "forca_vontade"
@@ -1164,6 +1441,7 @@
          "disc_auspicios",
          "disc_rapidez",
          "disc_quimerismo",
+         "disc_dementacao",
          "disc_dominacao",
          "disc_fortitude",
          "disc_necromancia",
@@ -1209,7 +1487,7 @@
         ],
         "Malkaviano": [
          "disc_auspicios",
-         "disc_dominacao",
+         "disc_dementacao",
          "disc_ofuscacao"
         ],
         "Nosferatu": [
@@ -1252,6 +1530,7 @@
          "disc_auspicios",
          "disc_rapidez",
          "disc_quimerismo",
+         "disc_dementacao",
          "disc_dominacao",
          "disc_fortitude",
          "disc_necromancia",
@@ -1307,19 +1586,118 @@
         "label": "Virtudes",
         "fields": [
          "consciencia",
+         "conviccao",
+         "autocontrole",
+         "instintos",
+         "coragem"
+        ]
+       }
+      ],
+      "allowed": {
+       "field": "trilha",
+       "cases": {
+        "Humanidade": [
+         "consciencia",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha de Caim": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha da Catarse": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha da Besta": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha da Noite": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha da Morte e da Alma": [
+         "conviccao",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha da Harmonia": [
+         "consciencia",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha do Poder e da Voz Interior": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha das Revelações Malignas": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha da Metamorfose": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha dos Ossos": [
+         "conviccao",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha de Lilith": [
+         "conviccao",
+         "instintos",
+         "coragem"
+        ],
+        "Trilha de Tifão": [
+         "conviccao",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha do Paradoxo": [
+         "conviccao",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha do Sangue": [
+         "conviccao",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha do Acordo Honrado": [
+         "consciencia",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha do Céu": [
+         "consciencia",
+         "autocontrole",
+         "coragem"
+        ],
+        "Trilha dos Reis": [
+         "conviccao",
          "autocontrole",
          "coragem"
         ]
        }
-      ]
+      }
      },
      {
       "id": "humanidade",
-      "label": "Humanidade",
-      "base": 0,
+      "label": "Humanidade / Trilha",
+      "base": -2,
       "base_from": [
        "consciencia",
-       "autocontrole"
+       "conviccao",
+       "autocontrole",
+       "instintos"
       ],
       "cost": 1,
       "budgets": [
@@ -1327,7 +1705,7 @@
       ],
       "groups": [
        {
-        "label": "Humanidade",
+        "label": "Humanidade / Trilha",
         "fields": [
          "humanidade"
         ]
@@ -1355,6 +1733,745 @@
       ]
      }
     ]
+   },
+   {
+    "type": "collection_points",
+    "id": "meritos_v3",
+    "label": "Qualidades",
+    "collection": "meritos",
+    "fields": [],
+    "points": 22,
+    "exact": false,
+    "catalog": [
+     {
+      "name": "Sentido Aguçado",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Ambidestro",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Comer Comida",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Rubor da Saúde",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Voz Encantadora",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Destemido",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Digestão Eficiente",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Tamanho Enorme",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Bom Senso",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Concentração",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Senso do Tempo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Código de Honra",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Memória Eidética",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Sono Leve",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Coração Calmo",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Vontade de Ferro",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Líder Nato",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Senhor Prestigioso",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Dívida de Gratidão",
+      "costs": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "name": "Médium",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Resistência à Magia",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Diablerie Oculta",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Habilidade Oracular",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Mentor Espiritual",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Sortudo",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Imune ao Laço",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Amor Verdadeiro",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Disciplina Adicional",
+      "costs": [
+       5
+      ]
+     },
+     {
+      "name": "Fé Verdadeira",
+      "costs": [
+       7
+      ]
+     }
+    ]
+   },
+   {
+    "type": "collection_points",
+    "id": "defeitos_v3",
+    "label": "Defeitos",
+    "collection": "defeitos",
+    "fields": [],
+    "points": 7,
+    "exact": false,
+    "catalog": [
+     {
+      "name": "Audição Ruim",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Baixo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Cheiro de Túmulo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Visão Ruim",
+      "costs": [
+       1,
+       3
+      ]
+     },
+     {
+      "name": "Décima Quarta Geração",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Desfigurado",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Criança",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Deformidade",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Manco",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Monstruoso",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Ferimento Permanente",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Cura Lenta",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Mudo",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Sangue Fraco",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Carne de Cadáver",
+      "costs": [
+       5
+      ]
+     },
+     {
+      "name": "Vício",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Sono Pesado",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Pesadelos",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Exclusão de Presa",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Tímido",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Coração Mole",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Problema de Fala",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Amnésia",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Lunático",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Fobia",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Pavio Curto",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Territorial",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Vingativo",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Objetivo Obsessivo",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Ódio",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Intolerância",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Excesso de Confiança",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Baixa Autoestima",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Vontade Fraca",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Segredo Sombrio",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Senhor Infame",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Identidade Trocada",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Ressentimento do Senhor",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Inimigo",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Caçado",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Membro em Observação",
+      "costs": [
+       4
+      ]
+     },
+     {
+      "name": "Inimizade de Clã",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Notoriedade",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Repelido por Alho",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Sem Reflexo",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Não Atravessa Água Corrente",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Assombrado",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Amaldiçoado",
+      "costs": [
+       1,
+       2,
+       3,
+       4,
+       5
+      ]
+     },
+     {
+      "name": "Repelido por Cruzes",
+      "costs": [
+       3
+      ]
+     },
+     {
+      "name": "Sensível à Luz",
+      "costs": [
+       5
+      ]
+     },
+     {
+      "name": "Toque Gélido",
+      "costs": [
+       1
+      ]
+     },
+     {
+      "name": "Farol do Profano",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Presença Sinistra",
+      "costs": [
+       2
+      ]
+     },
+     {
+      "name": "Destino Sombrio",
+      "costs": [
+       5
+      ]
+     }
+    ]
+   },
+   {
+    "type": "specialty_picks",
+    "id": "especializacoes_v3",
+    "label": "Especializações",
+    "collection": "especialidades",
+    "skills": [
+     {
+      "field": "forca",
+      "label": "Força"
+     },
+     {
+      "field": "destreza",
+      "label": "Destreza"
+     },
+     {
+      "field": "vigor",
+      "label": "Vigor"
+     },
+     {
+      "field": "carisma",
+      "label": "Carisma"
+     },
+     {
+      "field": "manipulacao",
+      "label": "Manipulação"
+     },
+     {
+      "field": "aparencia",
+      "label": "Aparência"
+     },
+     {
+      "field": "percepcao",
+      "label": "Percepção"
+     },
+     {
+      "field": "inteligencia",
+      "label": "Inteligência"
+     },
+     {
+      "field": "raciocinio",
+      "label": "Raciocínio"
+     },
+     {
+      "field": "prontidao",
+      "label": "Prontidão"
+     },
+     {
+      "field": "esportes",
+      "label": "Esportes"
+     },
+     {
+      "field": "briga",
+      "label": "Briga"
+     },
+     {
+      "field": "esquiva",
+      "label": "Esquiva"
+     },
+     {
+      "field": "empatia",
+      "label": "Empatia"
+     },
+     {
+      "field": "expressao",
+      "label": "Expressão"
+     },
+     {
+      "field": "intimidacao",
+      "label": "Intimidação"
+     },
+     {
+      "field": "lideranca",
+      "label": "Liderança"
+     },
+     {
+      "field": "manha",
+      "label": "Manha"
+     },
+     {
+      "field": "labia",
+      "label": "Lábia"
+     },
+     {
+      "field": "empatia_animais",
+      "label": "Empatia com Animais"
+     },
+     {
+      "field": "oficios",
+      "label": "Ofícios"
+     },
+     {
+      "field": "conducao",
+      "label": "Condução"
+     },
+     {
+      "field": "etiqueta",
+      "label": "Etiqueta"
+     },
+     {
+      "field": "armas_de_fogo",
+      "label": "Armas de Fogo"
+     },
+     {
+      "field": "armas_brancas",
+      "label": "Armas Brancas"
+     },
+     {
+      "field": "performance",
+      "label": "Performance"
+     },
+     {
+      "field": "seguranca",
+      "label": "Segurança"
+     },
+     {
+      "field": "furtividade",
+      "label": "Furtividade"
+     },
+     {
+      "field": "sobrevivencia",
+      "label": "Sobrevivência"
+     },
+     {
+      "field": "academicos",
+      "label": "Acadêmicos"
+     },
+     {
+      "field": "computador",
+      "label": "Computador"
+     },
+     {
+      "field": "financas",
+      "label": "Finanças"
+     },
+     {
+      "field": "investigacao",
+      "label": "Investigação"
+     },
+     {
+      "field": "direito",
+      "label": "Direito"
+     },
+     {
+      "field": "linguistica",
+      "label": "Linguística"
+     },
+     {
+      "field": "medicina",
+      "label": "Medicina"
+     },
+     {
+      "field": "ocultismo",
+      "label": "Ocultismo"
+     },
+     {
+      "field": "politica",
+      "label": "Política"
+     },
+     {
+      "field": "ciencia",
+      "label": "Ciência"
+     }
+    ],
+    "required": [
+     "forca",
+     "destreza",
+     "vigor",
+     "carisma",
+     "manipulacao",
+     "aparencia",
+     "percepcao",
+     "inteligencia",
+     "raciocinio",
+     "prontidao",
+     "esportes",
+     "briga",
+     "esquiva",
+     "empatia",
+     "expressao",
+     "intimidacao",
+     "lideranca",
+     "manha",
+     "labia",
+     "empatia_animais",
+     "oficios",
+     "conducao",
+     "etiqueta",
+     "armas_de_fogo",
+     "armas_brancas",
+     "performance",
+     "seguranca",
+     "furtividade",
+     "sobrevivencia",
+     "academicos",
+     "computador",
+     "financas",
+     "investigacao",
+     "direito",
+     "linguistica",
+     "medicina",
+     "ocultismo",
+     "politica",
+     "ciencia"
+    ],
+    "free": 0,
+    "min_value": 4,
+    "fields": []
    }
   ],
   "system_key": "vampire-v3"
@@ -1368,8 +2485,10 @@
   "comportamento": "",
   "seita": "",
   "cronica": "",
+  "senhor": "",
+  "refugio": "",
   "cla": "",
-  "predador": "",
+  "trilha": "Humanidade",
   "forca": 1,
   "destreza": 1,
   "vigor": 1,
@@ -1413,6 +2532,7 @@
   "disc_auspicios": 0,
   "disc_rapidez": 0,
   "disc_quimerismo": 0,
+  "disc_dementacao": 0,
   "disc_dominacao": 0,
   "disc_fortitude": 0,
   "disc_necromancia": 0,
@@ -1436,12 +2556,22 @@
   "ant_lacaios": 0,
   "ant_status": 0,
   "consciencia": 1,
+  "conviccao": 1,
   "autocontrole": 1,
+  "instintos": 1,
   "coragem": 1,
+  "especialidades": [],
+  "meritos": [],
+  "defeitos": [],
   "humanidade": 2,
   "forca_vontade": 1,
   "vontade_gasta": 0,
   "pontos_sangue": 0,
+  "dano_contundente": 0,
+  "dano_letal": 0,
+  "dano_agravado": 0,
+  "em_frenesi": false,
+  "em_rotschreck": false,
   "notas": "",
   "segredos": "",
   "experiencia": 0

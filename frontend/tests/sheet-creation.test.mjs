@@ -116,7 +116,7 @@ const assign = (ids, numbers) => Object.fromEntries(ids.map((id, index) => [id, 
 
 test("Caçador v3 inclui os nove atributos e as 27 habilidades sem duplicar IDs", () => {
   const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter");
-  assert.equal(hunter.template.version, 3);
+  assert.equal(hunter.template.version, 4);
   const rules = Object.fromEntries(hunter.template.creation_rules.map((rule) => [rule.id, rule]));
   assert.equal(rules.atributos.fields.length, 9);
   assert.equal(rules.habilidades.fields.length, 27);

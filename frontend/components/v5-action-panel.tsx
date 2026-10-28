@@ -6,10 +6,12 @@ import { useCharacterSession, type SessionCharacter } from "../lib/character-ses
 import { CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { createClient } from "../lib/supabase/client";
 import {
-  actionChronicle, attackDamageSplit, attackOperationKey, canApplyAttackDamage, damagePenaltiesFrom,
-  describeDamageResult, storedModifierPreview, toggleRerollIndex,
+  actionChronicle, attackDamageSplit, attackOperationKey, canApplyAttackDamage, damagePenaltiesFrom, damageRpcArgs,
+  describeDamageResult, mergeRollHistory, storedModifierPreview, toggleRerollIndex,
   type AttackResult, type DamageKind, type DamageResult, type ModifierPreview,
 } from "../lib/v5-action-roll";
+import { canThrowV5, v5Dice } from "@dice3d/v5";
+import { DiceTrayOverlay, type TrayRoll } from "./dice-tray";
 import type { StoredRoll } from "./v5-willpower-reroll";
 import styles from "./v5-action-panel.module.css";
 
@@ -147,15 +149,49 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   const [manualPool, setManualPool] = useState(6);
   const [difficulty, setDifficulty] = useState(3);
   const [busy, setBusy] = useState(false);
+  const [tray, setTray] = useState<TrayRoll | null>(null);
   const [message, setMessage] = useState("");
   const [attackMode, setAttackMode] = useState(false);
   const [rerollPick, setRerollPick] = useState<{ rollId: string; indices: number[] } | null>(null);
   const [targets, setTargets] = useState<TargetSheet[]>([]);
   const [targetId, setTargetId] = useState("");
   const [targetArmor, setTargetArmor] = useState(true);
-  const [incoming, setIncoming] = useState<{ track: "health" | "willpower"; superficial: number; aggravated: number; armor: boolean }>(
-    { track: "health", superficial: 1, aggravated: 0, armor: true },
+  // F1: the attack may hit Willpower (social or mental attacks); physical Health damage is halved for vampires on the server.
+  const [targetTrack, setTargetTrack] = useState<"health" | "willpower">("health");
+  const [targetPhysical, setTargetPhysical] = useState(true);
+  const [remoteHistory, setRemoteHistory] = useState<{ sheetId: string; entries: HistoryEntry[]; error: string } | null>(null);
+  const [incoming, setIncoming] = useState<{ track: "health" | "willpower"; superficial: number; aggravated: number; armor: boolean; physical: boolean }>(
+    { track: "health", superficial: 1, aggravated: 0, armor: true, physical: true },
   );
+
+  // F1: rolls saved on the server (other devices and earlier sessions), merged with this session's.
+  useEffect(() => {
+    const sheetId = character?.id;
+    if (!sheetId || !API_URL) {
+      setRemoteHistory(null);
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const { data } = await createClient().auth.getSession();
+        if (!data.session) throw new Error("Entre na campanha para ver o histórico guardado.");
+        const response = await fetch(`${API_URL}/api/v1/v5/sheets/${sheetId}/rolls?limit=20`, {
+          headers: { Authorization: `Bearer ${data.session.access_token}` }, signal: controller.signal,
+        });
+        const body = await response.json().catch(() => null) as unknown;
+        if (!response.ok || !Array.isArray(body)) throw new Error(responseError(body, "Não foi possível ler o histórico guardado."));
+        if (controller.signal.aborted) return;
+        setRemoteHistory({ sheetId, error: "", entries: (body as PanelRoll[]).map((roll) => ({
+          roll, preview: storedModifierPreview(roll.details), recordedAt: new Date(roll.created_at).toLocaleString(),
+          actionName: "Rolagem guardada", attackRequested: false, attack: null, attackError: "", chronicle: null, applied: [],
+        })) });
+      } catch (error) {
+        if (!controller.signal.aborted) setRemoteHistory({ sheetId, entries: [], error: error instanceof Error ? error.message : "Falha ao ler o histórico guardado." });
+      }
+    })();
+    return () => controller.abort();
+  }, [character?.id]);
 
   useEffect(() => {
     const selected = character;
@@ -311,6 +347,14 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
       historyRef.current.set(selected.id, [entry, ...(historyRef.current.get(selected.id) ?? [])].slice(0, 8));
       setHistoryRevision((value) => value + 1);
       setRerollPick(null);
+      // The server already decided the dice; the tray only throws them onto those faces.
+      if (canThrowV5(roll.normal_dice.length + roll.hunger_dice.length)) {
+        setTray({
+          id: roll.id, systemKey: "vampire-v5", interactive: true,
+          requests: v5Dice([...roll.hunger_dice, ...roll.normal_dice], roll.hunger_dice.length),
+          summary: `${entry.actionName} · ${roll.outcome.successes} sucessos / dif. ${roll.difficulty} · ${outcome(entry)}`,
+        });
+      }
       if (attackMode) {
         try {
           const attack = await fetchAttack(roll.id, operation.controller.signal);
@@ -358,22 +402,17 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     const target = targets.find((item) => item.id === targetId);
     const split = attackDamageSplit(entry.attack);
     if (!selected || !target || !split || !canApplyAttackDamage({ canNarrate, attack: entry.attack, targetId })) return;
-    const key = attackOperationKey(entry.roll.id, target.id);
+    const key = `${attackOperationKey(entry.roll.id, target.id)}:${targetTrack}`;
     const operationUuid = damageOperations.current.get(key) ?? crypto.randomUUID();
     damageOperations.current.set(key, operationUuid);
     const operation = beginOperation(selected);
     try {
-      const { data, error } = await createClient().rpc("apply_v5_damage", {
-        p_sheet_id: target.id,
-        p_track: "health",
-        p_superficial: split.superficial,
-        p_aggravated: split.aggravated,
-        p_apply_armor: targetArmor,
-        p_operation_id: operationUuid,
-        p_reason: `Ataque de ${selected.name}`.slice(0, 120),
-      }).abortSignal(operation.controller.signal);
+      const { data, error } = await createClient().rpc("apply_v5_damage", damageRpcArgs({
+        sheetId: target.id, track: targetTrack, superficial: split.superficial, aggravated: split.aggravated,
+        armor: targetArmor, operationId: operationUuid, reason: `Ataque de ${selected.name}`, physical: targetPhysical,
+      })).abortSignal(operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
-      if (error || !data) throw new Error("O servidor recusou o dano. Confira a trilha de Saúde do alvo e o acesso à ficha.");
+      if (error || !data) throw new Error(`O servidor recusou o dano. Confira a trilha de ${targetTrack === "health" ? "Saúde" : "Força de Vontade"} do alvo e o acesso à ficha.`);
       const result = data as DamageResult;
       if (result.sheet?.id === selected.id) {
         const { id, name, version, values, effects } = result.sheet;
@@ -388,7 +427,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     }
   }
 
-  async function applyDamage(track: "health" | "willpower", superficial: number, aggravated: number, armor: boolean) {
+  async function applyDamage(track: "health" | "willpower", superficial: number, aggravated: number, armor: boolean, physical = false) {
     const selected = character;
     if (!selected || !canEdit) return;
     if (![superficial, aggravated].every((value) => Number.isInteger(value) && value >= 0 && value <= 30) || superficial + aggravated === 0) {
@@ -397,14 +436,9 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     }
     const operation = beginOperation(selected);
     try {
-      const { data, error } = await createClient().rpc("apply_v5_damage", {
-        p_sheet_id: selected.id,
-        p_track: track,
-        p_superficial: superficial,
-        p_aggravated: aggravated,
-        p_apply_armor: armor,
-        p_operation_id: crypto.randomUUID(),
-      }).abortSignal(operation.controller.signal);
+      const { data, error } = await createClient().rpc("apply_v5_damage", damageRpcArgs({
+        sheetId: selected.id, track, superficial, aggravated, armor, operationId: crypto.randomUUID(), physical,
+      })).abortSignal(operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
       if (error || !data) throw new Error("O servidor recusou o dano. Confira a trilha e o acesso à ficha.");
       const result = data as DamageResult;
@@ -484,7 +518,10 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
 
   if (!character) return <section className={`content ${styles.panel}`}><h2>Rolagem V5 e integridade</h2><p>Selecione uma ficha salva para rolar ações e acompanhar dano.</p></section>;
 
-  const visibleHistory = historyRef.current.get(character.id) ?? [];
+  const sessionHistory = historyRef.current.get(character.id) ?? [];
+  const sessionRollIds = new Set(sessionHistory.map((entry) => entry.roll.id));
+  const remote = remoteHistory?.sheetId === character.id ? remoteHistory : null;
+  const visibleHistory = mergeRollHistory(sessionHistory, remote?.entries ?? []);
   void historyRevision;
   const hungerValue = integerValue(character.values.fome);
   const health = trackDamage(character.values, "health");
@@ -517,7 +554,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
 
   function renderEntry(entry: HistoryEntry, index: number) {
     const roll = entry.roll;
-    const canReroll = index === 0 && roll.rerolled_at === null;
+    const canReroll = index === 0 && roll.rerolled_at === null && sessionRollIds.has(roll.id);
     const picked = rerollPick?.rollId === roll.id ? rerollPick.indices : [];
     const penalties = damagePenaltiesFrom(entry.preview);
     const chronicleLabel = chronicleActivityLabel(entry.chronicle);
@@ -549,9 +586,13 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
           {targets.map((target) => <option key={target.id} value={target.id}>{target.name}</option>)}
         </select></label>
         <button type="submit" disabled={busy || !canApplyAttackDamage({ canNarrate, attack: entry.attack, targetId }) || alreadyApplied}>
-          {alreadyApplied ? "Dano aplicado" : `Aplicar ${split.superficial + split.aggravated} na Saúde`}
+          {alreadyApplied ? "Dano aplicado" : `Aplicar ${split.superficial + split.aggravated} na ${targetTrack === "health" ? "Saúde" : "Vontade"}`}
         </button>
-        <label className={styles.inlineLabel}><input type="checkbox" checked={targetArmor} onChange={(event) => setTargetArmor(event.target.checked)} /> Armadura do alvo absorve dano superficial</label>
+        <label>Trilha do alvo<select value={targetTrack} onChange={(event) => setTargetTrack(event.target.value as "health" | "willpower")}>
+          <option value="health">Saúde</option><option value="willpower">Força de Vontade</option>
+        </select></label>
+        <label className={styles.inlineLabel}><input type="checkbox" checked={targetArmor} disabled={targetTrack !== "health"} onChange={(event) => setTargetArmor(event.target.checked)} /> Armadura do alvo absorve dano superficial</label>
+        <label className={styles.inlineLabel}><input type="checkbox" checked={targetPhysical} disabled={targetTrack !== "health"} onChange={(event) => setTargetPhysical(event.target.checked)} /> Dano físico: alvo vampiro reduz o superficial à metade</label>
       </form>}
       {penalties.map((penalty) => <p className={styles.penalty} key={penalty}>−2 por trilha de {penalty === "health" ? "Saúde" : "Força de Vontade"} cheia.</p>)}
       {entry.preview?.applied.map((effect) => <small key={effect.id}>{effect.label}: {effect.delta >= 0 ? "+" : ""}{effect.delta} dados. </small>)}
@@ -560,6 +601,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   }
 
   return <section className={`content ${styles.panel}`} aria-busy={busy}>
+    <DiceTrayOverlay roll={tray} onDone={() => setTray(null)} />
     <header className={styles.header}><div><p className={styles.eyebrow}>V5 · AÇÃO E INTEGRIDADE</p><h2>{character.name}</h2></div><p>O servidor rola e guarda os dados com a Fome e as condições salvas da ficha. Depois, até 3 dados comuns podem ser rerrolados uma vez com Vontade.</p></header>
     <div className={styles.layout}>
       <div className={styles.column}>
@@ -593,13 +635,14 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
           <h3>Integridade</h3>
           <div className={styles.tracks}>{renderTrack("Saúde", "health", health)}{renderTrack("Força de Vontade", "willpower", willpower)}</div>
           <p className={styles.note}>Adicionar dano passa pelo servidor: com a trilha cheia, cada novo ponto converte um superficial em agravado. A penalidade de −2 entra no servidor quando a trilha relevante está cheia.</p>
-          <form className={styles.manualForm} onSubmit={(event) => { event.preventDefault(); void applyDamage(incoming.track, incoming.superficial, incoming.aggravated, incoming.armor); }}>
+          <form className={styles.manualForm} onSubmit={(event) => { event.preventDefault(); void applyDamage(incoming.track, incoming.superficial, incoming.aggravated, incoming.armor, incoming.physical); }}>
             <label>Trilha<select value={incoming.track} onChange={(event) => setIncoming({ ...incoming, track: event.target.value as "health" | "willpower" })}>
               <option value="health">Saúde</option><option value="willpower">Força de Vontade</option>
             </select></label>
             <label>Superficial<input type="number" min={0} max={30} value={incoming.superficial} onChange={(event) => setIncoming({ ...incoming, superficial: Number(event.target.value) })} /></label>
             <label>Agravado<input type="number" min={0} max={30} value={incoming.aggravated} onChange={(event) => setIncoming({ ...incoming, aggravated: Number(event.target.value) })} /></label>
             <label className={styles.inlineLabel}><input type="checkbox" checked={incoming.armor} disabled={incoming.track !== "health"} onChange={(event) => setIncoming({ ...incoming, armor: event.target.checked })} /> Aplicar armadura equipada</label>
+            <label className={styles.inlineLabel}><input type="checkbox" checked={incoming.physical} disabled={incoming.track !== "health"} onChange={(event) => setIncoming({ ...incoming, physical: event.target.checked })} /> Dano físico (vampiro reduz o superficial à metade)</label>
             <button type="submit" disabled={!canEdit || busy}>Receber dano</button>
           </form>
           <p className={styles.note}>A proteção da armadura equipada reduz apenas dano superficial à Saúde e é lida pelo servidor.</p>
@@ -608,7 +651,8 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
       <div className={styles.column}>
         <article className={styles.card}>
           <h3>Histórico desta ficha</h3>
-          <p className={styles.note}>As rolagens ficam guardadas no servidor; esta lista mostra as desta sessão do navegador.</p>
+          <p className={styles.note}>As rolagens ficam guardadas no servidor; esta lista junta as desta sessão com as últimas guardadas da ficha.</p>
+          {remote?.error && <p role="status" className={styles.message}>{remote.error}</p>}
           {visibleHistory.length === 0 ? <p>Nenhuma rolagem ainda.</p> : <ol className={styles.history}>{visibleHistory.map(renderEntry)}</ol>}
           {!canNarrate && visibleHistory.some((entry) => attackDamageSplit(entry.attack)) && <p className={styles.note}>O narrador aplica o dano do ataque na ficha do alvo.</p>}
           {message && <p role="status" className={styles.message}>{message}</p>}

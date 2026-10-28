@@ -67,16 +67,22 @@ export type RangeLimit = { min: number; max: number };
 export type SelectRangeDefault = { ranges?: Record<string, RangeLimit>; exclude?: Record<string, string[]> };
 /** While `field` holds a value, numbers stay in range and other selects avoid listed values (V5 clan and generation). `fields` stays empty. */
 export type SelectRangesRule = { type: "select_ranges"; id: string; label: string; field: string; fields: string[]; cases: Array<SelectRangeDefault & { equals: string[] }>; default?: SelectRangeDefault | null };
-/** Free "Habilidade (especialização)" items: one per `required` skill with dots plus `free`. `fields` stays empty. */
-export type SpecialtyPicksRule = { type: "specialty_picks"; id: string; label: string; collection: string; skills: Array<{ field: string; label: string }>; required: string[]; free: number; fields: string[] };
+/**
+ * Free "Habilidade (especialização)" items: one per `required` skill with dots plus `free`. `fields` stays empty.
+ * `min_value` (default 1) is the rating a skill needs to owe or take one (V3: 4).
+ */
+export type SpecialtyPicksRule = { type: "specialty_picks"; id: string; label: string; collection: string; skills: Array<{ field: string; label: string }>; required: string[]; free: number; fields: string[]; min_value?: number };
+/** V3: item points in `spend` collections cost freebies 1:1; points in `earn` add freebies up to `max`. */
+export type FreebieItems = { spend?: string[]; earn?: { collection: string; max: number } | null };
 export type PriorityGroup = { label: string; fields: string[] };
 export type PriorityPool = {
   id: string; label: string; base?: number; base_from?: string[]; base_from_highest?: string[]; highest_count?: number; cost: number; budgets: number[]; groups: PriorityGroup[];
   /** Only these fields may rise above base for the value the select holds. */
   allowed?: { field: string; cases: Record<string, string[]> } | null;
+  primary_choice?: { field: string; options: Record<string, string> } | null;
 };
 /** Free budgets per group (any order) plus freebie points; `fields` mirrors every pool and base_from field. */
-export type PriorityPoints = { type: "priority_points"; id: string; label: string; freebies: number; exact?: boolean; pools: PriorityPool[]; fields: string[] };
+export type PriorityPoints = { type: "priority_points"; id: string; label: string; freebies: number; exact?: boolean; pools: PriorityPool[]; fields: string[]; initial_equal?: Array<{ field: string; source: string }>; freebie_items?: FreebieItems | null };
 export type CreationRule =
   | PriorityPoints
   | { type: "group_distribution"; id: string; label: string; fields: string[]; options: CreationDistribution[] }

@@ -13,6 +13,7 @@ import { activeGrants, applyGrants, choiceOptions, collectionPointRules, collect
 import type { PowerPicksRule, SelectGrantsRule } from "../lib/sheet-template";
 import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority, type PoolTally, type PriorityTally } from "../lib/priority-points";
 import { specialtyRules, specialtyStatus } from "../lib/creation-checks";
+import { describeV5Power, v5PowerMetadata } from "../lib/v5-creation-data";
 
 type Props = {
   campaignId: string;
@@ -187,7 +188,7 @@ export function SheetCreationWizard(props: Props) {
         ...stepPools.flatMap(({ tally, pool }) => [
           ...pool.problems,
           ...(pool.shortfall ? [`${pool.pool.label}: faltam ${pool.shortfall} ${pool.shortfall === 1 ? "ponto" : "pontos"} da distribuição inicial.`] : []),
-          ...(tally.remaining < 0 ? [`Bônus: ${-tally.remaining} a mais que os ${tally.rule.freebies} disponíveis.`] : []),
+          ...(tally.remaining < 0 ? [`Bônus: ${-tally.remaining} a mais que os ${tally.remaining + tally.bonus} disponíveis.`] : []),
         ]),
       ];
       const messages = local.length ? local : stepViolations.map((violation) => violation.message);
@@ -318,7 +319,7 @@ export function SheetCreationWizard(props: Props) {
               const checked = chosen.includes(item);
               return <label className={`${styles.power} ${checked ? styles.powerChecked : ""}`} key={item}>
                 <input type="checkbox" checked={checked} disabled={busy || (!checked && full)} onChange={(event) => toggle(item, event.target.checked)} />
-                <span>{power.name}</span><small>Nível {power.level}</small>
+                <span>{power.name}</span><small>{(() => { const meta = v5PowerMetadata(item); return meta ? describeV5Power(meta) : `Nível ${power.level}`; })()}</small>
               </label>;
             })}
           </div>
@@ -524,7 +525,7 @@ function PriorityBoard({ tally, pools }: { tally: PriorityTally; pools: PoolTall
   const over = tally.remaining < 0;
   return <div className={`${styles.tally} ${styles.priorityBoard} ${tally.remaining === 0 && !over ? styles.tallyComplete : ""}`} role="status" aria-live="polite">
     <p className={styles.tallyStatus}>
-      {over ? `Bônus: ${-tally.remaining} a mais que os ${tally.rule.freebies} disponíveis.` : `Pontos de bônus: restam ${tally.remaining} de ${tally.rule.freebies}.`}
+      {over ? `Bônus: ${-tally.remaining} a mais que os ${tally.remaining + tally.bonus} disponíveis.` : `Pontos de bônus: restam ${tally.remaining} de ${tally.remaining + tally.bonus}.`}
     </p>
     {pools.map((item) => <section className={styles.priorityPool} key={item.pool.id} aria-label={item.pool.label}>
       <h4>{item.pool.label}{item.pool.cost > 0 && <span>cada ponto de bônus custa {item.pool.cost}</span>}</h4>

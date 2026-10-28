@@ -383,3 +383,73 @@ def test_hidden_system_detail_is_not_found(monkeypatch) -> None:
     response = _client().get(f"/api/v1/marketplace/systems/{SYSTEM}")
     assert response.status_code == 404
     assert captured[0]["status"] == "eq.published"
+
+
+def test_publishable_templates_return_only_public_metadata(monkeypatch) -> None:
+    async def current_user(_authorization):
+        return USER
+
+    async def request_user(_method, path, _authorization, *, payload=None):
+        assert path == "rpc/marketplace_publishable_templates" and payload == {}
+        return [{"id": SYSTEM, "campaign_id": CAMPAIGN, "campaign_name": "Mesa", "name": "Ficha", "version": 2,
+                 "schema": {"secret": "private"}}]
+
+    monkeypatch.setattr(marketplace, "current_user_id", current_user)
+    monkeypatch.setattr(marketplace, "request_user", request_user)
+    response = _client().get("/api/v1/marketplace/publishable-templates", headers={"Authorization": TOKEN})
+    assert response.status_code == 200
+    assert response.json() == {"items": [{"id": SYSTEM, "campaign_id": CAMPAIGN, "campaign_name": "Mesa",
+                                          "name": "Ficha", "version": 2}]}
+
+
+def test_publish_existing_template_fetches_approved_schema_on_server(monkeypatch) -> None:
+    calls = []
+
+    async def current_user(_authorization):
+        return USER
+
+    async def request_user(_method, path, _authorization, *, payload=None):
+        assert path == "rpc/marketplace_export_template" and payload == {"p_template_id": SYSTEM}
+        return _publish_body()["template"]
+
+    async def publish(owner_id, record):
+        calls.append((owner_id, record))
+        return {"id": SYSTEM, **record, "updated_at": "2026-10-25T10:00:00Z", "usage_count": 0, "likes": 0, "dislikes": 0}
+
+    monkeypatch.setattr(marketplace, "current_user_id", current_user)
+    monkeypatch.setattr(marketplace, "request_user", request_user)
+    monkeypatch.setattr(marketplace, "publish_as_service", publish)
+    body = {key: value for key, value in _publish_body().items() if key != "template"}
+    preview = _client().get(f"/api/v1/marketplace/publishable-templates/{SYSTEM}", headers={"Authorization": TOKEN})
+    assert preview.status_code == 200
+    assert preview.json()["template"]["name"] == "Simple Game"
+    response = _client().post("/api/v1/marketplace/systems/from-template", headers={"Authorization": TOKEN},
+                              json={**body, "template_id": SYSTEM, "expected_digest": preview.json()["digest"]})
+    assert response.status_code == 200
+    assert calls[0][0] == USER
+    assert calls[0][1]["template"]["name"] == "Simple Game"
+    assert "owner_id" not in response.json()
+
+
+def test_publish_existing_template_preserves_manager_check_and_rejects_invalid_schema(monkeypatch) -> None:
+    async def current_user(_authorization):
+        return USER
+
+    async def forbidden(_method, _path, _authorization, *, payload=None):
+        raise HTTPException(status_code=403, detail="operação não permitida")
+
+    monkeypatch.setattr(marketplace, "current_user_id", current_user)
+    monkeypatch.setattr(marketplace, "request_user", forbidden)
+    body = {key: value for key, value in _publish_body().items() if key != "template"}
+    body.update({"template_id": SYSTEM, "expected_digest": marketplace.template_digest(_publish_body()["template"])})
+    client = _client()
+    target = "/api/v1/marketplace/systems/from-template"
+    assert client.post(target, headers={"Authorization": TOKEN}, json=body).status_code == 403
+
+    async def invalid(_method, _path, _authorization, *, payload=None):
+        return {"name": "Bad", "fields": [{"id": "x", "label": "X", "kind": "formula", "expression": "__import__('os')"}]}
+
+    monkeypatch.setattr(marketplace, "request_user", invalid)
+    assert client.post(target, headers={"Authorization": TOKEN}, json=body).status_code == 409
+    body["expected_digest"] = marketplace.template_digest({"name": "Bad", "fields": [{"id": "x", "label": "X", "kind": "formula", "expression": "__import__('os')"}]})
+    assert client.post(target, headers={"Authorization": TOKEN}, json=body).status_code == 422

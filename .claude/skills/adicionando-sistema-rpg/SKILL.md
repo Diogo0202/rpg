@@ -32,6 +32,7 @@ Exemplo completo: Shadow of the Demon Lord (`shadow-demon-lord`), em `docs/CHECK
 | `backend/app/services/system_rolls.py` + `routes/system_rolls.py` | Request `extra="forbid"`, `roll_<sis>`, rota |
 | `frontend/components/system-roll-panel.tsx` | Detecte por `values.sistema === "<rótulo>"` antes da heurística por campos |
 | `mobile/src/lib/dice.ts` + `components/nexus/DicePanel.tsx` | Função local + aba |
+| `frontend/lib/dice3d/styles.ts` + mapeador `<sis>.ts` (espelhar em `mobile/src/lib/dice3d/`) | Estilo dos dados 3D e resposta → `DieRequest[]`; ligar no painel e em `DiceTray3D.trayRequests` |
 | `map-kits.ts`, `saved-maps-panel.tsx`, `map-editor.tsx` | Kit e opção do dropdown |
 | `mobile/src/routes/fichas.nova.tsx` | Descrição da página |
 | `docs/<SIS>_CRIACAO_GUIADA.md`, `README.md`, `STATUS_FUNCIONALIDADES.md` | Fonte, tabelas, limites, versão do modelo |

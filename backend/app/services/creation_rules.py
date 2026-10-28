@@ -334,6 +334,8 @@ class SpecialtyPicks(BaseModel):
     skills: list[SpecialtySkill] = Field(min_length=1, max_length=100)
     required: FieldIds = Field(default_factory=list, max_length=100)
     free: Annotated[int, Field(ge=0, le=20)] = 1
+    # Rating a skill needs to owe or take a specialty (V3: 4 and up).
+    min_value: Annotated[int, Field(ge=1, le=10)] = 1
     fields: list[str] = Field(default_factory=list, max_length=0)
 
     @model_validator(mode="after")
@@ -433,6 +435,7 @@ class PriorityPool(BaseModel):
     budgets: list[Annotated[int, Field(ge=0, le=1000)]] = Field(min_length=1, max_length=4)
     groups: list[PriorityGroup] = Field(min_length=1, max_length=4)
     allowed: PriorityAllowed | None = None
+    primary_choice: dict[str, Any] | None = None
 
     _ids = field_validator("base_from", "base_from_highest")(_valid_ids)
 
@@ -449,7 +452,43 @@ class PriorityPool(BaseModel):
             raise ValueError(f"{self.label}: um campo aparece em mais de um grupo")
         if self.allowed and any(field_id not in listed for fields in self.allowed.cases.values() for field_id in fields):
             raise ValueError(f"{self.label}: a lista de permitidos cita campos fora dos grupos")
+        if self.primary_choice is not None:
+            choice = self.primary_choice
+            if set(choice) != {"field", "options"} or not isinstance(choice["field"], str) \
+                    or not isinstance(choice["options"], dict) or not choice["options"] \
+                    or any(not isinstance(label, str) or not isinstance(field_id, str) or field_id not in listed
+                           for label, field_id in choice["options"].items()):
+                raise ValueError(f"{self.label}: escolha principal inválida")
         return self
+
+
+class FreebieEarn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    collection: Annotated[str, Field(min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_]{1,63}$")]
+    max: Annotated[int, Field(ge=0, le=100)]
+
+
+class FreebieItems(BaseModel):
+    """Collections whose item points cost freebies (`spend`) or add them, capped (`earn`)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    spend: list[Annotated[str, Field(min_length=2, max_length=64, pattern=r"^[a-z][a-z0-9_]{1,63}$")]] = Field(default_factory=list, max_length=5)
+    earn: FreebieEarn | None = None
+
+
+def freebie_item_points(spec: FreebieItems | None, values: dict[str, Any]) -> tuple[int, int]:
+    """(freebies the spend collections cost, freebies the earn collection adds after its cap)."""
+    if spec is None:
+        return 0, 0
+
+    def total(collection: str) -> int:
+        return sum(item_points(item) for item in _strings(values.get(collection)))
+
+    spent = sum(total(collection) for collection in spec.spend)
+    earned = min(spec.earn.max, total(spec.earn.collection)) if spec.earn else 0
+    return spent, earned
 
 
 class PriorityPoints(BaseModel):
@@ -469,6 +508,9 @@ class PriorityPoints(BaseModel):
     exact: bool = True
     pools: list[PriorityPool] = Field(min_length=1, max_length=10)
     fields: FieldIds = Field(default_factory=list, max_length=100)
+    initial_equal: list[dict[str, str]] = Field(default_factory=list, max_length=20)
+    # V3: Merit points cost freebies 1:1 and Flaw points add freebies up to a cap.
+    freebie_items: FreebieItems | None = None
 
     @model_validator(mode="after")
     def derive_fields(self) -> "PriorityPoints":
@@ -481,6 +523,9 @@ class PriorityPoints(BaseModel):
         every = list(dict.fromkeys([*listed, *(field_id for pool in self.pools for field_id in [*pool.base_from, *pool.base_from_highest])]))
         if len(every) > 100:
             raise ValueError(f"{self.label}: a regra cita campos demais")
+        for pair in self.initial_equal:
+            if set(pair) != {"field", "source"} or pair["source"] not in every or not FIELD_ID.fullmatch(pair["field"]):
+                raise ValueError(f"{self.label}: recurso inicial inválido")
         self.fields = every
         return self
 
@@ -640,11 +685,11 @@ def _specialty_problem(rule: SpecialtyPicks, values: dict[str, Any], granted: di
         skill = _specialty_skill(rule, item)
         if skill is None:
             return f"{item} precisa seguir o formato Habilidade (especialização) com uma habilidade da lista"
-        if (_number(values, skill.field) or 0) < 1:
-            return f"{item} pede ao menos 1 ponto em {skill.label}"
+        if (_number(values, skill.field) or 0) < rule.min_value:
+            return f"{item} pede ao menos {rule.min_value} {'ponto' if rule.min_value == 1 else 'pontos'} em {skill.label}"
         picked[skill.field] += 1
     labels = {skill.field: skill.label for skill in rule.skills}
-    due = [field_id for field_id in rule.required if (_number(values, field_id) or 0) >= 1]
+    due = [field_id for field_id in rule.required if (_number(values, field_id) or 0) >= rule.min_value]
     missing = [labels[field_id] for field_id in due if not picked[field_id]]
     if missing:
         return f"falta especialização em {', '.join(missing)}"
@@ -764,6 +809,14 @@ def _priority_problems(rule: PriorityPoints, values: dict[str, Any], labels: dic
         if pool.allowed:
             selected = values.get(pool.allowed.field)
             permitted = set(pool.allowed.cases.get(selected, [])) if isinstance(selected, str) else set()
+        if pool.primary_choice:
+            choice = pool.primary_choice
+            selected = values.get(choice["field"])
+            primary = choice["options"].get(selected) if isinstance(selected, str) else None
+            ratings = {field_id: _number(values, field_id) or 0 for group in pool.groups for field_id in group.fields}
+            if primary is None or (permitted is not None and primary not in permitted) \
+                    or ratings[primary] <= 0 or ratings[primary] < max(ratings.values(), default=0):
+                problems.append(f"{pool.label}: escolha um campo principal permitido com pontuação máxima")
         spent: list[int | float] = []
         for group in pool.groups:
             total = 0
@@ -785,10 +838,18 @@ def _priority_problems(rule: PriorityPoints, values: dict[str, Any], labels: dic
         shortfalls = sum(max(0, need - have) for have, need in zip(sorted(spent, reverse=True), sorted(pool.budgets, reverse=True)))
         if shortfalls:
             problems.append(f"{pool.label}: faltam {shortfalls} {'ponto' if shortfalls == 1 else 'pontos'} da distribuição inicial")
-    if rule.exact and bonus != rule.freebies:
-        problems.append(f"bônus gastos {bonus} de {rule.freebies}" + (f" (restam {rule.freebies - bonus})" if bonus < rule.freebies else ""))
-    elif not rule.exact and bonus > rule.freebies:
-        problems.append(f"bônus gastos {bonus}, o limite é {rule.freebies}")
+    # V3: Merits cost freebies, Flaws add them up to their cap (15 + up to 7 must be spent exactly).
+    items_spent, earned = freebie_item_points(rule.freebie_items, values)
+    bonus += items_spent
+    available = rule.freebies + earned
+    if rule.exact and bonus != available:
+        problems.append(f"bônus gastos {bonus} de {available}" + (f" (restam {available - bonus})" if bonus < available else ""))
+    elif not rule.exact and bonus > available:
+        problems.append(f"bônus gastos {bonus}, o limite é {available}")
+    for pair in rule.initial_equal:
+        target, source = pair["field"], pair["source"]
+        if _number(values, target, -1) != _number(values, source, -2):
+            problems.append(f"{labels.get(target, target)} deve começar igual a {labels.get(source, source)}")
     return list(dict.fromkeys(problems))
 
 

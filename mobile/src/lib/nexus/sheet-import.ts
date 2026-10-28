@@ -1,7 +1,7 @@
 import type { JsonValue } from "../mobile-sync/index.ts";
-import { mechanicallyEquivalentFields, type SheetBackup } from "../sheet-backup.ts";
+import type { SheetBackup } from "../sheet-backup.ts";
 import type { SheetTemplate } from "../sheet-template.ts";
-import { prepareSheetValues, sheetFromBackup } from "./sheets";
+import { backupMatchesFields, prepareSheetValues, sheetFromBackup } from "./sheets";
 
 type CampaignTemplate = { id: string; data: Record<string, JsonValue> };
 
@@ -11,7 +11,8 @@ export function importedSheetInput(doc: SheetBackup, mode: "local" | "connected"
     const schema = data.schema;
     return data.status === "approved" && data.name === doc.template.name && data.version === doc.template.version
       && schema !== null && typeof schema === "object" && !Array.isArray(schema)
-      && schema.rules_profile_version == null && mechanicallyEquivalentFields(doc.template.fields, schema.fields);
+      && schema.rules_profile_version == null && Array.isArray(schema.fields)
+      && backupMatchesFields(doc, schema.fields as unknown as SheetTemplate["fields"]);
   });
   if (matches.length !== 1) throw new Error("O backup precisa corresponder a um único modelo aprovado desta campanha, com a mesma versão e os mesmos campos.");
   if (doc.effects.length) throw new Error("Este backup contém condições. Restaure-o pelo cofre da versão web; a fila móvel ainda não sincroniza condições.");

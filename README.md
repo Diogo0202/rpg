@@ -132,6 +132,8 @@ Leia a [comparação com a proposta e o procedimento de ativação](docs/NEXUS_L
 
 ## Supabase
 
+O [fluxo de modelos do Marketplace](docs/MARKETPLACE_MODELOS.md) inclui publicação a partir de modelo aprovado, cópia para a campanha e revisão pelo narrador em **Modelos importados**. A cópia só fica disponível para criar fichas após a aprovação no banco. A validação local está registrada no documento; a integração remota segue pendente.
+
 A [revisão de segurança de 17/10/2026](SEGURANCA.md) descreve os limites das fichas, a autenticação e as cotas da API, os sinais mínimos de Realtime e a proteção da impressão. Os testes locais de API e frontend foram executados em 18/10/2026; as migrations e os testes pgTAP ainda precisam de execução no banco. O frontend e a migration de notificações Realtime devem ser lançados juntos.
 
 As migrações estão em `supabase/migrations/`. Elas ainda precisam ser avaliadas e aplicadas ao projeto Supabase de destino. O acesso privado deve continuar protegido por convites e políticas RLS. O bucket da biblioteca deve ser privado antes de receber arquivos.

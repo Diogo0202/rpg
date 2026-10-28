@@ -4,7 +4,13 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import styles from "./marketplace-moderation-panel.module.css";
 
 type SystemStatus = "published" | "hidden" | "removed";
-type QueueItem = { id: string; system_id: string; system_name: string; author_name: string; system_status: SystemStatus; reason: string; created_at: string; open_reports: number };
+type QueueItem = { id: string; system_id: string; system_name: string; author_name: string; system_status: SystemStatus; reason: string; created_at: string; open_reports: number;
+  category?: "abuse" | "copyright"; claimed_work?: string | null; rights_holder?: string | null; evidence_url?: string | null };
+
+function safeEvidenceLink(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:" ? url.toString() : null; } catch { return null; }
+}
 type ModeratedSystem = { id: string; name: string; author_name: string; status: SystemStatus; updated_at: string; open_reports: number };
 type HistoryItem = { id: number; system_id: string; system_name: string; action: "hide" | "restore" | "remove"; previous_status: SystemStatus; current_status: SystemStatus; note: string | null; from_report: boolean; by_me: boolean; created_at: string };
 type Tab = "reports" | "systems" | "history";
@@ -151,8 +157,11 @@ export function MarketplaceModerationPanel({ token }: { token: string | null }) 
       {queue.length === 0 && !busy && <p className={styles.empty}>Nenhuma denúncia aberta.</p>}
       {queue.map((item) => {
         const key = `report:${item.id}`;
-        return <article className={styles.item} key={item.id}>
-          <div className={styles.itemHead}><h3>{item.system_name}</h3><span className={styles.badge} data-status={item.system_status}>{STATUS_LABEL[item.system_status] ?? item.system_status}</span></div>
+        const copyright = item.category === "copyright";
+        const evidence = copyright ? safeEvidenceLink(item.evidence_url) : null;
+        return <article className={copyright ? `${styles.item} ${styles.copyrightItem}` : styles.item} key={item.id}>
+          <div className={styles.itemHead}><h3>{item.system_name}</h3><span>{copyright && <span className={styles.copyrightBadge}>Copyright</span>} <span className={styles.badge} data-status={item.system_status}>{STATUS_LABEL[item.system_status] ?? item.system_status}</span></span></div>
+          {copyright && <p className={styles.meta}>Obra alegada: <strong>{item.claimed_work}</strong> · Titular: <strong>{item.rights_holder}</strong>{evidence ? <> · <a href={evidence} target="_blank" rel="noopener noreferrer nofollow">link informado</a></> : null}</p>}
           <p className={styles.meta}>Autor: {item.author_name} · Denunciado em <time dateTime={item.created_at}>{formatDate(item.created_at)}</time>{item.open_reports > 1 ? ` · ${item.open_reports} denúncias abertas` : ""}</p>
           <blockquote className={styles.reason}>{item.reason}</blockquote>
           <label className={styles.field}>Motivo da decisão (obrigatório)<textarea required minLength={3} maxLength={2000} value={notes[key] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [key]: event.target.value }))} /></label>

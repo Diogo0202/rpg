@@ -30,7 +30,8 @@
     "exactOptionalPropertyTypes": false,
     "noUncheckedSideEffectImports": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@dice3d/*": ["../shared/dice3d/*"]
     }
   }
 }

@@ -99,7 +99,8 @@ export type SpecialtyStatus = { own: string[]; expected: number; due: string[]; 
 export function specialtyStatus(rule: SpecialtyPicksRule, values: Values, granted: string[]): SpecialtyStatus {
   const raw = values[rule.collection] ?? [];
   const labels = new Map(rule.skills.map((skill) => [skill.field, skill.label]));
-  const due = rule.required.filter((id) => numeric(values[id]) >= 1);
+  const minimum = rule.min_value ?? 1;
+  const due = rule.required.filter((id) => numeric(values[id]) >= minimum);
   const expected = due.length + rule.free;
   const result = (own: string[], problem: string | null): SpecialtyStatus => ({ own, expected, due: due.map((id) => labels.get(id) ?? id), problem });
   if (!Array.isArray(raw) || raw.some((item) => typeof item !== "string")) return result([], "a lista precisa conter textos");
@@ -109,7 +110,7 @@ export function specialtyStatus(rule: SpecialtyPicksRule, values: Values, grante
   for (const item of own) {
     const skill = specialtySkill(rule, item);
     if (!skill) return result(own, `${item} precisa seguir o formato Habilidade (especialização) com uma habilidade da lista`);
-    if (numeric(values[skill.field]) < 1) return result(own, `${item} pede ao menos 1 ponto em ${skill.label}`);
+    if (numeric(values[skill.field]) < minimum) return result(own, `${item} pede ao menos ${minimum} ${minimum === 1 ? "ponto" : "pontos"} em ${skill.label}`);
     picked.set(skill.field, (picked.get(skill.field) ?? 0) + 1);
   }
   const missing = due.filter((id) => !picked.get(id)).map((id) => labels.get(id) ?? id);

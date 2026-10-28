@@ -132,9 +132,15 @@ export function makeSheetStarter(template: { id: string; name: string; version: 
   }));
   // Creation rules travel with the template: the database checks them when the sheet is created.
   const rules = Array.isArray(schema.creation_rules) ? { creation_rules: schema.creation_rules } : {};
+  // XP and meta currencies too: the wizard keeps master-granted resources at zero, as the database demands.
+  const experience = typeof schema.experience_field === "string" ? { experience_field: schema.experience_field } : {};
+  const currencies = Array.isArray(schema.meta_currencies) ? { meta_currencies: schema.meta_currencies.filter((item) => {
+    const currency = object(item);
+    return typeof currency.id === "string" && typeof currency.field === "string" && (currency.mode === "pool" || currency.mode === "track");
+  }) } : {};
   return {
     id: template.id, label: template.name, templateId: template.id, systemKey: template.id,
-    template: { name: template.name, version: template.version, fields: normalized, ...rules,
+    template: { name: template.name, version: template.version, fields: normalized, ...rules, ...experience, ...currencies,
       ...(typeof schema.system_key === "string" ? { system_key: schema.system_key } : {}),
     } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
     values: {} as Record<string, string | number | boolean | string[]>,

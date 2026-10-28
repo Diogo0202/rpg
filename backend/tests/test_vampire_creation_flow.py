@@ -76,16 +76,22 @@ def test_the_wizard_sheet_is_valid_and_created(api, system: str) -> None:
     assert all(field["kind"] != "formula" or field["id"] not in inserted[0]["values"] for field in TEMPLATES[system]["fields"])
 
 
-@pytest.mark.parametrize("change, rule", [
-    ({"forca": 5}, "criacao_v3"),                  # 5 more freebies than the 15
-    ({"disc_dominacao": 1, "disc_rapidez": 1}, "criacao_v3"),  # an off-clan discipline
-    ({"humanidade": 6}, "criacao_v3"),             # Humanity bought back below the freebie
-    ({"ant_contatos": 3}, "criacao_v3"),           # one freebie left unspent
+@pytest.mark.parametrize("change, rules", [
+    ({"forca": 5}, ["criacao_v3"]),                  # 5 more freebies than the 15
+    ({"disc_dominacao": 1, "disc_rapidez": 1}, ["criacao_v3"]),  # an off-clan discipline
+    ({"humanidade": 6}, ["criacao_v3"]),             # Humanity bought back below the freebie
+    ({"ant_contatos": 3}, ["criacao_v3"]),           # one freebie left unspent
+    ({"defeitos": []}, ["criacao_v3"]),              # without the Flaw its freebie is gone
+    ({"meritos": ["Sentido Aguçado (1)", "Sortudo •••"]}, ["criacao_v3"]),  # Merits cost freebies
+    ({"defeitos": ["Pesadelos •", "Caçado ••••", "Destino Sombrio •••••"]}, ["criacao_v3", "defeitos_v3"]),  # past the 7 cap
+    ({"meritos": ["Poder Inventado (1)"]}, ["meritos_v3"]),  # outside the catalog
+    ({"especialidades": ["Força (Agarrar)"]}, ["especializacoes_v3"]),  # Briga 4 needs its own
+    ({"conviccao": 2, "consciencia": 2}, ["criacao_v3"]),  # Humanity keeps Convicção closed
 ])
-def test_v3_tampering_is_reported_per_step_and_refused_on_create(api, change: dict[str, Any], rule: str) -> None:
+def test_v3_tampering_is_reported_per_step_and_refused_on_create(api, change: dict[str, Any], rules: list[str]) -> None:
     values = {**SHEETS["v3"]["values"], **change}
     report = check(values)
-    assert report["valid"] is False and [item["rule_id"] for item in report["violations"]] == [rule]
+    assert report["valid"] is False and sorted(item["rule_id"] for item in report["violations"]) == rules
     response = create("Mara", values)
     assert response.status_code == 422
 

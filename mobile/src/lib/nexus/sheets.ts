@@ -76,7 +76,7 @@ export function storableValues(template: SheetTemplate, values: Record<string, F
 
 export function toBackupFields(fields: SheetField[]): BackupField[] {
   return fields.map((f) => ({
-    id: f.id, label: f.label, kind: f.kind, required: f.required, options: [...f.options], expression: f.expression,
+    id: f.id, label: f.label, kind: f.kind, required: f.required, options: [...(f.options ?? [])], expression: f.expression ?? null,
     ...(f.depends_on ? { depends_on: f.depends_on } : {}),
   }));
 }
@@ -92,9 +92,17 @@ export function exportSheet(sheet: SheetData, items: InventoryData[]): SheetBack
   });
 }
 
+/**
+ * Backup format v1 carries only the BackupField keys, so the template side is projected
+ * the same way: limits, private, item_options and paired_with stay with the template.
+ */
+export function backupMatchesFields(doc: SheetBackup, fields: SheetField[]): boolean {
+  return mechanicallyEquivalentFields(doc.template.fields, toBackupFields(fields));
+}
+
 export function matchStarter(doc: SheetBackup): SystemStarter | undefined {
   return SYSTEM_STARTERS.find((s) => s.template.name === doc.template.name && s.template.version === doc.template.version
-    && mechanicallyEquivalentFields(doc.template.fields, s.template.fields));
+    && backupMatchesFields(doc, s.template.fields));
 }
 
 /** Normalize the record name and its canonical input together before any write. */

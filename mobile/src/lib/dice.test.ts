@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DICE_LIMITS, parseDice, randomInt, rollExpression, rollPool, rollSotdl, type DiceTerm } from "./dice";
+import { DICE_LIMITS, parseDice, randomInt, rollExpression, rollHunter, rollPool, rollSotdl, type DiceTerm } from "./dice";
 
 describe("parseDice", () => {
   it("returns the real dice/constant union for valid terms", () => {
@@ -82,5 +82,24 @@ describe("rollSotdl", () => {
     expect(() => rollSotdl(21)).toThrow("atributo");
     expect(() => rollSotdl(10, 11)).toThrow("Dádivas");
     expect(() => rollSotdl(10, 0, 0, 0)).toThrow("alvo");
+  });
+});
+
+describe("rollHunter", () => {
+  it("separates orange and Desperation dice and counts the resolved faces", () => {
+    for (let index = 0; index < 20; index++) {
+      const roll = rollHunter(5, 3, true, 4);
+      const normal = roll.terms[0]!.rolls;
+      const desperate = roll.terms[1]!.rolls;
+      const all = [...normal, ...desperate];
+      expect(normal).toHaveLength(5);
+      expect(desperate).toHaveLength(3);
+      expect(roll.total).toBe(all.filter((value) => value >= 6).length + Math.floor(all.filter((value) => value === 10).length / 2) * 2);
+      expect(roll.hunter!.success).toBe(roll.total >= 4);
+      expect(roll.hunter!.desperationOnes).toBe(desperate.filter((value) => value === 1).length);
+    }
+    expect(rollHunter(5, 3, false, 4).terms[1]!.rolls).toHaveLength(0);
+    expect(() => rollHunter(31, 0, false, 1)).toThrow();
+    expect(() => rollHunter(1, 6, true, 1)).toThrow();
   });
 });

@@ -21,6 +21,7 @@ export type DiceRoll = {
   label?: string;
   pool?: { successes: number; tens: number; hungerDice: number[] };
   sotdl?: { target: number; success: boolean; critical: boolean };
+  hunter?: { difficulty: number; success: boolean; critical: boolean; criticalPairs: number; desperationOnes: number; desperationConsequence: "despair" | "table_choice" | null };
 };
 
 export function parseDice(input: string): DiceTerm[] {
@@ -161,6 +162,31 @@ export function rollPool(size: number, hunger = 0, label?: string): DiceRoll {
     total: successes,
     createdAt: Date.now(),
     pool: { successes, tens, hungerDice: rolls.slice(0, h) },
+    ...(label ? { label } : {}),
+  };
+}
+
+/** Local Hunter roll; the presentation receives these resolved faces. */
+export function rollHunter(basePool: number, desperation: number, useDesperation: boolean, difficulty: number, label?: string): DiceRoll {
+  if (!Number.isSafeInteger(basePool) || basePool < 1 || basePool > 30) throw new Error("A parada deve ter de 1 a 30 dados.");
+  if (!Number.isSafeInteger(desperation) || desperation < 0 || desperation > 5) throw new Error("Desespero deve ficar entre 0 e 5.");
+  if (!Number.isSafeInteger(difficulty) || difficulty < 1 || difficulty > 69) throw new Error("Dificuldade deve ficar entre 1 e 69.");
+  const normal = Array.from({ length: basePool }, () => randomInt(10));
+  const desperate = Array.from({ length: useDesperation ? desperation : 0 }, () => randomInt(10));
+  const all = [...normal, ...desperate];
+  const criticalPairs = Math.floor(all.filter((value) => value === 10).length / 2);
+  const successes = all.filter((value) => value >= 6).length + criticalPairs * 2;
+  const success = successes >= difficulty;
+  const desperationOnes = desperate.filter((value) => value === 1).length;
+  return {
+    id: crypto.randomUUID(), expression: `Caçador ${basePool}d10${desperate.length ? ` + ${desperate.length} Desespero` : ""}`,
+    terms: [
+      { label: "Dados comuns", rolls: normal, subtotal: normal.filter((value) => value >= 6).length },
+      { label: "Dados de Desespero", rolls: desperate, subtotal: desperate.filter((value) => value >= 6).length },
+    ],
+    total: successes, createdAt: Date.now(),
+    hunter: { difficulty, success, critical: success && criticalPairs > 0, criticalPairs, desperationOnes,
+      desperationConsequence: desperationOnes ? (success ? "table_choice" : "despair") : null },
     ...(label ? { label } : {}),
   };
 }

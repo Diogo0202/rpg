@@ -1,6 +1,6 @@
 {
   "name": "Caçador modular",
-  "version": 3,
+  "version": 4,
   "fields": [
     {
       "id": "sistema",
@@ -178,7 +178,7 @@
     },
     {
       "id": "em_desespero",
-      "label": "Em Desespero",
+      "label": "Em Desespero (Despair)",
       "kind": "checkbox",
       "options": [],
       "expression": null,
@@ -600,23 +600,14 @@
       "creation_step": "resources"
     },
     {
-      "id": "desespero",
-      "label": "Desespero",
-      "kind": "number",
-      "options": [],
-      "expression": null,
-      "required": false,
-      "min": 0,
-      "max": 5,
-      "creation_step": "resources"
-    },
-    {
       "id": "recursos",
       "label": "Recursos",
       "kind": "number",
       "options": [],
       "expression": null,
       "required": false,
+      "min": 0,
+      "max": 5,
       "creation_step": "resources"
     },
     {
@@ -693,16 +684,99 @@
     },
     {
       "id": "triunfos",
-      "label": "Triunfos",
+      "label": "Triunfos (Edges)",
       "kind": "collection",
       "options": [],
       "expression": null,
       "required": false,
+      "item_options": [
+        "Arsenal",
+        "Frota",
+        "Artilharia",
+        "Biblioteca",
+        "Equipamento Improvisado",
+        "Acesso Global",
+        "Piloto de Drone",
+        "Encantador de Feras",
+        "Vira-Casaca",
+        "Sentir o Sobrenatural",
+        "Repelir o Sobrenatural",
+        "Frustrar o Sobrenatural",
+        "Artefato",
+        "Purificar o Sobrenatural"
+      ],
       "creation_step": "traits"
     },
     {
       "id": "distincoes",
-      "label": "Distinções",
+      "label": "Distinções (Perks)",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "item_options": [
+        "Arsenal: Requisição de Equipe",
+        "Arsenal: Especializado",
+        "Arsenal: Excepcional",
+        "Arsenal: Irrastreável",
+        "Frota: Blindagem",
+        "Frota: Desempenho",
+        "Frota: Vigilância",
+        "Frota: Irrastreável",
+        "Artilharia: Cargas Múltiplas",
+        "Artilharia: Entrega Não Convencional",
+        "Artilharia: Entrega Disfarçada",
+        "Artilharia: Preparo de Carga",
+        "Biblioteca: Onde se Escondem",
+        "Biblioteca: Onde São Fracos",
+        "Biblioteca: Quem São",
+        "Biblioteca: Pesquisa Rápida",
+        "Equipamento Improvisado: Frugal",
+        "Equipamento Improvisado: Fabricação Rápida",
+        "Equipamento Improvisado: Produção em Massa",
+        "Equipamento Improvisado: Especializado",
+        "Acesso Global: Porta dos Fundos",
+        "Acesso Global: Lista de Vigilância",
+        "Acesso Global: Catraca",
+        "Acesso Global: Acesso Total",
+        "Piloto de Drone: Drone Armado",
+        "Piloto de Drone: Drone Autônomo",
+        "Piloto de Drone: Vigilância",
+        "Piloto de Drone: Carga Útil",
+        "Encantador de Feras: Mensageiro",
+        "Encantador de Feras: Matilha",
+        "Encantador de Feras: Incorruptível",
+        "Encantador de Feras: Elo Telepático",
+        "Vira-Casaca: Agente Duplo",
+        "Vira-Casaca: Lábia",
+        "Vira-Casaca: Conhecimento Interno",
+        "Vira-Casaca: Disfarce Persistente",
+        "Sentir o Sobrenatural: Precisão",
+        "Sentir o Sobrenatural: Alcance",
+        "Sentir o Sobrenatural: Reconhecer",
+        "Sentir o Sobrenatural: Sentido Ampliado",
+        "Repelir o Sobrenatural: Barreira",
+        "Repelir o Sobrenatural: Dano",
+        "Repelir o Sobrenatural: Reação Rápida",
+        "Repelir o Sobrenatural: Recuo",
+        "Frustrar o Sobrenatural: Rastreio",
+        "Frustrar o Sobrenatural: Resistência",
+        "Frustrar o Sobrenatural: Proteção de Grupo",
+        "Frustrar o Sobrenatural: Contrafeitiço",
+        "Artefato: Fortalecer",
+        "Artefato: Detecção",
+        "Artefato: Dano",
+        "Artefato: Escudo",
+        "Purificar o Sobrenatural: Purificação em Grupo",
+        "Purificar o Sobrenatural: Ritual",
+        "Purificar o Sobrenatural: Expulsão",
+        "Purificar o Sobrenatural: Santuário"
+      ],
+      "creation_step": "traits"
+    },
+    {
+      "id": "equipamento",
+      "label": "Equipamento",
       "kind": "collection",
       "options": [],
       "expression": null,
@@ -829,6 +903,357 @@
           "rest": 0
         }
       ]
+    },
+    {
+      "type": "specialty_picks",
+      "id": "especializacoes",
+      "label": "Especializações",
+      "collection": "especialidades",
+      "skills": [
+        {
+          "field": "armas_brancas",
+          "label": "Armas Brancas"
+        },
+        {
+          "field": "armas_de_fogo",
+          "label": "Armas de Fogo"
+        },
+        {
+          "field": "atletismo",
+          "label": "Atletismo"
+        },
+        {
+          "field": "briga",
+          "label": "Briga"
+        },
+        {
+          "field": "ciencia",
+          "label": "Ciência"
+        },
+        {
+          "field": "conducao",
+          "label": "Condução"
+        },
+        {
+          "field": "trato_com_animais",
+          "label": "Empatia com Animais"
+        },
+        {
+          "field": "academicos",
+          "label": "Erudição"
+        },
+        {
+          "field": "etiqueta",
+          "label": "Etiqueta"
+        },
+        {
+          "field": "financas",
+          "label": "Finanças"
+        },
+        {
+          "field": "furtividade",
+          "label": "Furtividade"
+        },
+        {
+          "field": "intimidacao",
+          "label": "Intimidação"
+        },
+        {
+          "field": "investigacao",
+          "label": "Investigação"
+        },
+        {
+          "field": "ladroagem",
+          "label": "Ladroagem"
+        },
+        {
+          "field": "lideranca",
+          "label": "Liderança"
+        },
+        {
+          "field": "manha",
+          "label": "Manha"
+        },
+        {
+          "field": "medicina",
+          "label": "Medicina"
+        },
+        {
+          "field": "ocultismo",
+          "label": "Ocultismo"
+        },
+        {
+          "field": "oficios",
+          "label": "Ofícios"
+        },
+        {
+          "field": "percepcao",
+          "label": "Percepção"
+        },
+        {
+          "field": "performance",
+          "label": "Performance"
+        },
+        {
+          "field": "persuasao",
+          "label": "Persuasão"
+        },
+        {
+          "field": "politica",
+          "label": "Política"
+        },
+        {
+          "field": "empatia",
+          "label": "Sagacidade"
+        },
+        {
+          "field": "sobrevivencia",
+          "label": "Sobrevivência"
+        },
+        {
+          "field": "subterfugio",
+          "label": "Subterfúgio"
+        },
+        {
+          "field": "tecnologia",
+          "label": "Tecnologia"
+        }
+      ],
+      "required": [
+        "ciencia",
+        "academicos",
+        "oficios",
+        "performance"
+      ],
+      "free": 1,
+      "fields": []
+    },
+    {
+      "type": "collection_points",
+      "id": "vantagens_pontos",
+      "label": "Vantagens",
+      "collection": "vantagens",
+      "fields": [
+        "recursos"
+      ],
+      "points": 7,
+      "catalog": [
+        {
+          "name": "Aliados",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Contatos",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Fama",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Influência",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Máscara",
+          "costs": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "Lacaios",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Refúgio",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Status",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Linguística",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Bela",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Deslumbrante",
+          "costs": [
+            4
+          ]
+        }
+      ],
+      "allow_homebrew": false
+    },
+    {
+      "type": "collection_points",
+      "id": "defeitos_pontos",
+      "label": "Defeitos",
+      "collection": "defeitos",
+      "fields": [],
+      "points": 2,
+      "catalog": [
+        {
+          "name": "Inimigo",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Infame",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Antipatizado",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Desprezado",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Rejeitado",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Segredo Sombrio",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Analfabeto",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Feio",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Repulsivo",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Vício",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Vício Irremediável",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Destituído",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Perseguidores",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Suspeito",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Sem Refúgio",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Refúgio Comprometido",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Farol do Profano",
+          "costs": [
+            1
+          ]
+        }
+      ],
+      "allow_homebrew": false
     }
   ],
   "system_key": "hunter"

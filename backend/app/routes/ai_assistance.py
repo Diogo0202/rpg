@@ -16,7 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, Stri
 
 from app.routes.sheets import _current_user_id, _get_template, _request
 from app.services.sheet_creation import approved_template_draft, prepare_sheet_creation
-from app.services import ai_provider
+from app.services import ai_provider, tutor_policy
+from app.services.prompt_security import UntrustedDataError, normalize_untrusted_text
 from app.models import TemplateDraft
 from app.services.sheet_calculations import calculate_sheet
 
@@ -373,6 +374,7 @@ class TutorRequest(BaseModel):
     expression: StrictStr = Field(min_length=1, max_length=120)
     values: dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{1,63}$")], Annotated[StrictInt | StrictFloat, Field(ge=-1_000_000, le=1_000_000)]] = Field(default_factory=dict, max_length=20)
     explain: StrictBool = False
+    question: StrictStr | None = Field(default=None, min_length=3, max_length=280)
     idempotency_key: UUID | None = None
 
 
@@ -381,6 +383,17 @@ async def math_tutor(campaign_id: UUID, payload: TutorRequest, request: Request,
     actor = await _actor(campaign_id, request, authorization)
     if not actor.player:
         raise HTTPException(403, "Participação de jogador ou narrador necessária.")
+    question = None
+    if payload.question is not None:
+        try:
+            question = normalize_untrusted_text(payload.question, field="pergunta", max_chars=280, max_bytes=1120).strip()
+        except UntrustedDataError as error:
+            raise HTTPException(422, str(error)) from error
+    # Fair use: mechanics only. Lore/narrative requests are refused before any paid call.
+    try:
+        tutor_policy.check_tutor_request([payload.expression, *payload.values, *([question] if question else [])])
+    except tutor_policy.TutorPolicyError as error:
+        raise HTTPException(422, tutor_policy.REFUSAL_MESSAGE) from error
     if "nexus_result" in payload.values:
         raise HTTPException(422, "O nome nexus_result é reservado ao cálculo.")
     try:
@@ -391,17 +404,25 @@ async def math_tutor(campaign_id: UUID, payload: TutorRequest, request: Request,
         answer = calculate_sheet(template, payload.values)["nexus_result"]
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
-    result = {"expression": payload.expression, "values": payload.values, "result": answer, "explanation": None}
+    result = {"expression": payload.expression, "values": payload.values, "result": answer, "explanation": None, "bullets": []}
     if payload.explain:
         if payload.idempotency_key is None:
             raise HTTPException(422, "A explicação exige um identificador de operação.")
         operation_id = str(uuid5(campaign_id, f"math_tutor:{actor.id}:{payload.idempotency_key}"))
         context = {"expression": payload.expression, "values": payload.values, "server_result": answer}
+        if question:
+            context["question"] = question
         try:
             explanation = await _paid_generation(str(campaign_id), actor, "math_tutor", context, None, operation_id)
         except ai_provider.AIProviderError as error:
             raise HTTPException(502, "Não foi possível obter a explicação. O cálculo continua disponível sem IA.") from error
-        result["explanation"] = explanation["explanation"]
+        # Post-check the format again at the API edge: bullet points about mechanics only.
+        try:
+            bullets = tutor_policy.mechanics_bullets(explanation["explanation"])
+        except tutor_policy.TutorPolicyError as error:
+            raise HTTPException(502, "A explicação fugiu do formato de regras mecânicas em tópicos e foi descartada. O cálculo continua disponível.") from error
+        result["bullets"] = bullets
+        result["explanation"] = tutor_policy.format_bullets(bullets)
     return result
 
 

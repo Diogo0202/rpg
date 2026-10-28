@@ -117,7 +117,107 @@ def hunter_trait_problems(values: dict[str, Any]) -> list[str]:
     redemption = values.get("redencao")
     if isinstance(redemption, str) and len(redemption) > LIMITS["redencao"]:
         problems.append(f"Redenção passa de {LIMITS['redencao']} caracteres")
+    # v1-v3 sheets kept the cell's Desperation in `desespero`; F4 moves it to hunter_cells.
     desperation = values.get("desespero", 0)
     if isinstance(desperation, bool) or not isinstance(desperation, int) or not 0 <= desperation <= 5:
-        problems.append("Desespero vai de 0 a 5")
+        problems.append("Desesperação (campo antigo da ficha) vai de 0 a 5")
+    if not isinstance(values.get("em_desespero", False), bool):
+        problems.append("Em Desespero precisa ser marcado ou desmarcado")
+    problems.extend(hunter_edge_problems(values))
     return problems
+
+
+# --- F4: Triunfos (Edges) e Distinções (Perks) ---------------------------------------------
+# Mechanical names only, no rules text. The Portuguese names and the Perks of each Edge are
+# provisional and marked for review against the book (docs/CACADOR_CRIACAO_GUIADA.md, F4).
+# Same lists in frontend/lib/hunter-traits.ts.
+HUNTER_EDGES: dict[str, list[str]] = {
+    "Arsenal": ["Requisição de Equipe", "Especializado", "Excepcional", "Irrastreável"],
+    "Frota": ["Blindagem", "Desempenho", "Vigilância", "Irrastreável"],
+    "Artilharia": ["Cargas Múltiplas", "Entrega Não Convencional", "Entrega Disfarçada", "Preparo de Carga"],
+    "Biblioteca": ["Onde se Escondem", "Onde São Fracos", "Quem São", "Pesquisa Rápida"],
+    "Equipamento Improvisado": ["Frugal", "Fabricação Rápida", "Produção em Massa", "Especializado"],
+    "Acesso Global": ["Porta dos Fundos", "Lista de Vigilância", "Catraca", "Acesso Total"],
+    "Piloto de Drone": ["Drone Armado", "Drone Autônomo", "Vigilância", "Carga Útil"],
+    "Encantador de Feras": ["Mensageiro", "Matilha", "Incorruptível", "Elo Telepático"],
+    "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
+    "Sentir o Sobrenatural": ["Precisão", "Alcance", "Reconhecer", "Sentido Ampliado"],
+    "Repelir o Sobrenatural": ["Barreira", "Dano", "Reação Rápida", "Recuo"],
+    "Frustrar o Sobrenatural": ["Rastreio", "Resistência", "Proteção de Grupo", "Contrafeitiço"],
+    "Artefato": ["Fortalecer", "Detecção", "Dano", "Escudo"],
+    "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
+}
+HUNTER_PERKS = [f"{edge}: {perk}" for edge, perks in HUNTER_EDGES.items() for perk in perks]
+# At creation: two Edges and one Perk, or one Edge and two Perks (marked for review).
+HUNTER_EDGE_STARTS: list[tuple[int, int]] = [(2, 1), (1, 2)]
+EDGE_FIELD, PERK_FIELD = "triunfos", "distincoes"
+
+
+def _items(value: Any) -> list[str]:
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()] if isinstance(value, list) else []
+
+
+def hunter_edge_problems(values: dict[str, Any]) -> list[str]:
+    """Every Edge is a catalog name; every Perk is "Triunfo: Distinção" of an Edge the sheet has."""
+    problems: list[str] = []
+    edges = _items(values.get(EDGE_FIELD))
+    perks = _items(values.get(PERK_FIELD))
+    if len(set(edges)) != len(edges) or len(set(perks)) != len(perks):
+        problems.append("Triunfos e Distinções não se repetem")
+    for edge in edges:
+        if edge not in HUNTER_EDGES:
+            problems.append(f"Triunfo {edge} fora do catálogo")
+    for perk in perks:
+        edge, _, name = perk.partition(":")
+        edge, name = edge.strip(), name.strip()
+        if edge not in HUNTER_EDGES or name not in HUNTER_EDGES[edge]:
+            problems.append(f"Distinção {perk} fora do catálogo (formato Triunfo: Distinção)")
+        elif edge not in edges:
+            problems.append(f"Distinção {perk} pede o Triunfo {edge}")
+    return problems
+
+
+def hunter_creation_problems(values: dict[str, Any]) -> list[str]:
+    """Trait problems plus the starting count of Edges and Perks."""
+    problems = hunter_trait_problems(values)
+    counts = (len(_items(values.get(EDGE_FIELD))), len(_items(values.get(PERK_FIELD))))
+    if counts not in HUNTER_EDGE_STARTS:
+        problems.append("Na criação: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções")
+    return problems
+
+
+def in_despair(values: dict[str, Any]) -> bool:
+    return values.get("em_desespero") is True
+
+
+def usable_edges(values: dict[str, Any]) -> list[str]:
+    """Edges blocked while the hunter is in Despair (conferir no livro)."""
+    return [] if in_despair(values) else _items(values.get(EDGE_FIELD))
+
+
+def template_creation_problems(system_key: str | None, version: int, field_ids: set[str], values: dict[str, Any]) -> list[str]:
+    """Hunter checks for sheets/create: v3+ structured traits; from v4 also the starting Edges and Perks."""
+    if system_key != "hunter" or "conviccao_1" not in field_ids:
+        return []
+    return hunter_creation_problems(values) if version >= 4 and EDGE_FIELD in field_ids else hunter_trait_problems(values)
+
+
+# --- F4: Desperation results (mirror of private.hunter_roll_outcome) ------------------------
+def roll_outcome(normal: list[int], desperation: list[int], difficulty: int) -> dict[str, Any]:
+    faces = [*normal, *desperation]
+    pairs = faces.count(10) // 2
+    successes = sum(face >= 6 for face in faces) + 2 * pairs
+    success = successes >= difficulty
+    ones = desperation.count(1)
+    return {
+        "successes": successes, "success": success, "critical_pairs": pairs, "critical": success and pairs > 0,
+        "desperation_ones": ones,
+        "desperation_consequence": None if not ones else "table_choice" if success else "despair",
+    }
+
+
+def desperation_choices(outcome: dict[str, Any]) -> list[str]:
+    """What the table may pick: Overreach only on a success (conferir no livro)."""
+    if not outcome.get("desperation_ones"):
+        return []
+    return ["overreach", "despair"] if outcome.get("success") else ["despair"]

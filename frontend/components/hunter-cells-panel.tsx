@@ -3,9 +3,13 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { authenticatedPost } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";
 
-/** ATL-04: Hunter cells persisted per campaign (migration 20261026190000). Members read; owner and masters edit. */
+/**
+ * ATL-04: Hunter cells persisted per campaign (migration 20261026190000). Members read; owner and masters edit.
+ * F4: Desesperação (Desperation) and Perigo (Danger) live only here; a sheet joins one cell (hunter_cell_members).
+ */
 type Cell = { id: string; name: string; danger: number; desperation: number; notes: string; version: number };
 type Member = { cell_id: string; sheet_id: string; role: string };
 type Target = { id: string; cell_id: string; name: string; kind: "antagonista" | "alvo"; status: string; threat: number; notes: string };
@@ -96,8 +100,18 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
     event.preventDefault();
     if (!cell) return;
     const { danger, desperation, notes } = cellDraft;
-    if ([danger, desperation].some((value) => !Number.isInteger(value) || value < 0 || value > 5) || notes.length > 4000) { setMessage("Perigo e Desespero vão de 0 a 5; notas até 4000 caracteres."); return; }
+    if ([danger, desperation].some((value) => !Number.isInteger(value) || value < 0 || value > 5) || notes.length > 4000) { setMessage("Perigo e Desesperação vão de 0 a 5; notas até 4000 caracteres."); return; }
     void write(() => table("hunter_cells").update({ danger, desperation, notes }).eq("id", cell.id).eq("version", cell.version), "Célula atualizada.");
+  }
+  /** F4: one-step change through adjust_hunter_cell (atomic, idempotent by operation id, logged in hunter_events). */
+  function adjust(dangerDelta: number, desperationDelta: number) {
+    if (!cell || !canManage || busy) return;
+    const operationId = crypto.randomUUID();
+    setBusy(true); setMessage("");
+    void authenticatedPost(`/api/v1/hunter/cells/${cell.id}/adjust`, { operation_id: operationId, danger_delta: dangerDelta, desperation_delta: desperationDelta })
+      .then(() => { setMessage("Célula ajustada."); setRevision((value) => value + 1); })
+      .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "O ajuste falhou."))
+      .finally(() => setBusy(false));
   }
   function addMember(event: FormEvent) {
     event.preventDefault();
@@ -129,7 +143,7 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
     <div className={styles.layout}>
       <article className={styles.card}>
         <h3>Células</h3>
-        {cells.length ? <ul className={styles.cellList}>{cells.map((item) => <li key={item.id}><button type="button" aria-pressed={item.id === cell?.id} onClick={() => setSelectedId(item.id)}>{item.name} · Perigo {item.danger} · Desespero {item.desperation}</button></li>)}</ul> : <p>Nenhuma célula registrada.</p>}
+        {cells.length ? <ul className={styles.cellList}>{cells.map((item) => <li key={item.id}><button type="button" aria-pressed={item.id === cell?.id} onClick={() => setSelectedId(item.id)}>{item.name} · Perigo {item.danger} · Desesperação {item.desperation}</button></li>)}</ul> : <p>Nenhuma célula registrada.</p>}
         {canManage && <form className={styles.inline} onSubmit={createCell}><label>Nova célula<input value={newCell} maxLength={120} onChange={(event) => setNewCell(event.target.value)} /></label><button className={styles.rollButton} type="submit" disabled={busy}>Criar</button></form>}
       </article>
       {cell && <article className={styles.card}>
@@ -137,17 +151,23 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
         {canManage ? <form onSubmit={saveCell}>
           <div className={styles.inline}>
             <label>Perigo<input type="number" min={0} max={5} value={cellDraft.danger} onChange={(event) => setCellDraft({ ...cellDraft, danger: Number(event.target.value) })} /></label>
-            <label>Desespero<input type="number" min={0} max={5} value={cellDraft.desperation} onChange={(event) => setCellDraft({ ...cellDraft, desperation: Number(event.target.value) })} /></label>
+            <label>Desesperação<input type="number" min={0} max={5} value={cellDraft.desperation} onChange={(event) => setCellDraft({ ...cellDraft, desperation: Number(event.target.value) })} /></label>
+          </div>
+          <div className={styles.inline} aria-label="Ajuste rápido da célula">
+            <button type="button" disabled={busy || cell.danger <= 0} onClick={() => adjust(-1, 0)}>Perigo −1</button>
+            <button type="button" disabled={busy || cell.danger >= 5} onClick={() => adjust(1, 0)}>Perigo +1</button>
+            <button type="button" disabled={busy || cell.desperation <= 0} onClick={() => adjust(0, -1)}>Desesperação −1</button>
+            <button type="button" disabled={busy || cell.desperation >= 5} onClick={() => adjust(0, 1)}>Desesperação +1</button>
           </div>
           <label>Notas<textarea maxLength={4000} value={cellDraft.notes} onChange={(event) => setCellDraft({ ...cellDraft, notes: event.target.value })} /></label>
           <button className={styles.rollButton} type="submit" disabled={busy}>Salvar célula</button>
-        </form> : <p className={styles.poolLine}>Perigo <b>{cell.danger}</b> · Desespero <b>{cell.desperation}</b>{cell.notes ? ` · ${cell.notes}` : ""}</p>}
+        </form> : <p className={styles.poolLine}>Perigo <b>{cell.danger}</b> · Desesperação <b>{cell.desperation}</b>{cell.notes ? ` · ${cell.notes}` : ""}</p>}
 
         <h3>Membros</h3>
         <ul className={styles.rows}>{cellMembers.map((member) => <li key={member.sheet_id}><span>{sheetName(member.sheet_id)}{member.role ? ` · ${member.role}` : ""}</span>
           {canManage && <button type="button" disabled={busy} onClick={() => void write(() => table("hunter_cell_members").delete().eq("cell_id", cell.id).eq("sheet_id", member.sheet_id), "Membro removido.")}>remover</button>}</li>)}</ul>
         {canManage && <form className={styles.inline} onSubmit={addMember}>
-          <label>Ficha<select value={memberDraft.sheetId} onChange={(event) => setMemberDraft({ ...memberDraft, sheetId: event.target.value })}><option value="">Selecione</option>{sheets.filter((sheet) => !cellMembers.some((member) => member.sheet_id === sheet.id)).map((sheet) => <option key={sheet.id} value={sheet.id}>{sheet.name}</option>)}</select></label>
+          <label>Ficha<select value={memberDraft.sheetId} onChange={(event) => setMemberDraft({ ...memberDraft, sheetId: event.target.value })}><option value="">Selecione</option>{sheets.filter((sheet) => !members.some((member) => member.sheet_id === sheet.id)).map((sheet) => <option key={sheet.id} value={sheet.id}>{sheet.name}</option>)}</select></label>
           <label>Papel<input maxLength={80} value={memberDraft.role} onChange={(event) => setMemberDraft({ ...memberDraft, role: event.target.value })} /></label>
           <button className={styles.rollButton} type="submit" disabled={busy || !memberDraft.sheetId}>Incluir</button>
         </form>}

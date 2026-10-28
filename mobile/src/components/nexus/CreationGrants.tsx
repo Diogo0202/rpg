@@ -1,5 +1,6 @@
 import type { FieldValue, PowerPicksRule, SelectGrantsRule, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
 import { activeGrants, choiceOptions, chosenOption, powerItem, powerStatus, selectedCase } from "@/lib/creation-grants.ts";
+import { describeV5Power, v5PowerMetadata } from "@/lib/v5-creation-data.ts";
 import { Btn } from "./ui";
 
 type Values = Record<string, FieldValue>;
@@ -88,7 +89,7 @@ export function PowerPicker({ field, rule, values, onChange, error, idPrefix }: 
                     <label key={item} className={`tap flex items-center gap-2 rounded-lg border px-3 text-sm text-ink ${checked ? "border-primary bg-parchment-deep" : "border-ink/20"} ${!checked && full ? "opacity-50" : "cursor-pointer"}`}>
                       <input type="checkbox" className="size-4 accent-primary" checked={checked} disabled={!checked && full}
                         onChange={(event) => onChange(field.id, event.target.checked ? [...chosen, item] : chosen.filter((entry) => entry !== item))} />
-                      <span className="flex-1">{power.name}</span><small className="text-ink-muted">Nível {power.level}</small>
+                      <span className="flex-1">{power.name}</span><small className="text-ink-muted">{(() => { const meta = v5PowerMetadata(item); return meta ? describeV5Power(meta) : `Nível ${power.level}`; })()}</small>
                     </label>
                   );
                 })}

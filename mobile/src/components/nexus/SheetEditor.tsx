@@ -6,11 +6,14 @@ import { characterNameField, reconcileDependentValues } from "@/lib/sheet-creati
 import type { FieldValue } from "@/lib/sheet-template.ts";
 import { useNexus, type Entity } from "@/lib/nexus/store";
 import { FieldInput } from "./FieldInput";
+import { XP_FIELD } from "@/lib/game/table-rules";
 import { InventoryEditor } from "./InventoryEditor";
 import { Btn, Panel } from "./ui";
 
 export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
-  const { update, list } = useNexus();
+  const { update, list, mode } = useNexus();
+  // Connected: XP only changes through increment_xp / advances on the server (Mesa tab).
+  const xpLocked = mode === "connected";
   const template = templateFor(sheet.data);
   const [values, setValues] = useState({ ...sheet.data.values });
   const [name, setName] = useState(sheet.data.name);
@@ -27,6 +30,11 @@ export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
     <form onSubmit={async (event) => {
       event.preventDefault(); const result = prepared(); if (!result) return;
       setBusy(true);
+      // XP only changes through increment_xp / advances on the server: always send the stored value.
+      if (xpLocked) {
+        if (XP_FIELD in sheet.data.values) result.values[XP_FIELD] = sheet.data.values[XP_FIELD]!;
+        else delete result.values[XP_FIELD];
+      }
       try {
         await update("character_sheets", sheet.id, [{ path: ["name"], value: result.name }, { path: ["values"], value: result.values }]);
         setValues(result.values); setName(result.name); toast.success("Ficha salva neste aparelho.");
@@ -41,7 +49,9 @@ export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
         {removed.length > 0 && <p role="status" className="mb-3 text-sm text-ink">Escolhas incompatíveis removidas: {removed.join(", ")}. Revise.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           {!characterNameField(template) && <label className="text-sm font-semibold text-ink">Nome da ficha<input id="edit-__name" className="field-input mt-1" value={name} maxLength={120} aria-invalid={!!errors.__name} onChange={(e) => setName(e.target.value)} />{errors.__name && <span className="text-destructive">{errors.__name}</span>}</label>}
-          {template.fields.map((field) => <FieldInput key={field.id} template={template} field={field} values={values} formula={formulas[field.id]} error={errors[field.id]} idPrefix="edit" onChange={(id, value: FieldValue | undefined) => {
+          {template.fields.map((field) => <FieldInput key={field.id} template={template} field={field} values={values} formula={formulas[field.id]} error={errors[field.id]} idPrefix="edit"
+            {...(xpLocked && field.id === XP_FIELD && field.kind === "number" ? { fixed: typeof sheet.data.values[XP_FIELD] === "number" ? sheet.data.values[XP_FIELD] as number : 0, fixedNote: "Muda só pela compra ou concessão de XP (aba Mesa)" } : {})}
+            onChange={(id, value: FieldValue | undefined) => {
             const next = { ...values }; if (value === undefined) delete next[id]; else next[id] = value;
             const result = reconcileDependentValues(template, next);
             setRemoved(result.removedIds.filter((key) => values[key] !== undefined && result.values[key] === undefined));

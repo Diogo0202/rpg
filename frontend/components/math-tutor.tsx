@@ -3,12 +3,13 @@
 import { useRef, useState, type FormEvent } from "react";
 import styles from "./ai-assistance-panel.module.css";
 
-type Answer = { expression: string; result: number; explanation: string | null };
-type Input = { expression: string; values: Record<string, number>; explain: boolean; idempotency_key?: string };
+type Answer = { expression: string; result: number; explanation: string | null; bullets?: string[] };
+type Input = { expression: string; values: Record<string, number>; explain: boolean; question?: string; idempotency_key?: string };
 
 export function MathTutor({ enabled, send }: { enabled: boolean; send: (body: Input) => Promise<Answer> }) {
   const [expression, setExpression] = useState("forca + vigor * 2");
   const [variables, setVariables] = useState('{"forca": 3, "vigor": 2}');
+  const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,6 +24,7 @@ export function MathTutor({ enabled, send }: { enabled: boolean; send: (body: In
       const values: unknown = JSON.parse(variables);
       if (!values || typeof values !== "object" || Array.isArray(values) || Object.values(values).some((value) => typeof value !== "number" || !Number.isFinite(value))) throw new Error("Informe um objeto JSON com valores numéricos.");
       const body: Input = { expression, values: values as Record<string, number>, explain };
+      if (explain && question.trim()) body.question = question.trim();
       if (explain) {
         const signature = JSON.stringify(body);
         if (operation.current?.signature !== signature) operation.current = { signature, id: crypto.randomUUID() };
@@ -35,13 +37,14 @@ export function MathTutor({ enabled, send }: { enabled: boolean; send: (body: In
   }
   return <section className={styles.card} aria-label="Tutor matemático">
     <h3>Tutor matemático</h3>
-    <p>O servidor calcula a expressão. A IA explica a conta, sem criar regras ou reproduzir livros. Nenhuma ficha é alterada.</p>
+    <p>O servidor calcula a expressão. A IA explica só a mecânica, em tópicos, sem criar lore, narrativa ou reproduzir livros. Nenhuma ficha é alterada.</p>
     <form onSubmit={(event: FormEvent) => { event.preventDefault(); void calculate(false); }}>
       <label>Expressão<input aria-label="Expressão matemática" required maxLength={120} value={expression} onChange={(event) => change(() => setExpression(event.target.value))} /></label>
       <label>Variáveis numéricas (JSON)<textarea aria-label="Variáveis numéricas" rows={3} maxLength={4000} value={variables} onChange={(event) => change(() => setVariables(event.target.value))} /></label>
       <button disabled={busy || !expression.trim()}>{busy ? "Calculando…" : "Calcular sem IA"}</button>
     </form>
-    {answer && <output aria-live="polite"><p>Resultado: <strong>{answer.result}</strong></p>{answer.explanation && <p>{answer.explanation}</p>}</output>}
+    <label>Pergunta sobre a mecânica (opcional)<input aria-label="Pergunta sobre a mecânica" maxLength={280} value={question} placeholder="Ex.: quantos dados entram na parada?" onChange={(event) => change(() => setQuestion(event.target.value))} /></label>
+    {answer && <output aria-live="polite"><p>Resultado: <strong>{answer.result}</strong></p>{answer.bullets?.length ? <ul>{answer.bullets.map((item, index) => <li key={index}>{item}</li>)}</ul> : answer.explanation && <p>{answer.explanation}</p>}</output>}
     {!enabled && <p>A explicação por IA está desativada. O cálculo continua disponível online.</p>}
     <button className={styles.secondary} disabled={busy || !enabled || !answer} onClick={() => void calculate(true)}>Explicar com IA (consome o orçamento da campanha)</button>
     {message && <p role="alert">{message}</p>}

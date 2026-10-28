@@ -62,7 +62,7 @@ def test_explanation_receives_only_math_and_server_answer(client, monkeypatch):
 
     async def explain(campaign, actor, kind, context, template, operation):
         captured.update(campaign=campaign, user=actor.id, kind=kind, context=context, template=template, operation=operation)
-        return {"explanation": "Multiplique 2 por 3. O resultado é 6."}
+        return {"explanation": "- Multiplique 2 por 3.\n- O resultado é 6."}
 
     monkeypatch.setattr(ai, "_paid_generation", explain)
     body = {"expression": "forca * 3", "values": {"forca": 2}, "explain": True, "idempotency_key": OP}

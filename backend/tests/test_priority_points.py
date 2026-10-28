@@ -1,4 +1,4 @@
-﻿"""priority_points on the real Vampire V3 starter (tests/fixtures/v3_starter.json).
+"""priority_points on the real Vampire V3 starter (tests/fixtures/v3_starter.json).
 
 frontend/tests/priority-points.test.mjs fails when the fixture drifts from frontend/lib/system-starters.ts.
 """
@@ -41,10 +41,13 @@ def valid_values() -> dict[str, Any]:
     values.update(consciencia=3, autocontrole=3, coragem=4)
     # Humanity base = Consciência + Autocontrole = 6, Willpower base = Coragem = 4; both stay at base.
     values.update(humanidade=6, forca_vontade=4)
+    # V3: every trait at 4 or more takes one specialization (Força here, Briga once the freebies raise it).
+    values.update(especialidades=["Força (Agarrar)"])
     return values
 
 
-FREEBIES = {"ant_contatos": 4, "disc_rapidez": 2, "humanidade": 7, "forca_vontade": 5, "briga": 4}
+FREEBIES = {"ant_contatos": 4, "disc_rapidez": 2, "humanidade": 7, "forca_vontade": 5, "briga": 4,
+            "especialidades": ["Força (Agarrar)", "Briga (Socos)"]}
 
 
 def violated(values: dict[str, Any]) -> list[str]:
@@ -88,7 +91,7 @@ def test_freebies_are_bought_with_per_pool_costs() -> None:
 def test_tampering_is_refused(change: dict[str, Any], why: str) -> None:
     values = {**valid_values(), **FREEBIES}
     assert violated(values) == []
-    assert violated({**values, **change}) == ["criacao_v3"], why
+    assert "criacao_v3" in violated({**values, **change}), why
 
 
 def test_caitiff_may_take_any_discipline_and_a_clan_cannot() -> None:

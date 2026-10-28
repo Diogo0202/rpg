@@ -34,7 +34,12 @@ from app.routes.system_rolls import router as system_rolls_router
 from app.routes.ai_assistance import router as ai_assistance_router
 from app.routes.mobile_sync import router as mobile_sync_router
 from app.routes.marketplace import router as marketplace_router
+from app.routes.marketplace import maintenance_router as marketplace_maintenance_router
 from app.routes.campaign_invites import router as campaign_invites_router
+from app.routes.voice_sessions import router as voice_sessions_router
+from app.routes.experience import router as experience_router
+from app.routes.hunter import router as hunter_router
+from app.routes.v5_sanguine import router as v5_sanguine_router
 
 app = FastAPI(title="RPG-Atlas API", version="0.1.0")
 app.include_router(generation_router)
@@ -43,13 +48,18 @@ app.include_router(sheets_router)
 app.include_router(rules_router)
 app.include_router(modifiers_router)
 app.include_router(v5_actions_router)
+app.include_router(v5_sanguine_router)
 app.include_router(second_inquisition_router)
 app.include_router(chronicle_router)
 app.include_router(system_rolls_router)
 app.include_router(ai_assistance_router)
 app.include_router(mobile_sync_router)
 app.include_router(marketplace_router)
+app.include_router(marketplace_maintenance_router)
 app.include_router(campaign_invites_router)
+app.include_router(voice_sessions_router)
+app.include_router(experience_router)
+app.include_router(hunter_router)
 
 # Em produção a lista vem do ambiente. Não abrimos CORS para qualquer origem.
 origins = [

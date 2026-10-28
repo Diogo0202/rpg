@@ -67,6 +67,76 @@
       "identity_kind": "clan"
     },
     {
+      "id": "doutrina_principal",
+      "label": "Doutrina principal",
+      "kind": "select",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "depends_on": {
+        "field_id": "casa",
+        "cases": [
+          {
+            "equals": "Diabos",
+            "options": [
+              "Celestiais",
+              "Chama",
+              "Esplendor"
+            ]
+          },
+          {
+            "equals": "Flagelos",
+            "options": [
+              "Ventos",
+              "Despertar",
+              "Firmamento"
+            ]
+          },
+          {
+            "equals": "Malfeitores",
+            "options": [
+              "Terra",
+              "Forja",
+              "Caminhos"
+            ]
+          },
+          {
+            "equals": "Infestos",
+            "options": [
+              "Luz",
+              "Padrões",
+              "Portais"
+            ]
+          },
+          {
+            "equals": "Profanadores",
+            "options": [
+              "Desejo",
+              "Tempestades",
+              "Transfiguração"
+            ]
+          },
+          {
+            "equals": "Devoradores",
+            "options": [
+              "Fera",
+              "Carne",
+              "Natureza"
+            ]
+          },
+          {
+            "equals": "Algozes",
+            "options": [
+              "Morte",
+              "Reinos",
+              "Espírito"
+            ]
+          }
+        ]
+      },
+      "creation_step": "traits"
+    },
+    {
       "id": "faccao",
       "label": "Facção",
       "kind": "text",
@@ -1256,6 +1326,16 @@
         "fe_permanente",
         "vontade_max"
       ],
+      "initial_equal": [
+        {
+          "field": "fe_atual",
+          "source": "fe_permanente"
+        },
+        {
+          "field": "vontade_atual",
+          "source": "vontade_max"
+        }
+      ],
       "pools": [
         {
           "id": "atributos",
@@ -1475,6 +1555,34 @@
                 "dou_fundamento",
                 "dou_humanidade"
               ]
+            }
+          },
+          "primary_choice": {
+            "field": "doutrina_principal",
+            "options": {
+              "Carne": "dou_carne",
+              "Chama": "dou_chama",
+              "Fera": "dou_fera",
+              "Forja": "dou_forja",
+              "Humanidade": "dou_humanidade",
+              "Luz": "dou_luz",
+              "Morte": "dou_morte",
+              "Natureza": "dou_natureza",
+              "Terra": "dou_terra",
+              "Transfiguração": "dou_transfiguracao",
+              "Tempestades": "dou_tempestades",
+              "Desejo": "dou_desejo",
+              "Despertar": "dou_despertar",
+              "Espírito": "dou_espirito",
+              "Esplendor": "dou_esplendor",
+              "Firmamento": "dou_firmamento",
+              "Fundamento": "dou_fundamento",
+              "Caminhos": "dou_caminhos",
+              "Celestiais": "dou_celestiais",
+              "Padrões": "dou_padroes",
+              "Portais": "dou_portais",
+              "Reinos": "dou_reinos",
+              "Ventos": "dou_ventos"
             }
           }
         },

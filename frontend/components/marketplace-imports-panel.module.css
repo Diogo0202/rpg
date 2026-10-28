@@ -1,0 +1,21 @@
+.panel { display: grid; gap: 20px; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.header h2 { margin: 8px 0; }
+.header p { max-width: 65ch; line-height: 1.5; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.cards { display: grid; gap: 16px; }
+.card { min-width: 0; border: 1px solid var(--line); background: var(--panel); padding: 20px; }
+.card h3 { margin-top: 0; }
+.card p { overflow-wrap: anywhere; line-height: 1.5; }
+.review { display: grid; gap: 16px; margin-top: 18px; }
+.fields { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.fields li { display: grid; gap: 5px; padding: 10px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.fields span, .fields small { color: var(--muted); }
+.review pre { max-height: 320px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.review summary { cursor: pointer; }
+.check { display: flex; align-items: flex-start; gap: 10px; line-height: 1.5; }
+.check input { flex-shrink: 0; margin-top: 4px; }
+.review button { justify-self: start; }
+.error { color: var(--danger, #af2727); }
+.success { border-left: 3px solid var(--accent); padding-left: 12px; }
+@media (max-width: 620px) { .header { flex-direction: column; } .card { padding: 14px; } }

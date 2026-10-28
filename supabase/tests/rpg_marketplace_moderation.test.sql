@@ -80,6 +80,7 @@ select is((select public.marketplace_clone('cf200000-0000-4000-8000-000000000001
 select throws_ok($$select public.marketplace_clone('cf200000-0000-4000-8000-000000000001','cf100000-0000-4000-8000-000000000001','gm-clone-key-02')$$, 'P0001', null, 'new copies of a hidden system are refused');
 select throws_ok($$select public.marketplace_moderate_system('cf200000-0000-4000-8000-000000000002', 'hide', null)$$, '42501', null, 'non-moderator cannot hide a system');
 reset role;
+select public.marketplace_apply_usage_events(1000);
 select is((select usage_count from public.marketplace_systems where id = 'cf200000-0000-4000-8000-000000000001'), 1::bigint, 'usage counted once across retries');
 
 -- Moderator actions.

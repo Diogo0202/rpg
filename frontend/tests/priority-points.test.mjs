@@ -29,9 +29,10 @@ test("V3 starter is a priority_points sheet with the XP master-granted", () => {
     ["atributos", 5, [7, 5, 3]], ["habilidades", 2, [13, 9, 5]], ["disciplinas", 7, [3]], ["antecedentes", 1, [5]],
     ["virtudes", 2, [7]], ["humanidade", 1, [0]], ["vontade", 1, [0]],
   ]);
-  assert.deepEqual([...masterGrantedFieldIds(template)], ["experiencia"]);
+  // Blood is a pool currency: the narrator grants it (or the starting-blood RPC rolls it).
+  assert.deepEqual([...masterGrantedFieldIds(template)].sort(), ["experiencia", "pontos_sangue"]);
   assert.equal(template.fields.find((field) => field.id === "cla").identity_kind, "clan");
-  assert.equal(template.fields.find((field) => field.id === "predador").identity_kind, "predator");
+  assert.equal(template.fields.some((field) => field.id === "predador"), false, "V3 has no predator type");
   assert.equal(template.fields.find((field) => field.id === "segredos").private, true);
 });
 
@@ -62,9 +63,9 @@ test("budgets match groups in any order", () => {
 });
 test("the clan decides which disciplines open, and Caitiff open them all", () => {
   assert.deepEqual([...lockedFieldIds(template, sheet())].filter((id) => id.startsWith("disc_")).sort(),
-    ["disc_animalismo", "disc_auspicios", "disc_dominacao", "disc_fortitude", "disc_metamorfose", "disc_necromancia", "disc_obtenebracao", "disc_ofuscacao", "disc_quietus", "disc_quimerismo", "disc_serpentis", "disc_taumaturgia", "disc_vicissitude"]);
+    ["disc_animalismo", "disc_auspicios", "disc_dementacao", "disc_dominacao", "disc_fortitude", "disc_metamorfose", "disc_necromancia", "disc_obtenebracao", "disc_ofuscacao", "disc_quietus", "disc_quimerismo", "disc_serpentis", "disc_taumaturgia", "disc_vicissitude"]);
   assert.equal([...lockedFieldIds(template, { ...sheet(), cla: "Caitiff" })].some((id) => id.startsWith("disc_")), false);
-  assert.equal([...lockedFieldIds(template, { ...sheet(), cla: "" })].filter((id) => id.startsWith("disc_")).length, 16);
+  assert.equal([...lockedFieldIds(template, { ...sheet(), cla: "" })].filter((id) => id.startsWith("disc_")).length, 17);
   assert.ok(tally({ ...sheet(), disc_dominacao: 1 }).pools[2].problems.length > 0);
 });
 

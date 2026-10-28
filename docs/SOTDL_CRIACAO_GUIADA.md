@@ -47,6 +47,15 @@ A ajuda da etapa de recursos apresenta essas regras como opcionais da campanha. 
 - Web: painel de rolagens da sessão, detectado pelo campo `sistema` da ficha.
 - Mobile: aba "d20 Demon Lord" no rolador local, sem envio à mesa.
 
+## Dados 3D
+
+As rolagens de SotDL (d20 com dádivas ou perdições e o teste de destino) aparecem numa bandeja 3D sobre o painel, no site e no rolador local do celular. O servidor (ou o rolador local) decide os números; a física é simulada antes e cada dado recebe uma rotação de simetria para pousar na face sorteada. Estilo "ferro profano": metal envelhecido, respingos de sangue, espinhos e medalhões; aro dourado para dádivas, vermelho para perdições, e o d6 que não conta fica apagado.
+
+- Motor em `frontend/lib/dice3d/` (cópia idêntica em `mobile/src/lib/dice3d/`), com `three` e `cannon-es` carregados só na primeira rolagem.
+- Sem WebGL, fica o resultado em texto (site) ou a animação 2D (celular). Com movimento reduzido, os dados aparecem já parados.
+- Harness: `/dev/dice-tray` em `next dev`.
+- Outro sistema: entrada em `DICE_STYLES` e um mapeador como `sotdl.ts`.
+
 ## Tema "Demon Lord"
 
 Opção de tema escolhida por aparelho (seletor "Tema" no site; Mais → Configurações → Aparência no celular), independente do sistema da campanha. Paleta "trincheira profana": lama e ferro `#15130f`, pergaminho queimado `#ebe0c9`, tinta sépia `#241c14`, sangue `#8f1d14` e ouro sacro `#c9a14a`. Os pares de texto passam de 4,5:1 (teste em `frontend/tests/theme.test.mjs`). Painéis com cores fixas no próprio CSS continuam iguais em todos os temas.

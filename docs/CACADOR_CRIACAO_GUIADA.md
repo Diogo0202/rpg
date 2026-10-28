@@ -68,3 +68,22 @@ Esses testes não confirmam aplicação do modelo no Supabase hospedado. A revis
 - Os limites (`max_length`, `min_items`, `max_items`, `item_options`, `paired_with`) valem na API, no assistente web e mobile e no banco (trigger `character_sheets_validate_text_constraints`, migration `20261026190000`).
 - Compatibilidade: fichas v1/v2 continuam ligadas ao modelo já aprovado. `migrate_hunter_traits` / `migrateHunterTraits` (endpoint `/api/v1/system-rolls/hunter/traits` com `migrate: true`) separam cada pilar em Pedra de Toque e Convicção (`Pedra: Convicção` ou `Convicção (Pedra)`), corrigem Credo/Ímpeto por nome sem acento e levam excedentes e textos cortados para Notas, com avisos.
 - Células (ATL-04) ficam em `hunter_cells`, `hunter_cell_members`, `hunter_cell_targets` e `hunter_cell_bonds`, com RLS: membros leem, dono e mestres editam. O painel fica na área Sistemas.
+
+## Versão 4: Caçador completo (Frente F4, migration `20261029130000`)
+
+- **Desesperação e Perigo** vivem só na célula. A ficha guarda só o estado Despair (`em_desespero`). A migração move o campo antigo `desespero` para a célula vinculada; a célula fica com o maior valor. Fichas sem célula perdem o valor, com registro em `hunter_desperation_migration_reports`, que os mestres podem ler. Antes disso, fichas cujo texto `celula` bate com o nome de uma célula são vinculadas a ela.
+- **Vínculo:** a ficha aponta para a célula por `hunter_cell_members`, uma célula por ficha (trigger). O texto `celula` continua, só para leitura.
+- **Rolador** (`POST /api/v1/hunter/sheets/{id}/rolls`, RPC `record_hunter_roll`): os dados são gerados no banco e a Desesperação vem da célula. Rerrolagem de Vontade de até 3 dados comuns, uma vez, com gasto atômico (`reroll_hunter_roll`). Um 1 na Desesperação pede a escolha da mesa (`resolve_hunter_desperation`, idempotente): Overreach mantém o sucesso e soma 1 ao Perigo; Despair transforma o teste em falha e marca a ficha. Em Despair, a ficha não soma Desesperação e não usa Triunfos.
+- **Redenção:** o jogador registra como cumpriu o Ímpeto (`request_hunter_redemption`); o narrador aprova ou recusa (`decide_hunter_redemption`). Aprovar encerra o Despair.
+- **Célula:** o narrador ajusta Perigo e Desesperação em passos (`adjust_hunter_cell`, idempotente). Tudo fica em `hunter_events`.
+- **Criação v4:** Triunfos (Edges) e Distinções (Perks, no formato `Triunfo: Distinção`) vêm de listas fechadas. Especializações seguem `specialty_picks` (Ciência, Erudição, Ofícios e Performance com pontos, mais 1 livre). Vantagens somam 7 e Defeitos 2, por `collection_points` com catálogo. Há o campo `equipamento`. `POST /campaigns/{id}/sheets` roda `template_creation_problems`.
+
+### Para conferir no livro
+
+1. Nomes em português dos 14 Triunfos e as 4 Distinções de cada um, que são provisórias.
+2. Na criação: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções.
+3. Catálogo de Vantagens e Defeitos e os custos de cada item.
+4. Desesperação: num sucesso, a mesa escolhe Overreach ou Despair; numa falha, é Despair. Overreach soma +1 ao Perigo, com teto de 5.
+5. Em Despair, a ficha não soma dados de Desesperação e os Triunfos ficam bloqueados.
+6. A Vontade rerrola até 3 dados comuns, nunca os de Desesperação, uma vez por teste.
+7. A Redenção cumprindo o Ímpeto encerra o Despair.

@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 
+from app.services.hunter_traits import template_creation_problems
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_creation import approved_template_draft, creation_report, prepare_sheet_creation
 from app.services.sheet_values import validate_sheet_values
@@ -344,9 +345,13 @@ async def create_campaign_sheet(
     _check_portrait_owner(payload.portrait_path, campaign_id, user_id)
     template = await _get_template(campaign_id, payload.template_id, authorization or "")
     try:
-        _, sheet_name, sheet_values = prepare_sheet_creation(template, payload.name, payload.values)
+        draft, sheet_name, sheet_values = prepare_sheet_creation(template, payload.name, payload.values)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    # F4: Caçador traits, Edges and Perks are checked at creation.
+    hunter_problems = template_creation_problems(draft.system_key, draft.version, {field.id for field in draft.fields}, sheet_values)
+    if hunter_problems:
+        raise HTTPException(status_code=422, detail="; ".join(hunter_problems))
     result = await _request(
         "POST",
         "character_sheets",

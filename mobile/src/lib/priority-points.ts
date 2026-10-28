@@ -51,6 +51,16 @@ export function tallyPriority(template: SheetTemplate, rule: PriorityPoints, val
       else if (locked.has(id) && value !== base) problems.push(`${labels.get(id) ?? id} não está disponível para esta escolha`);
       return sum + (value - base);
     }, 0));
+    if (pool.primary_choice) {
+      const choice = pool.primary_choice;
+      const selected = values[choice.field];
+      const primary = typeof selected === "string" ? choice.options[selected] : undefined;
+      const ratings = pool.groups.flatMap((group) => group.fields.map((id) => numeric(values[id])));
+      if (!primary || locked.has(primary) || numeric(values[primary]) <= 0
+          || numeric(values[primary]) < Math.max(0, ...ratings)) {
+        problems.push(`${pool.label}: escolha um campo principal permitido com pontuação máxima`);
+      }
+    }
     // The i-th largest spending takes the i-th largest budget.
     const order = spent.map((_, index) => index).sort((a, b) => spent[b] - spent[a]);
     const budgets = [...pool.budgets].sort((a, b) => b - a);
@@ -65,15 +75,45 @@ export function tallyPriority(template: SheetTemplate, rule: PriorityPoints, val
       groups: pool.groups.map((group, index) => ({ label: group.label, spent: spent[index], free: free[index], fieldIds: group.fields })),
     };
   });
-  const bonus = pools.reduce((sum, item) => sum + item.bonus, 0);
+  // V3 Merits cost freebies and Flaws add them, up to their cap (freebie_items).
+  const items = freebieItemPoints(rule, values);
+  const bonus = pools.reduce((sum, item) => sum + item.bonus, 0) + items.spent;
+  const available = rule.freebies + items.earned;
   const exact = rule.exact !== false;
   const problems = pools.flatMap((item) => [
     ...item.problems,
     ...(item.shortfall ? [`${item.pool.label}: faltam ${item.shortfall} ${item.shortfall === 1 ? "ponto" : "pontos"} da distribuição inicial`] : []),
   ]);
-  if (exact && bonus !== rule.freebies) problems.push(bonus < rule.freebies ? `Bônus: restam ${rule.freebies - bonus} de ${rule.freebies}` : `Bônus: ${bonus - rule.freebies} a mais que os ${rule.freebies} disponíveis`);
-  else if (!exact && bonus > rule.freebies) problems.push(`Bônus: ${bonus - rule.freebies} a mais que os ${rule.freebies} disponíveis`);
-  return { rule, pools, bonus, remaining: rule.freebies - bonus, complete: problems.length === 0, problems };
+  if (exact && bonus !== available) problems.push(bonus < available ? `Bônus: restam ${available - bonus} de ${available}` : `Bônus: ${bonus - available} a mais que os ${available} disponíveis`);
+  else if (!exact && bonus > available) problems.push(`Bônus: ${bonus - available} a mais que os ${available} disponíveis`);
+  for (const pair of rule.initial_equal ?? []) {
+    if (numeric(values[pair.field]) !== numeric(values[pair.source])) {
+      const message = `${labels.get(pair.field) ?? pair.field} deve começar igual a ${labels.get(pair.source) ?? pair.source}`;
+      problems.push(message);
+      pools.find((item) => item.pool.groups.some((group) => group.fields.includes(pair.source)))?.problems.push(message);
+    }
+  }
+  return { rule, pools, bonus, remaining: available - bonus, complete: problems.length === 0, problems };
+}
+
+/** Same pattern as item_points in backend/app/services/creation_rules.py: "••" or a trailing number. */
+const TRAILING_POINTS = /(?:^|[ (])([0-9]{1,2})\)? *$/;
+function itemWorth(item: string): number {
+  const dots = [...item].filter((char) => char === "•").length;
+  if (dots) return dots;
+  const match = TRAILING_POINTS.exec(item);
+  return match ? Number(match[1]) : 0;
+}
+const collectionPoints = (value: FieldValue | undefined) => Array.isArray(value)
+  ? value.reduce((sum, item) => sum + (typeof item === "string" ? itemWorth(item) : 0), 0) : 0;
+
+/** Freebies the `spend` collections cost and the ones the `earn` collection adds (capped). */
+export function freebieItemPoints(rule: PriorityPoints, values: Values): { spent: number; earned: number } {
+  const spec = rule.freebie_items;
+  if (!spec) return { spent: 0, earned: 0 };
+  const spent = (spec.spend ?? []).reduce((sum, id) => sum + collectionPoints(values[id]), 0);
+  const earned = spec.earn ? Math.min(spec.earn.max, collectionPoints(values[spec.earn.collection])) : 0;
+  return { spent, earned };
 }
 
 /**
@@ -98,6 +138,22 @@ export function priorityPatch(template: SheetTemplate, before: Values, after: Va
     const base = poolBase(pool, merged);
     for (const group of pool.groups) for (const id of group.fields) {
       if (locked.has(id) && numeric(merged[id]) !== base) patch[id] = base;
+    }
+  }
+  // V3: a Path change resets locked virtues, which moves the Path rating's base once more.
+  const reset = { ...merged, ...patch };
+  for (const rule of priorityRules(template)) for (const pool of rule.pools) {
+    const oldBase = poolBase(pool, merged);
+    const newBase = poolBase(pool, reset);
+    if (oldBase === newBase) continue;
+    for (const group of pool.groups) for (const id of group.fields) {
+      if (typeof reset[id] !== "number" || locked.has(id)) continue;
+      patch[id] = Math.max(newBase, newBase + numeric(reset[id]) - oldBase);
+    }
+  }
+  for (const rule of priorityRules(template)) for (const pair of rule.initial_equal ?? []) {
+    if (numeric(before[pair.source]) !== numeric(merged[pair.source])) {
+      patch[pair.field] = numeric(merged[pair.source]);
     }
   }
   return patch;

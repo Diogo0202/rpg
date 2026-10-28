@@ -31,6 +31,8 @@ export type DamageResult = {
   aggravated?: number;
   maximum?: number;
   absorbed_by_armor?: number;
+  /** F1: Superficial points a V5 vampire halved away (physical damage to Health). */
+  halved?: number;
   armor?: { id: string; name: string; protection: number } | null;
   converted?: number;
   overflow?: number;
@@ -98,11 +100,42 @@ export function describeDamageResult(result: DamageResult, targetName?: string):
   if (result.replayed) return `${targetName ? `${targetName}: ` : ""}este dano já tinha sido aplicado; nada mudou.`;
   const parts = [`${targetName ? `${targetName} · ` : ""}Trilha: ${result.superficial ?? 0} superficial e ${result.aggravated ?? 0} agravado de ${result.maximum ?? 0}.`];
   if (result.absorbed_by_armor) parts.push(`${result.armor?.name ?? "Armadura"} absorveu ${result.absorbed_by_armor}.`);
+  if (result.halved) parts.push(`Vampiro reduziu ${result.halved} superficial à metade.`);
   if (result.converted) parts.push(`${result.converted} superficial convertido em agravado.`);
   if (result.overflow) parts.push(`${result.overflow} ponto(s) além da trilha.`);
   if (result.incapacitated) parts.push("Trilha toda agravada.");
   else if (result.impaired) parts.push("Trilha cheia: penalidade de −2.");
   return parts.join(" ");
+}
+
+/**
+ * F1: junta o histórico desta sessão do navegador com o histórico remoto
+ * (GET /api/v1/v5/sheets/{id}/rolls). A versão da sessão vence quando a mesma
+ * rolagem aparece nos dois; o resto segue do mais novo para o mais antigo.
+ */
+export function mergeRollHistory<T extends { roll: { id: string; created_at: string } }>(session: readonly T[], remote: readonly T[], limit = 20): T[] {
+  const seen = new Set(session.map((entry) => entry.roll.id));
+  const extra = remote.filter((entry) => !seen.has(entry.roll.id));
+  return [...session, ...extra]
+    .sort((a, b) => b.roll.created_at.localeCompare(a.roll.created_at))
+    .slice(0, limit);
+}
+
+/** Argumentos da RPC apply_v5_damage com o alvo e a marca de dano físico (vampiro reduz à metade). */
+export function damageRpcArgs(input: {
+  sheetId: string; track: "health" | "willpower"; superficial: number; aggravated: number;
+  armor: boolean; operationId: string; reason?: string | null; physical: boolean;
+}) {
+  return {
+    p_sheet_id: input.sheetId,
+    p_track: input.track,
+    p_superficial: input.superficial,
+    p_aggravated: input.aggravated,
+    p_apply_armor: input.track === "health" && input.armor,
+    p_operation_id: input.operationId,
+    p_reason: input.reason ? input.reason.slice(0, 120) : null,
+    p_halve_superficial: input.track === "health" && input.physical,
+  };
 }
 
 /** Seleção de até três dados comuns para a rerrolagem de Vontade. */

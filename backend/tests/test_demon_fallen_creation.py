@@ -14,7 +14,7 @@ RULE = TEMPLATE.creation_rules[0]
 
 
 def valid_values():
-    values = {"nome": "Auriel", "casa": "Flagelos", "tormento_permanente": 3}
+    values = {"nome": "Auriel", "casa": "Flagelos", "doutrina_principal": "Ventos", "tormento_permanente": 3}
     groups = RULE.pools
     for pool in groups:
         for group in pool.groups:
@@ -29,7 +29,9 @@ def valid_values():
     values["dou_ventos"] = 3
     values.update({"consciencia": 3, "conviccao": 2, "coragem": 1})
     values["fe_permanente"] = 3
+    values["fe_atual"] = 3
     values["vontade_max"] = 5
+    values["vontade_atual"] = 5
     # 5 attribute + 2 ability + 7 lore + 1 background = 15 freebie points.
     values[attributes[0].fields[0]] += 1
     values[abilities[0].fields[0]] += 1
@@ -40,7 +42,7 @@ def valid_values():
 
 def test_starter_creates_a_sheet_with_fifteen_freebies():
     values = valid_values()
-    assert len(TEMPLATE.fields) == 106
+    assert len(TEMPLATE.fields) == 107
     assert evaluate_creation_rules(TEMPLATE.creation_rules, values) == []
     _, name, saved = prepare_sheet_creation({"name": SCHEMA["name"], "version": 1, "schema": SCHEMA}, "Auriel", values)
     assert name == saved["nome"] == "Auriel"
@@ -74,7 +76,20 @@ def test_house_limits_lores_and_sets_initial_torment():
     assert "criacao_demonio" in [issue.rule_id for issue in evaluate_creation_rules(TEMPLATE.creation_rules, values)]
     values = valid_values()
     values["casa"] = "Diabos"
+    values["doutrina_principal"] = "Celestiais"
     values["tormento_permanente"] = 4
     values["dou_ventos"] = 0
     values["dou_celestiais"] = 4
     assert evaluate_creation_rules(TEMPLATE.creation_rules, values) == []
+
+
+@pytest.mark.parametrize("changes", [
+    {"doutrina_principal": "Chama"},
+    {"doutrina_principal": "Carne"},
+    {"doutrina_principal": ""},
+    {"fe_atual": 2},
+    {"vontade_atual": 4},
+])
+def test_primary_lore_and_initial_resources_are_required(changes):
+    with pytest.raises(ValueError):
+        prepare_sheet_creation({"name": SCHEMA["name"], "version": 1, "schema": SCHEMA}, "Auriel", {**valid_values(), **changes})

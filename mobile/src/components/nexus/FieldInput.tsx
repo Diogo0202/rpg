@@ -2,6 +2,8 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
 import { fieldOptions, isFieldActive } from "@/lib/sheet-creation.ts";
+import { collectionPointRules, collectionPointStatus } from "@/lib/creation-grants.ts";
+import { specialtyRules, specialtyStatus } from "@/lib/creation-checks.ts";
 import type { FormulaResult } from "@/lib/formula";
 import { Btn } from "./ui";
 
@@ -17,9 +19,30 @@ type Props = {
   fixed?: number | undefined;
   /** Collection items a creation rule grants; listed but not removable. */
   lockedItems?: string[] | undefined;
+  /** Why `fixed` is read-only; defaults to the clan and predator grants. */
+  fixedNote?: string | undefined;
 };
 
-export function FieldInput({ template, field, values, error, formula, onChange, idPrefix = "f", fixed, lockedItems }: Props) {
+/** Point count, catalog and specialty hints for collections with creation rules (same text as the web wizard). */
+function collectionHints(template: SheetTemplate, field: SheetField, values: Record<string, FieldValue>, locked: string[]) {
+  const lines: string[] = [];
+  const pointRule = collectionPointRules(template).find((rule) => rule.collection === field.id);
+  if (pointRule) {
+    const points = collectionPointStatus(template, pointRule, values);
+    const labels = new Map(template.fields.map((item) => [item.id, item.label]));
+    lines.push(`${points.spent} de ${pointRule.points} pontos${pointRule.fields.length ? ` (inclui ${pointRule.fields.map((id) => labels.get(id) ?? id).join(", ")})` : ""}. Marque os pontos com • ou (2).`);
+  }
+  const specialtyRule = specialtyRules(template).find((rule) => rule.collection === field.id);
+  if (specialtyRule) {
+    const status = specialtyStatus(specialtyRule, values, locked);
+    lines.push(`${status.own.length} de ${status.expected} especializações gratuitas${status.due.length ? ` (uma em ${status.due.join(", ")}, mais ${specialtyRule.free} livre)` : ""}. Formato: Habilidade (especialização).`);
+  }
+  // Catalog items are offered with their dots so the point count reads them.
+  const catalog = (pointRule?.catalog ?? []).flatMap((entry) => entry.costs.map((cost) => `${entry.name} ${"•".repeat(cost)}`));
+  return { lines, catalog, homebrew: pointRule?.allow_homebrew === true };
+}
+
+export function FieldInput({ template, field, values, error, formula, onChange, idPrefix = "f", fixed, lockedItems, fixedNote }: Props) {
   const id = `${idPrefix}-${field.id}`;
   const errId = `${id}-err`;
   const value = values[field.id];
@@ -34,6 +57,7 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
   const label = (
     <label htmlFor={id} className="mb-1 block text-sm font-semibold text-ink">
       {field.label}{needed && <span className="text-destructive" aria-hidden> *</span>}
+      {field.private && <span className="ml-2 text-xs font-normal text-ink-muted">privado: só você e o Mestre</span>}
     </label>
   );
   const err = error ? <p id={errId} className="mt-1 text-xs font-semibold text-destructive">{error}</p> : null;
@@ -64,9 +88,9 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
     return (
       <div>
         <p className="mb-1 block text-sm font-semibold text-ink">{field.label}</p>
-        <output id={id} className="parchment-inset flex min-h-11 items-center justify-between px-3 text-ink" aria-label={`${field.label}, definido pelo clã e predador`}>
+        <output id={id} className="parchment-inset flex min-h-11 items-center justify-between px-3 text-ink" aria-label={`${field.label}, ${(fixedNote ?? "Definido pelo clã e predador").toLowerCase()}`}>
           <span className="text-lg font-bold">{fixed}</span>
-          <span className="text-xs text-ink-muted">Definido pelo clã e predador</span>
+          <span className="text-xs text-ink-muted">{fixedNote ?? "Definido pelo clã e predador"}</span>
         </output>
         {err}
       </div>
@@ -99,7 +123,12 @@ export function FieldInput({ template, field, values, error, formula, onChange, 
       </div>
     );
   }
-  if (field.kind === "collection") return <CollectionInput id={id} field={field} value={Array.isArray(value) ? value : []} locked={lockedItems ?? []} onChange={onChange} error={error} />;
+  if (field.kind === "collection") {
+    const items = Array.isArray(value) ? value : [];
+    const locked = lockedItems ?? [];
+    return <CollectionInput id={id} field={field} value={items} locked={locked} onChange={onChange} error={error}
+      rules={collectionHints(template, field, values, locked)} />;
+  }
   const long = ["notas", "ambicao", "desejo", "apoiadores"].includes(field.id);
   const text = typeof value === "string" ? value : "";
   const limit = typeof field.max_length === "number" ? field.max_length : field.character_name ? 120 : 10000;
@@ -128,7 +157,7 @@ function filledText(value: FieldValue | undefined): boolean {
   return typeof value === "string" && Boolean(value.trim());
 }
 
-function CollectionInput({ id, field, value, locked, onChange, error }: { id: string; field: SheetField; value: string[]; locked: string[]; onChange: Props["onChange"]; error?: string | undefined }) {
+function CollectionInput({ id, field, value, locked, onChange, error, rules }: { id: string; field: SheetField; value: string[]; locked: string[]; onChange: Props["onChange"]; error?: string | undefined; rules: ReturnType<typeof collectionHints> }) {
   const [draft, setDraft] = useState("");
   const errId = `${id}-err`;
   const hintId = `${id}-hint`;
@@ -167,7 +196,15 @@ function CollectionInput({ id, field, value, locked, onChange, error }: { id: st
           <Btn variant="ink" onClick={() => add()} disabled={full} aria-label={`Adicionar em ${field.label}`}>+</Btn>
         </div>
       )}
+      {!closed && rules.catalog.length > 0 && (
+        <select className="field-input mt-2" value="" disabled={full} aria-label={`Catálogo de ${field.label}`}
+          onChange={(e) => add(e.target.value)}>
+          <option value="">{rules.homebrew ? "Do catálogo (o narrador aceita itens da casa)…" : "Do catálogo do modelo…"}</option>
+          {rules.catalog.filter((option) => !value.includes(option)).map((option) => <option key={option} value={option}>{option}</option>)}
+        </select>
+      )}
       {hint && <p id={hintId} className="mt-1 text-xs text-ink-muted">{hint}</p>}
+      {rules.lines.map((line) => <p key={line} className="mt-1 text-xs text-ink-muted" aria-live="polite">{line}</p>)}
       {value.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
           {value.map((item) => (

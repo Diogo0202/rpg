@@ -56,6 +56,9 @@ select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000001
 set local role authenticated;
 select public.marketplace_clone('73000000-0000-4000-8000-000000000001','72000000-0000-4000-8000-000000000001','clone-key-0001');
 select public.marketplace_clone('73000000-0000-4000-8000-000000000001','72000000-0000-4000-8000-000000000001','clone-key-0001');
+reset role;
+select public.marketplace_apply_usage_events(1000);
+set local role authenticated;
 select is((select usage_count from public.marketplace_systems where id = '73000000-0000-4000-8000-000000000001'), 1::bigint, 'idempotent clone increments usage once');
 select is((select count(*) from public.system_templates where campaign_id = '72000000-0000-4000-8000-000000000001' and status = 'needs_review'), 1::bigint, 'clone creates a campaign draft for GM review');
 reset role;

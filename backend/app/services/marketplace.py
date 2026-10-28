@@ -1,20 +1,58 @@
 from __future__ import annotations
 
+import logging
+import hashlib
+import json
 import os
+import re
 from typing import Any
 from uuid import UUID
 
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, ValidationError, field_validator, model_validator
 
 from app.models import TemplateDraft
 from app.services.templates import validate_template
 from app.services.system_schema import normalize_template_document
 
+logger = logging.getLogger(__name__)
+
+
+def template_digest(schema: dict[str, Any]) -> str:
+    encoded = json.dumps(schema, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+# O marketplace não hospeda arquivos (PDF, imagens, anexos): só JSON de modelo e links.
+_EMBEDDED_FILE = re.compile(r"data:[^\s,;]*;base64,|%PDF-|JVBERi0", re.IGNORECASE)
+_ATTACHMENT_KEYS = frozenset({"attachment", "attachments", "file", "files", "pdf", "upload", "uploads", "anexo", "anexos", "arquivo", "arquivos"})
+
+
+def reject_embedded_files(value: Any, *, depth: int = 0) -> None:
+    """Recusa anexos: chaves de arquivo ou conteúdo embutido (data: URI, PDF bruto ou em base64)."""
+    if depth > 64:
+        raise ValueError("estrutura profunda demais")
+    if isinstance(value, str):
+        if _EMBEDDED_FILE.search(value):
+            raise ValueError("o marketplace não aceita arquivos ou anexos embutidos")
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(key, str) and key.casefold() in _ATTACHMENT_KEYS:
+                raise ValueError("o marketplace não aceita arquivos ou anexos")
+            reject_embedded_files(item, depth=depth + 1)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            reject_embedded_files(item, depth=depth + 1)
+
 
 class PublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def no_attachments(cls, value: Any) -> Any:
+        reject_embedded_files(value)
+        return value
 
     template: TemplateDraft
     description: StrictStr = Field(min_length=1, max_length=2000)
@@ -146,6 +184,8 @@ async def request_user(method: str, path: str, authorization: str | None, *, pay
             raise HTTPException(status_code=403, detail="operação não permitida")
         if code == "22023":
             raise HTTPException(status_code=409, detail="chave repetida com dados diferentes ou operação inválida")
+        if code == "54000":
+            raise HTTPException(status_code=429, detail="limite de denúncias atingido; tente novamente amanhã")
         raise HTTPException(status_code=403, detail="operação não permitida")
     return response.json() if response.content else None
 
@@ -168,3 +208,41 @@ async def publish_as_service(owner_id: str, record: dict[str, Any]) -> dict[str,
     if not isinstance(rows, list) or not rows:
         raise HTTPException(status_code=503, detail="resposta inválida na publicação")
     return rows[0]
+
+
+USAGE_BATCH_SIZE = 5000
+
+
+async def apply_usage_events(batch_size: int = USAGE_BATCH_SIZE) -> int | None:
+    """Aplica eventos de uso pendentes ao usage_count (RPC restrita a service_role).
+
+    Retorna o número de eventos aplicados, ou None quando a chave de serviço não está
+    configurada (o job periódico/pg_cron aplica depois). A RPC é idempotente.
+    """
+    base = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not base or not key:
+        return None
+    headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Accept": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.post(f"{base.rstrip('/')}/rest/v1/rpc/marketplace_apply_usage_events", headers=headers, json={"p_batch_size": batch_size})
+    except httpx.HTTPError as error:
+        raise HTTPException(status_code=503, detail="agregação de uso indisponível") from error
+    if response.status_code >= 400:
+        raise HTTPException(status_code=503, detail="agregação de uso indisponível")
+    try:
+        applied = response.json()
+    except ValueError as error:
+        raise HTTPException(status_code=503, detail="resposta inválida da agregação") from error
+    if isinstance(applied, bool) or not isinstance(applied, int) or applied < 0:
+        raise HTTPException(status_code=503, detail="resposta inválida da agregação")
+    return applied
+
+
+async def apply_usage_events_in_background() -> None:
+    """Tarefa pós-cópia: falhas só são registradas; o job periódico recupera o atraso."""
+    try:
+        await apply_usage_events()
+    except Exception:  # noqa: BLE001 - a resposta da cópia já foi enviada
+        logger.warning("marketplace usage aggregation failed; the periodic job will retry")

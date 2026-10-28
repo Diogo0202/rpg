@@ -64,14 +64,14 @@ test("V3: the wizard reaches a valid sheet through 7/5/3, 13/9/5, 3, 5, 7 and 15
   assert.equal(characterNameField(flow.template)?.id, "nome");
   assert.deepEqual(flow.fill("identity", { conceito: "Mensageira", natureza: "Rebelde", comportamento: "Galante", seita: "Anarquista", cla: "Brujah" }), []);
   // The clan closes every discipline but its three.
-  assert.equal([...lockedFieldIds(flow.template, flow.values)].filter((id) => id.startsWith("disc_")).length, 13);
+  assert.equal([...lockedFieldIds(flow.template, flow.values)].filter((id) => id.startsWith("disc_")).length, 14);
   assert.deepEqual(flow.fill("attributes", { forca: 4, destreza: 3, vigor: 3, carisma: 3, manipulacao: 3, aparencia: 2, percepcao: 2, inteligencia: 2, raciocinio: 2 }), []);
   const short = flow.fill("skills", { prontidao: 3, esportes: 2, briga: 3, esquiva: 2, empatia: 2, expressao: 1 });
   assert.ok(short.some((problem) => problem.startsWith("Habilidades")), "the skills step waits for 9 and 5 more points");
   assert.deepEqual(flow.fill("skills", { empatia_animais: 2, oficios: 2, conducao: 2, etiqueta: 1, armas_brancas: 2, academicos: 2, investigacao: 2, ocultismo: 1 }), []);
   // Virtues move the bases of Humanity and Willpower; the wizard follows them.
   assert.deepEqual(flow.fill("traits", {
-    disc_rapidez: 1, disc_potencia: 1, disc_presenca: 1, ant_aliados: 2, ant_recursos: 2, ant_status: 1, consciencia: 3, autocontrole: 3, coragem: 4,
+    disc_rapidez: 1, disc_potencia: 1, disc_presenca: 1, ant_aliados: 2, ant_recursos: 2, ant_status: 1, consciencia: 3, autocontrole: 3, coragem: 4, especialidades: ["Força (Agarrar)"],
   }), []);
   assert.deepEqual([flow.values.humanidade, flow.values.forca_vontade], [6, 4]);
   const rule = priorityRules(flow.template)[0];
@@ -80,6 +80,18 @@ test("V3: the wizard reaches a valid sheet through 7/5/3, 13/9/5, 3, 5, 7 and 15
   flow.fill("skills", { briga: 4 });
   flow.fill("traits", { disc_rapidez: 2, ant_contatos: 4 });
   flow.fill("resources", { humanidade: 7, forca_vontade: 5 });
+  // Traits at 4 or more need a specialization, and only they may take one.
+  const traits = flow.steps.find((step) => step.step === "traits");
+  assert.ok(flow.problems(traits).some((problem) => problem.includes("falta especialização em Briga")));
+  flow.fill("traits", { especialidades: ["Força (Agarrar)", "Briga (Socos)", "Esquiva (Esquivar balas)"] });
+  assert.ok(flow.problems(traits).some((problem) => problem.includes("pede ao menos 4 pontos em Esquiva")));
+  flow.fill("traits", { especialidades: ["Força (Agarrar)", "Briga (Socos)"] });
+  // A Flaw adds a freebie that a Merit spends; both come from the catalogs.
+  flow.fill("traits", { defeitos: ["Pesadelos •"] });
+  assert.equal(tallyPriority(flow.template, rule, flow.values).remaining, 1, "a 1-point Flaw adds one freebie");
+  flow.fill("traits", { meritos: ["Sentido Aguçado: audição (1)", "Rubor da Saúde •"] });
+  assert.ok(flow.problems(traits).some((problem) => problem.includes("Rubor da Saúde aceita 2 pontos")));
+  flow.fill("traits", { meritos: ["Sentido Aguçado: audição (1)"] });
   const tally = tallyPriority(flow.template, rule, flow.values);
   assert.deepEqual([tally.remaining, tally.complete], [0, true]);
   for (const step of flow.steps) assert.deepEqual(flow.problems(step), [], `step ${step.step} is clear`);
@@ -94,14 +106,59 @@ test("V3: the wizard reaches a valid sheet through 7/5/3, 13/9/5, 3, 5, 7 and 15
   assert.deepEqual(stored({ v3: sheet }).v3, sheet, "UPDATE_FIXTURES=1 regenerates backend/tests/fixtures/vampire_wizard_sheets.json");
 });
 
+test("V3: the Path opens its virtues and moves the starting rating; no predator type; Malkavians get Dementação", () => {
+  const flow = wizard("vampire-v3");
+  assert.equal(flow.template.fields.some((field) => field.id === "predador"), false);
+  assert.equal(flow.values.trilha, "Humanidade");
+  flow.fill("traits", { consciencia: 3, autocontrole: 2, coragem: 2 });
+  assert.equal(flow.values.humanidade, 5);
+  // Path of Caine uses Convicção and Instintos: Humanity's pair falls back to 1 and the rating follows.
+  flow.fill("identity", { trilha: "Trilha de Caim" });
+  assert.deepEqual([flow.values.consciencia, flow.values.autocontrole, flow.values.humanidade], [1, 1, 2]);
+  flow.fill("traits", { conviccao: 3, instintos: 4 });
+  assert.equal(flow.values.humanidade, 7);
+  assert.ok(lockedFieldIds(flow.template, flow.values).has("consciencia"));
+  flow.fill("identity", { cla: "Malkaviano" });
+  const open = ["disc_auspicios", "disc_dementacao", "disc_ofuscacao"];
+  assert.deepEqual(open.filter((id) => lockedFieldIds(flow.template, flow.values).has(id)), []);
+  assert.ok(lockedFieldIds(flow.template, flow.values).has("disc_dominacao"));
+  assert.deepEqual(flow.template.fields.find((field) => field.id === "fraqueza").depends_on.cases.find((item) => item.equals === "Malkaviano").options,
+    ["Perturbação permanente"]);
+  // Blood follows the generation: 13th 10/1 ... 8th 15/3.
+  const expressions = Object.fromEntries(flow.template.fields.filter((field) => field.kind === "formula").map((field) => [field.id, field.expression]));
+  const evaluate = (expression, ant_geracao) => Function("ant_geracao", `return ${expression.replaceAll("//", "/")}`)(ant_geracao);
+  const floor = (expression, value) => Math.floor(evaluate(expression.replace("(ant_geracao // 4)", "Math.floor(ant_geracao / 4)"), value));
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((value) => [evaluate(expressions.sangue_max, value), floor(expressions.sangue_por_turno, value)]),
+    [[10, 1], [11, 1], [12, 1], [13, 1], [14, 2], [15, 3]]);
+});
+
+test("V3 play rules mirror the API: 1s cancel, botch, specialty, Willpower, health and blood", async () => {
+  const { isV3Sheet, v3Derived, v3HealthPenalty, v3Outcome } = await import("../lib/v3-rules.ts");
+  assert.deepEqual([v3Outcome([1, 6, 7], 6).successes, v3Outcome([1, 2], 6).botch, v3Outcome([1, 6], 6).botch], [1, true, false]);
+  assert.equal(v3Outcome([10, 3], 6, true).successes, 2);
+  assert.deepEqual([v3Outcome([1, 1], 6, false, true).successes, v3Outcome([1, 1], 6, false, true).botch], [1, false]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(v3HealthPenalty), [0, 0, -1, -1, -2, -2, -5, null]);
+  const starter = SYSTEM_STARTERS.find((item) => item.id === "vampire-v3");
+  assert.equal(isV3Sheet(starter.values), true);
+  assert.equal(isV3Sheet(SYSTEM_STARTERS.find((item) => item.id === "vampire-v5").values), false);
+  const derived = v3Derived({ ...starter.values, ant_geracao: 5, dano_letal: 2, trilha: "Trilha da Harmonia" });
+  assert.deepEqual([derived.bloodMax, derived.perTurn, derived.level, derived.penalty, derived.conscience, derived.selfControl],
+    [15, 3, "Machucado", -1, "consciencia", "instintos"]);
+});
+
 test("V5: the predator chain applies and undoes its grants and Blood Potency follows generation", () => {
   const flow = wizard("vampire-v5");
   flow.fill("identity", { conceito: "Mensageira", cla: "Brujah", predador: "Sanguessuga" });
   assert.deepEqual([flow.values.humanidade, flow.values.potencia_sangue, flow.values.disc_potencia], [6, 2, 1]);
   const identity = flow.steps.find((step) => step.step === "identity");
   assert.ok(flow.problems(identity).some((problem) => problem.includes("escolha disciplina bônus")));
-  flow.fill("identity", { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" });
+  flow.fill("identity", { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)", perdicao: "Fúria Latente" });
   assert.deepEqual(flow.problems(identity), []);
+  // F2: a Convicção pede sua Pedra de Toque, e os Princípios vêm da mesa.
+  const story = flow.steps.find((step) => step.step === "story");
+  assert.ok(flow.fill("story", { conviccao_1: "Nunca abandonar os meus" }).length > 0, "a lone conviction is refused");
+  assert.deepEqual(flow.fill("story", { pedra_toque_1: "Irmã caçula", principios_cronica: ["Não matar inocentes"] }), []);
+  assert.deepEqual(flow.problems(story), []);
   assert.deepEqual([flow.values.disc_rapidez, flow.values.especialidades], [2, ["Briga (Membros)"]]);
   // Generation moves the base: the 11th generation starts one dot higher, outside the bands is refused.
   flow.fill("resources", { geracao: 11 });
