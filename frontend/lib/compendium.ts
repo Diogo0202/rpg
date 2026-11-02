@@ -1,6 +1,5 @@
-import Fuse from "fuse.js";
-
 import entriesJson from "../data/compendium-homebrew.json";
+import { searchCompendiumEntries } from "./compendium-search.ts";
 
 export type CompendiumEntry = {
   id: string;
@@ -18,19 +17,8 @@ export type CompendiumEntry = {
 };
 
 export const compendiumEntries = (entriesJson as CompendiumEntry[]).map((entry) => ({ ...entry, origin: "local" as const }));
-const fuseOptions = {
-  keys: ["title", "tags", "description"],
-  threshold: 0.38,
-  ignoreLocation: true,
-  includeScore: true,
-};
-const searchIndex = new Fuse(compendiumEntries, fuseOptions);
-
 export function searchCompendium(query: string, entries: CompendiumEntry[] = compendiumEntries): CompendiumEntry[] {
-  const term = query.trim();
-  if (!term) return entries;
-  const index = entries === compendiumEntries ? searchIndex : new Fuse(entries, fuseOptions);
-  return index.search(term).map(({ item }) => item);
+  return searchCompendiumEntries(query, entries);
 }
 
 export function findCompendiumEntry(name: string, entries: CompendiumEntry[] = compendiumEntries): CompendiumEntry | undefined {

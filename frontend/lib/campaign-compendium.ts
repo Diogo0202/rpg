@@ -92,7 +92,7 @@ export function mergeCompendiumEntries(local: CompendiumEntry[], rows: CampaignC
 export function originLabel(entry: CompendiumEntry): string {
   const where = entry.origin === "campaign" ? "Campanha (revisado pelo narrador)" : "Acervo local de exemplos";
   const page = entry.source.page ? `, página ${entry.source.page}` : "";
-  const kind = entry.source.kind === "licensed" ? "licenciado" : "homebrew";
+  const kind = entry.source.kind === "licensed" ? "licença declarada" : "homebrew";
   return `${where} · ${entry.source.title}${page} (${kind})`;
 }
 
@@ -125,6 +125,7 @@ export function validateCompendiumProposal(campaignId: string, draft: Compendium
   if (!sourceTitle || sourceTitle.length > 240) errors.push("Informe a fonte (até 240 caracteres).");
   if (page !== null && (!Number.isInteger(page) || page < 1 || page > 5000)) errors.push("A página deve ser um inteiro entre 1 e 5000.");
   if (draft.sourceKind !== "homebrew" && draft.sourceKind !== "licensed") errors.push("Escolha a origem da fonte.");
+  if (draft.sourceKind === "licensed" && page === null) errors.push("Informe a página da fonte licenciada.");
   if (errors.length) return { errors };
   return {
     errors,

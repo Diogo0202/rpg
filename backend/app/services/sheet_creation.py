@@ -8,6 +8,7 @@ from app.models import FieldKind, TemplateDraft
 from app.services.creation_rules import Violation, evaluate_creation_rules
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_values import validate_sheet_values
+from app.services.sotdl_progression import validate_sotdl_creation
 
 
 def approved_template_draft(template: dict[str, Any]) -> TemplateDraft:
@@ -30,6 +31,11 @@ def creation_report(template: dict[str, Any], values: dict[str, Any]) -> tuple[l
     draft = approved_template_draft(template)
     fields = {field.id: field.model_dump(mode="json") for field in draft.fields}
     errors: list[str] = []
+    if draft.system_key == "shadow-demon-lord":
+        try:
+            validate_sotdl_creation(values)
+        except ValueError as error:
+            errors.append(str(error))
     for field_id, value in values.items():
         field = fields.get(field_id)
         if field is None:
@@ -69,6 +75,8 @@ def prepare_sheet_creation(
         )
 
     normalized_values = dict(values)
+    if draft.system_key == "shadow-demon-lord":
+        validate_sotdl_creation(normalized_values)
     if name_field is not None:
         normalized_values[name_field.id] = normalized_name
 

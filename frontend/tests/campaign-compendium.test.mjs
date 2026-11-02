@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   emptyProposalDraft, mergeCompendiumEntries, originLabel, parseCompendiumTags, rowToCompendiumEntry, splitReviewRows, validateCompendiumProposal,
 } from "../lib/campaign-compendium.ts";
+import { searchCompendiumEntries } from "../lib/compendium-search.ts";
 
 const CAMPAIGN = "ce100000-0000-4000-8000-000000000001";
 const local = [
@@ -32,7 +33,7 @@ test("approved campaign entry replaces a local example with the same title", () 
 });
 
 test("origin label distinguishes campaign and local entries", () => {
-  assert.match(originLabel(rowToCompendiumEntry(row({ source_kind: "licensed" }))), /^Campanha.*Caderno, página 12 \(licenciado\)$/);
+  assert.match(originLabel(rowToCompendiumEntry(row({ source_kind: "licensed" }))), /^Campanha.*Caderno, página 12 \(licença declarada\)$/);
   assert.match(originLabel({ ...local[0], origin: "local" }), /^Acervo local/);
 });
 
@@ -49,6 +50,7 @@ test("proposal validation builds the RPC payload and rejects bad input", () => {
   const bad = validateCompendiumProposal(CAMPAIGN, { ...emptyProposalDraft(), level: "9", sourcePage: "0" });
   assert.equal(bad.payload, undefined);
   assert.equal(bad.errors.length, 5);
+  assert.ok(validateCompendiumProposal(CAMPAIGN, { ...draft, sourceKind: "licensed", sourcePage: "" }).errors.some((error) => error.includes("página")));
 });
 
 test("tags parse ignores blanks and duplicates", () => {
@@ -60,4 +62,9 @@ test("review split shows pending queue and the viewer's non-approved proposals",
   const { pending, mine } = splitReviewRows(rows, "me");
   assert.deepEqual(pending.map((item) => item.id), ["1", "3"]);
   assert.deepEqual(mine.map((item) => item.id), ["1", "2"]);
+});
+
+test("busca encontra a fonte do verbete aprovado", () => {
+  const entries = mergeCompendiumEntries(local, [row({ source_title: "Caderno da Noite" })]);
+  assert.deepEqual(searchCompendiumEntries("Caderno da Noite", entries).map((entry) => entry.title), ["Eco da Vigília"]);
 });

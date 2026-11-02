@@ -130,9 +130,9 @@ function ProposalForm({ campaignId, onSaved }: { campaignId: string; onSaved: (m
       </label>
       <label htmlFor={`${id}-source`}>Fonte<input id={`${id}-source`} value={draft.sourceTitle} maxLength={240} required onChange={(e) => field("sourceTitle", e.target.value)} placeholder="Caderno da mesa" /></label>
       <label htmlFor={`${id}-page`}>Página<input id={`${id}-page`} value={draft.sourcePage} inputMode="numeric" onChange={(e) => field("sourcePage", e.target.value)} /></label>
-      <label htmlFor={`${id}-kind`}>Origem da fonte
+      <label htmlFor={`${id}-kind`}>Origem declarada da fonte
         <select id={`${id}-kind`} value={draft.sourceKind} onChange={(e) => field("sourceKind", e.target.value as CompendiumProposalDraft["sourceKind"])}>
-          <option value="homebrew">Homebrew</option><option value="licensed">Licenciado (referência)</option>
+          <option value="homebrew">Homebrew</option><option value="licensed">Licenciada, sujeita a conferência</option>
         </select>
       </label>
       {errors.length > 0 && <ul className={`${styles.wide} ${styles.notice}`} role="alert">{errors.map((error) => <li key={error}>{error}</li>)}</ul>}
@@ -165,9 +165,12 @@ function ReviewItem({ row, onDone }: { row: CampaignCompendiumRow; onDone: (mess
       <strong>{row.title}</strong>
       <p>{typeLabel(row.entry_type)} · nível {row.level} · {row.source_title}{row.source_page ? `, página ${row.source_page}` : ""} ({row.source_kind === "licensed" ? "licenciado" : "homebrew"})</p>
       <p>{row.description}</p>
-      <label htmlFor={`${id}-note`}>Nota da revisão (opcional)<input className={styles.reviewNote} id={`${id}-note`} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} /></label>
+      <label htmlFor={`${id}-note`}>Nota da revisão {row.source_kind === "licensed" ? "(descreva a autorização, obrigatória para aprovar)" : "(opcional)"}
+        <input className={styles.reviewNote} id={`${id}-note`} value={note} maxLength={2000} onChange={(e) => setNote(e.target.value)} />
+      </label>
+      {row.source_kind === "licensed" && !row.source_page && <p>Informe a página da fonte antes de enviar uma proposta licenciada para aprovação.</p>}
       <div className={styles.actions}>
-        <button className={styles.selectButton} type="button" disabled={busy} onClick={() => void review("approve")}>Aprovar</button>
+        <button className={styles.selectButton} type="button" disabled={busy || (row.source_kind === "licensed" && (!row.source_page || note.trim().length < 12))} onClick={() => void review("approve")}>Aprovar</button>
         <button className={styles.detailButton} type="button" disabled={busy} onClick={() => void review("reject")}>Rejeitar</button>
       </div>
     </li>
@@ -180,6 +183,7 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
   const [type, setType] = useState("all");
   const [level, setLevel] = useState("all");
   const [origin, setOrigin] = useState("all");
+  const [sourceKind, setSourceKind] = useState("all");
   const [preservedMask, setPreservedMask] = useState(false);
   const [detail, setDetail] = useState<CompendiumEntry | undefined>();
   const [rows, setRows] = useState<CampaignCompendiumRow[]>([]);
@@ -215,6 +219,7 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
     (type === "all" || entry.type === type) &&
     (level === "all" || entry.level === Number(level)) &&
     (origin === "all" || (entry.origin ?? "local") === origin) &&
+    (sourceKind === "all" || entry.source.kind === sourceKind) &&
     (!preservedMask || entry.tags.includes("mascara-preservada")),
   );
   const selected = new Set(selectedNames.map((name) => name.toLocaleLowerCase("pt-BR")));
@@ -256,6 +261,11 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
             <option value="all">Todas</option><option value="campaign">Campanha</option><option value="local">Exemplos locais</option>
           </select>
         </label>}
+        <label htmlFor={`${id}-source-kind`}>Fonte
+          <select id={`${id}-source-kind`} value={sourceKind} onChange={(event) => setSourceKind(event.target.value)}>
+            <option value="all">Todas</option><option value="homebrew">Criação da mesa</option><option value="licensed">Licenciada</option>
+          </select>
+        </label>
         <label className={styles.checkbox} htmlFor={`${id}-mask`}>
           <input id={`${id}-mask`} type="checkbox" checked={preservedMask} onChange={(event) => setPreservedMask(event.target.checked)} />
           Etiqueta manual: mascara-preservada

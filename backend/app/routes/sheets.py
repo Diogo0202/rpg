@@ -8,11 +8,12 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Header, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 
 from app.services.hunter_traits import template_creation_problems
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_creation import approved_template_draft, creation_report, prepare_sheet_creation
+from app.services.sotdl_progression import validate_sotdl_advance
 from app.services.sheet_values import validate_sheet_values
 
 
@@ -99,6 +100,26 @@ class ExperienceAdjust(BaseModel):
 
 class MetaCurrencySpend(ExperienceAdjust):
     """Positive amounts spend the resource; negative amounts recover it."""
+
+
+class DemonEvocationRegister(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: StrictStr = Field(min_length=2, max_length=120)
+    lore_field: StrictStr = Field(pattern=r"^dou_[a-z_]{2,40}$")
+    required_rank: StrictInt = Field(ge=1, le=5)
+    faith_cost: StrictInt = Field(ge=1, le=10)
+    source_title: StrictStr = Field(min_length=2, max_length=160)
+    source_page: StrictInt = Field(ge=1, le=5000)
+    verification_note: StrictStr = Field(min_length=12, max_length=500)
+
+
+class DemonEvocationActivation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    evocation_id: UUID
+    operation_id: UUID
+    expected_version: StrictInt = Field(ge=1)
 
 
 # PostgreSQL error codes raised by the adjustment RPCs.
@@ -398,6 +419,11 @@ async def update_sheet(
         current = await get_sheet(sheet_id, authorization)
         template = await _get_template(UUID(current["campaign_id"]), UUID(current["template_id"]), authorization or "")
         _validate_values(changes["values"], _template_fields(template))
+        if template.get("schema", {}).get("system_key") == "shadow-demon-lord":
+            try:
+                validate_sotdl_advance(current["values"], changes["values"])
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
     result = await _request(
         "PATCH",
         "character_sheets",
@@ -473,6 +499,47 @@ async def spend_meta_currency(
         authorization,
         {"p_sheet_id": str(sheet_id), "p_currency_id": currency_id, "p_amount": payload.amount, "p_reason": payload.reason},
     )
+
+
+@router.get("/campaigns/{campaign_id}/demon/evocations")
+async def list_demon_evocations(
+    campaign_id: UUID,
+    authorization: str | None = Header(default=None),
+) -> list[dict[str, Any]]:
+    await _current_user_id(authorization)
+    return await _request(
+        "GET", "demon_evocation_catalog", authorization,
+        params={"select": "id,name,lore_field,required_rank,faith_cost,source_title,source_page,verification_note,reviewed_by",
+                "campaign_id": f"eq.{campaign_id}", "order": "name.asc", "limit": "100"},
+    )
+
+
+@router.post("/campaigns/{campaign_id}/demon/evocations")
+async def register_demon_evocation(
+    campaign_id: UUID,
+    payload: DemonEvocationRegister,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    await _current_user_id(authorization)
+    return await _rpc("register_demon_evocation", authorization, {
+        "p_campaign_id": str(campaign_id), "p_name": payload.name,
+        "p_lore_field": payload.lore_field, "p_required_rank": payload.required_rank,
+        "p_faith_cost": payload.faith_cost, "p_source_title": payload.source_title,
+        "p_source_page": payload.source_page, "p_verification_note": payload.verification_note,
+    })
+
+
+@router.post("/sheets/{sheet_id}/demon/evocations/activate")
+async def activate_demon_evocation(
+    sheet_id: UUID,
+    payload: DemonEvocationActivation,
+    authorization: str | None = Header(default=None),
+) -> dict[str, Any]:
+    await _current_user_id(authorization)
+    return await _rpc("activate_demon_evocation", authorization, {
+        "p_sheet_id": str(sheet_id), "p_evocation_id": str(payload.evocation_id),
+        "p_operation_id": str(payload.operation_id), "p_expected_version": payload.expected_version,
+    })
 
 
 @router.get("/sheets/{sheet_id}/events")
