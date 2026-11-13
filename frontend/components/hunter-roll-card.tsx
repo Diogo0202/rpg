@@ -12,8 +12,8 @@ import styles from "./system-roll-panel.module.css";
 /**
  * F4: Caçador at the table. The roll itself is built in system-roll-panel.tsx and goes to
  * POST /api/v1/hunter/sheets/{id}/rolls (dice and the cell's Desperation come from the database).
- * This card shows the cell, resolves a Desperation 1 (Overreach: cell Danger +1; Despair: marks the
- * sheet), the one Willpower reroll of up to 3 ordinary dice, the Edges (blocked in Despair) and the
+ * This card shows the cell, resolves a Desperation 1 (Forçar a Barra: Perigo +1 per 1; Aflição marks the
+ * sheet), the one Willpower reroll of up to 3 ordinary dice, the Edges and the
  * Redemption by the Drive with the narrator's decision. Rules marked in docs/CACADOR_CRIACAO_GUIADA.md.
  */
 export type HunterCell = { id: string; name: string; danger: number; desperation: number; version: number };
@@ -26,7 +26,7 @@ export type HunterRoll = {
   cell?: HunterCell | null;
 };
 
-const CHOICE_LABEL = { overreach: "Overreach: mantém o sucesso, Perigo da célula +1", despair: "Despair: o teste falha e o caçador entra em Desespero" };
+const CHOICE_LABEL = { overreach: "Forçar a Barra: manter sucesso, Perigo +1 por cada 1", despair: "Falhar e entrar em Aflição" };
 
 /** The cell, Despair state and pending Redemption of a sheet (RPC hunter_sheet_state); null id skips the read. */
 export function useHunterState(sheetId: string | null | undefined, revision: number): HunterState | null {
@@ -99,7 +99,7 @@ export function HunterConsequencesCard({ latest, state, canManage, onRoll, onCha
       ? <>Célula <b>{state.cell.name}</b>: Desesperação <b>{state.cell.desperation}</b> · Perigo <b>{state.cell.danger}</b></>
       : "Ficha sem célula vinculada: o narrador inclui a ficha no painel de células."}</p>
     {latest && <>
-      {latest.resolution && <p className={styles.note}>Mesa escolheu {latest.resolution === "overreach" ? "Overreach (Perigo +1)" : "Despair"}.</p>}
+      {latest.resolution && <p className={styles.note}>{latest.resolution === "overreach" ? "Jogador escolheu Forçar a Barra." : "O caçador entrou em Aflição."}</p>}
       {latest.choices.length > 0 && <div className={styles.checks}>{latest.choices.map((choice) =>
         <button key={choice} className={styles.rollButton} type="button" disabled={busy} onClick={() => resolve(choice)}>{CHOICE_LABEL[choice]}</button>)}</div>}
       {latest.can_reroll && <>
@@ -109,7 +109,7 @@ export function HunterConsequencesCard({ latest, state, canManage, onRoll, onCha
       </>}
     </>}
     <ul className={styles.stateList}>
-      <li data-on={despair}>Em Desespero (Despair){despair ? ": sem dados de Desesperação e Triunfos bloqueados" : ""}</li>
+      <li data-on={despair}>Em Aflição{despair ? ": sem dados de Desesperação" : ""}</li>
       <li data-on={Boolean(edges.length) && !despair}>Triunfos: {edges.join(", ") || "nenhum"}</li>
       <li data-on={Boolean(perks.length) && !despair}>Distinções: {perks.join(", ") || "nenhuma"}</li>
     </ul>

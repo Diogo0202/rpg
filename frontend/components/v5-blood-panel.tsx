@@ -15,7 +15,7 @@ type BloodResponse = { replayed: boolean; outcome: Record<string, unknown>; dice
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const KIND_LABELS: Record<string, string> = {
-  rouse: "Rouse", awaken: "Despertar", remorse: "Remorso", frenzy: "Frenesi", compulsion: "Compulsão", torpor: "Torpor",
+  rouse: "Rouse", awaken: "Despertar", remorse: "Remorso", frenzy: "Frenesi", compulsion: "Compulsão", torpor: "Torpor", mend: "Remendar", surge: "Surto de Sangue",
 };
 const FRENZY_LABELS: Record<FrenzyKind, string> = { fury: "Fúria", hunger: "Fome", terror: "Terror (Rötschreck)" };
 
@@ -48,6 +48,10 @@ export function describeBloodEvent(event: Pick<BloodEvent, "kind" | "outcome">):
       return `${o.compulsion}${o.clan_compulsion ? ` (${o.clan_compulsion})` : ""}${o.rolled ? " · sorteada" : ""}`;
     case "torpor":
       return o.in_torpor ? `entrou em Torpor · duração ${o.duration}` : "saiu do Torpor";
+    case "mend":
+      return `curou ${o.healed} superficial · Rouse ${o.success ? "bem-sucedido" : "falhou"} · Fome ${o.hunger_before} → ${o.hunger_after}${o.hunger_frenzy_test ? " · teste de frenesi de fome" : ""}`;
+    case "surge":
+      return `${o.success ? "Rouse bem-sucedido" : "Rouse falhou"} · +${o.bonus_dice} dado(s) nesta rolagem · Fome ${o.hunger_before} → ${o.hunger_after}${o.hunger_frenzy_test ? " · teste de frenesi de fome" : ""}`;
     default:
       return "";
   }
@@ -128,6 +132,7 @@ export function V5BloodPanel({ canEdit }: { canEdit: boolean }) {
           <p className={styles.poolLine}>Rerrolagem de Rouse <b>{potency.rouse_reroll_level ? `poderes até o nível ${potency.rouse_reroll_level}` : "nenhuma"}</b> · Severidade da Perdição <b>{potency.bane_severity}</b></p>
           <p className={styles.poolLine}>Alimentação: <b>{feedingPenaltyLabel(potency)}</b></p>
           <p className={styles.poolLine}>Fome <b>{state.hunger}/5</b> · Humanidade <b>{state.humanity}</b> · Manchas <b>{state.stains}</b> · Vontade atual <b>{state.willpowerCurrent}</b>{state.inTorpor ? <> · <b>Em Torpor</b></> : null}</p>
+          {state.impaired && <p className={styles.penalty}>Manchas excedem os espaços vazios da Humanidade: Comprometido (−2 dados) e {state.stainWillpowerAggravated} dano(s) agravado(s) de Vontade até o Remorso.</p>}
         </article>
         <article className={styles.card}>
           <h3>Rouse e Despertar</h3>
@@ -139,8 +144,10 @@ export function V5BloodPanel({ canEdit }: { canEdit: boolean }) {
           <div className={styles.quickButtons}>
             <button type="button" disabled={disabled} onClick={() => void act("rouse", "rouse", { discipline_level: chosen?.level ?? null, reason: power ? power.slice(0, 120) : null }, describe("rouse"))}>Rouse Check</button>
             <button type="button" disabled={disabled || state.inTorpor} onClick={() => void act("awaken", "awaken", {}, describe("awaken"))}>Despertar ao anoitecer</button>
+            <button type="button" disabled={disabled || state.inTorpor || state.hunger >= 5 || typeof selected.values.saude_superficial !== "number" || selected.values.saude_superficial < 1}
+              onClick={() => void act("mend", "mend", {}, describe("mend"))}>Remendar ({potency.mend} superficial)</button>
           </div>
-          {state.hunger === 5 && <p className={styles.penalty}>Fome 5: um Rouse que falhar pede teste de frenesi de fome.</p>}
+          {state.hunger === 5 && <p className={styles.penalty}>Fome 5 impede Checagens de Sangue voluntárias, incluindo Remendar e Surto. Uma checagem imposta pela cena que falhar pede teste de frenesi de fome.</p>}
         </article>
         <article className={styles.card}>
           <h3>Remorso e Frenesi</h3>

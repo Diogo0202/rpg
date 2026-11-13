@@ -1,3 +1,4 @@
+import { COMPENDIUM_ENTRY_TYPES, type CompendiumEntryType } from "./compendium-types.ts";
 import type { CompendiumEntry } from "./compendium.ts";
 
 /** Row of public.campaign_compendium_entries as returned by Supabase (RLS filters per campaign). */
@@ -6,7 +7,7 @@ export type CampaignCompendiumRow = {
   campaign_id: string;
   proposed_by: string;
   title: string;
-  entry_type: "discipline" | "advantage";
+  entry_type: CompendiumEntryType;
   level: number;
   tags: string[];
   cost: string;
@@ -28,7 +29,7 @@ export const CAMPAIGN_COMPENDIUM_COLUMNS =
 
 export type CompendiumProposalDraft = {
   title: string;
-  type: "discipline" | "advantage";
+  type: CompendiumEntryType;
   level: string;
   tags: string;
   cost: string;
@@ -43,7 +44,7 @@ export type CompendiumProposalDraft = {
 export type CompendiumProposalPayload = {
   p_campaign_id: string;
   p_title: string;
-  p_entry_type: "discipline" | "advantage";
+  p_entry_type: CompendiumEntryType;
   p_level: number;
   p_tags: string[];
   p_cost: string;
@@ -115,7 +116,7 @@ export function validateCompendiumProposal(campaignId: string, draft: Compendium
   const pageText = draft.sourcePage.trim();
   const page = pageText ? Number(pageText) : null;
   if (!title || title.length > 120) errors.push("Informe um nome com até 120 caracteres.");
-  if (draft.type !== "discipline" && draft.type !== "advantage") errors.push("Escolha Disciplina ou Vantagem.");
+  if (!(COMPENDIUM_ENTRY_TYPES as readonly string[]).includes(draft.type)) errors.push("Escolha um tipo de verbete válido.");
   if (!Number.isInteger(level) || level < 0 || level > 5) errors.push("O nível deve ser um inteiro de 0 a 5.");
   if (tags.length > 20 || tags.some((tag) => tag.length > 40)) errors.push("Use até 20 etiquetas de até 40 caracteres.");
   for (const [label, value] of [["Custo", draft.cost], ["Parada", draft.pool], ["Duração", draft.duration]] as const) {

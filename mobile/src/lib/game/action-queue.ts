@@ -22,6 +22,7 @@ export type QueuedAction = {
 export type QueueStorage = {
   read(): Promise<unknown>;
   write(value: QueuedAction[]): Promise<void>;
+  update?(change: (current: QueuedAction[]) => QueuedAction[]): Promise<QueuedAction[]>;
 };
 
 export const QUEUE_LIMIT = 100;
@@ -39,7 +40,7 @@ function validEntry(value: unknown): value is QueuedAction {
 /** Stored entries that still look right; an "inflight" left by a closed app goes back to the queue. */
 export function normalizeQueue(value: unknown): QueuedAction[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(validEntry).map((item) => ({ ...item, state: item.state === "inflight" ? "queued" : item.state })).slice(-QUEUE_LIMIT);
+  return value.filter(validEntry).map((item) => ({ ...item, state: item.state === "inflight" ? "queued" : item.state }));
 }
 
 /** A new adjustment with its stable operation_id written into the body. */
@@ -84,6 +85,10 @@ export async function flushQueue(entries: QueuedAction[], send: GameRequest): Pr
 /** Persistent queue with a simple in-process lock so two flushes never send the same entry. */
 export class GameActionQueue {
   private chain: Promise<unknown> = Promise.resolve();
+  private disabled = false;
+  disable(): void { this.disabled = true; }
+  private assertEnabled(): void { if (this.disabled) throw new GameApiError("Acesso à fila encerrado. Entre novamente na campanha.", 403); }
+  async clear(): Promise<void> { this.disable(); await this.locked(() => this.storage.write([])); }
   constructor(private readonly storage: QueueStorage) {}
 
   private locked<T>(task: () => Promise<T>): Promise<T> {
@@ -93,43 +98,52 @@ export class GameActionQueue {
   }
 
   async list(): Promise<QueuedAction[]> {
-    return normalizeQueue(await this.storage.read());
+    return this.locked(async () => normalizeQueue(await this.storage.read()));
+  }
+
+  private async update(change: (current: QueuedAction[]) => QueuedAction[]): Promise<QueuedAction[]> {
+    if (this.storage.update) return this.storage.update(change);
+    const next = change(normalizeQueue(await this.storage.read()));
+    await this.storage.write(next);
+    return next;
   }
 
   enqueue(action: QueuedAction): Promise<QueuedAction[]> {
     return this.locked(async () => {
-      const current = normalizeQueue(await this.storage.read());
-      if (current.some((item) => item.operation_id === action.operation_id)) return current;
-      if (current.length >= QUEUE_LIMIT) throw new GameApiError("Fila offline cheia: sincronize antes de novos ajustes.", 422);
-      const next = [...current, action];
-      await this.storage.write(next);
-      return next;
+      this.assertEnabled();
+      return this.update((current) => {
+        if (current.some((item) => item.operation_id === action.operation_id)) return current;
+        if (current.length >= QUEUE_LIMIT) throw new GameApiError("Fila offline cheia: sincronize antes de novos ajustes.", 422);
+        return [...current, action];
+      });
     });
   }
 
   discard(operationId: string): Promise<QueuedAction[]> {
-    return this.locked(async () => {
-      const next = normalizeQueue(await this.storage.read()).filter((item) => item.operation_id !== operationId);
-      await this.storage.write(next);
-      return next;
-    });
+    return this.locked(() => this.update((current) => current.filter((item) => item.operation_id !== operationId)));
   }
 
   retry(operationId: string): Promise<QueuedAction[]> {
     return this.locked(async () => {
-      const next = normalizeQueue(await this.storage.read()).map((item) => item.operation_id === operationId ? { ...item, state: "queued" as const, last_error: undefined } : item);
-      await this.storage.write(next);
-      return next;
+      this.assertEnabled();
+      return this.update((current) => current.map((item) => item.operation_id === operationId ? { ...item, state: "queued" as const, last_error: undefined } : item));
     });
   }
 
   flush(send: GameRequest): Promise<FlushResult> {
     return this.locked(async () => {
-      const result = await flushQueue(normalizeQueue(await this.storage.read()), send);
-      await this.storage.write(result.remaining);
+      this.assertEnabled();
+      const snapshot = normalizeQueue(await this.storage.read());
+      const result = await flushQueue(snapshot, async (...args) => { this.assertEnabled(); await this.storage.read(); return send(...args); });
+      const sent = new Set(result.sent.map((item) => item.operation_id));
+      const changed = new Map(result.remaining.map((item) => [item.operation_id, item]));
+      // Merge acknowledgements into the latest durable queue. A second tab may have
+      // appended/discarded entries while HTTP was in flight; never replace that queue.
+      result.remaining = await this.update((current) => current.filter((item) => !sent.has(item.operation_id)).map((item) => changed.get(item.operation_id) ?? item));
       return result;
     });
   }
+
 }
 
 /** In-memory storage (tests, or when IndexedDB is unavailable). */

@@ -85,14 +85,14 @@ Evidências: [editor de fichas](frontend/components/sheet-builder.tsx), [cálcul
 ## Música e Spotify
 
 - **MUS-01 | 75% | Em processo:** cadastro de links de playlists do Spotify na campanha, com validação do domínio e do identificador.
-- **MUS-02 | 75% | Em processo:** listagem e abertura das playlists compartilhadas. Os links são gravados no Supabase; falta testar em duas contas ou dispositivos.
+- **MUS-02 | 75% | Em processo:** listagem e abertura das playlists compartilhadas, com player incorporado do Spotify no painel (usa a sessão do Spotify do navegador; sem login, trechos de 30 s). Os links são gravados no Supabase; falta testar em duas contas ou dispositivos.
 - **MUS-03 | 75% | Em processo:** inclusão e remoção de playlists pelo mestre ou dono, com leitura permitida aos membros. As políticas aguardam validação no banco.
-- **MUS-04 | 0% | Não implementada:** conexão da conta Spotify pelo fluxo OAuth.
-- **MUS-05 | 0% | Não implementada:** controle de reprodução pelo aplicativo, incluindo play, pausa, volume e seleção de dispositivo.
-- **MUS-06 | 0% | Não implementada:** sincronização da música entre os participantes da mesa.
-- **MUS-07 | 0% | Não implementada:** criação e edição de playlists pela API do Spotify, fila de faixas e trilhas associadas a cenas.
+- **MUS-04 | 75% | Em processo:** conexão da conta Spotify por OAuth (Authorization Code com client secret no backend). O state é guardado só como hash, vale 10 minutos, serve uma vez e fica preso ao usuário que pediu. Os tokens ficam em tabela que só a chave de serviço lê, e o refresh acontece no backend. Falta cadastrar o app no Spotify e testar contra a conta real.
+- **MUS-05 | 75% | Em processo:** controle de reprodução pelo painel de música: play, pausa, anterior/próxima, volume, troca de aparelho e "Tocar na conta" para cada playlist da campanha. Exige Spotify Premium; contas Free veem o aviso e continuam com o player incorporado. Testado com respostas simuladas do Spotify; falta testar na conta real.
+- **MUS-06 | 75% | Em processo (11/11/2026):** o narrador publica o que toca em `campaign_now_playing` (Realtime); o jogador vê o aviso e pode "Acompanhar" (toca a mesma playlist/faixa na posição atual, com Premium) ou abrir o player incorporado. Migration `20261111120000` com pgTAP; falta testar com duas contas reais.
+- **MUS-07 | 75% | Em processo (11/11/2026):** criar playlist, renomear, ver/adicionar/remover faixas (endpoints `/items` do Spotify), busca de faixas, "Na fila" e cues musicais com `spotify_uri` e botão "Tocar cena". Exige reconectar a conta (escopos `playlist-read-private`, `playlist-modify-private`, `playlist-modify-public`). Testado com respostas simuladas.
 
-Evidências: [painel de playlists](frontend/components/spotify-playlist-panel.tsx) e [migration de playlists](supabase/migrations/20261014031622_campaign_playlist_links.sql).
+Evidências: [painel de playlists](frontend/components/spotify-playlist-panel.tsx), [cartão da conta](frontend/components/spotify-account-card.tsx), [rotas do Spotify](backend/app/routes/spotify.py), [serviço OAuth e Web API](backend/app/services/spotify.py), [testes da API](backend/tests/test_spotify.py), [migration de playlists](supabase/migrations/20261014031622_campaign_playlist_links.sql) e [migration da conexão](supabase/migrations/20261102100000_spotify_connections.sql).
 
 ## Probabilidade preditiva V5
 
@@ -127,7 +127,7 @@ Evidências: [gerador de mapas](backend/app/services/tactical_maps.py), [editor]
 - **GER-01 | 75% | Em processo:** geração de NPCs com nome, resumo e detalhes originais, disponível no painel e na API.
 - **GER-02 | 75% | Em processo:** geração de inimigos com descrição e dados genéricos para a cena.
 - **GER-03 | 75% | Em processo:** geração de itens com descrição e características.
-- **GER-04 | 75% | Em processo:** repetição do conteúdo gerado por seed e possibilidade de receber campos de sistema na API. A interface ainda não oferece editor desses campos.
+- **GER-04 | 75% | Em processo:** repetição do conteúdo gerado por seed e possibilidade de receber campos de sistema na API. Desde 11/11/2026 o painel tem editor chave/valor desses campos, enviado na geração e editável antes de salvar no mundo (`frontend/lib/generation-fields.ts`).
 - **GER-05 | 0% | Não implementada:** fichas de combate completas e validadas para cada sistema, com balanceamento por nível ou dificuldade.
 - **GER-06 | 75% | Em processo:** salvar geração de mapas e conteúdo original na campanha e editar entidades no painel Mundo. Inserção automática no combate e teste remoto pendentes.
 
@@ -161,7 +161,7 @@ Evidências: [motor](backend/app/services/chronicle_gaps.py), [API](backend/app/
 - **RAG-02 | 25% | Em processo:** fila de extração e rascunho para revisão. O endpoint atual devolve um template genérico; ainda não lê nem extrai o conteúdo de um PDF.
 - **RAG-03 | 75% | Em processo:** busca textual autenticada em fontes autorizadas, concedidas à campanha e associadas a modelo aprovado.
 - **RAG-04 | 75% | Em processo:** resultado com título da fonte, trecho e número da página. Falta validar a indexação e a consulta com documentos reais.
-- **RAG-05 | 75% | Em processo:** consulta de página pela API, com controle de acesso à campanha e limite de conteúdo. Falta a ação de abrir a página na interface.
+- **RAG-05 | 75% | Em processo:** consulta de página pela API, com controle de acesso à campanha e limite de conteúdo. A interface abre a página ao lado do trecho, com os termos marcados; falta testar com documentos reais.
 - **RAG-06 | 25% | Em processo:** estrutura vetorial com coluna de embeddings no banco. A geração dos vetores e a busca semântica ainda não existem.
 - **RAG-07 | 0% | Não implementada:** assistente conectado a uma LLM leve para responder perguntas de regras e lore com referências verificáveis.
 - **RAG-08 | 0% | Não implementada:** envio de PDF com validação de extensão, MIME e conteúdo, quarentena e inspeção de arquivos.
@@ -210,6 +210,7 @@ Evidências: [motor de modificadores](backend/app/services/modifiers.py), [rotas
 - **COM-02 | 75% | Em processo:** filtros por tipo, nível e tag manual de preservação da Máscara. Essa tag depende do cadastro do verbete, sem inferência automática sobre regras oficiais.
 - **COM-03 | 75% | Em processo:** modal com custo, parada, duração e origem do verbete, aberto pelo compêndio ou pelo botão de Disciplina ou Vantagem na ficha.
 - **COM-04 | 75% | Em processo:** inclusão de verbetes nas coleções de Disciplinas e Vantagens da ficha. O acervo inicial tem quatro exemplos originais de homebrew.
+- **COM-06 | 75% | Em processo (11/11/2026):** tipos de verbete ampliados (Disciplina, Vantagem, Mérito, Defeito, Ritual, Magia, Poder, Item, Regra) e importação em lote JSON/CSV pelo narrador, com prévia, erros por linha e RPC `compendium_import_entries` (até 200, tudo ou nada, entra como pendente). Migration `20261111100000` com pgTAP.
 - **COM-05 | 0% | Não implementada:** catálogo oficial V5 autorizado, com revisão do narrador e conteúdo segregado por campanha.
 
 Evidências: [compêndio](frontend/components/compendium-panel.tsx), [índice de busca](frontend/lib/compendium.ts) e [exemplos originais](frontend/data/compendium-homebrew.json).

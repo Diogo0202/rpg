@@ -18,6 +18,12 @@ import {
   splitReviewRows,
   validateCompendiumProposal,
 } from "../lib/campaign-compendium";
+import {
+  COMPENDIUM_ENTRY_TYPES,
+  COMPENDIUM_SHEET_INSERTABLE_TYPES,
+  COMPENDIUM_TYPE_LABELS,
+} from "../lib/compendium-types";
+import { CompendiumImportEntry, CompendiumImportError, parseCompendiumImport } from "../lib/compendium-import";
 import { createClient } from "../lib/supabase/client";
 import styles from "./compendium-panel.module.css";
 
@@ -31,7 +37,82 @@ type CompendiumPanelProps = {
   canReview?: boolean;
 };
 
-const typeLabel = (type: CompendiumEntry["type"]) => (type === "discipline" ? "Disciplina" : "Vantagem");
+const typeLabel = (type: CompendiumEntry["type"]) => COMPENDIUM_TYPE_LABELS[type] ?? type;
+const TYPE_OPTIONS = COMPENDIUM_ENTRY_TYPES.map((value) => <option key={value} value={value}>{COMPENDIUM_TYPE_LABELS[value]}</option>);
+
+type ImportPreview = { entries: CompendiumImportEntry[]; errors: CompendiumImportError[] };
+
+function ImportSection({ campaignId, onDone }: { campaignId: string; onDone: (message: string) => void }) {
+  const id = useId();
+  const [format, setFormat] = useState<"json" | "csv">("json");
+  const [text, setText] = useState("");
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
+  const [serverErrors, setServerErrors] = useState<CompendiumImportError[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  function analyze(value: string, kind: "json" | "csv") {
+    setServerErrors([]);
+    setPreview(value.trim() ? parseCompendiumImport(value, kind) : null);
+  }
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    const kind = file.name.toLowerCase().endsWith(".csv") ? "csv" : "json";
+    const content = await file.text();
+    setFormat(kind); setText(content); analyze(content, kind);
+  }
+
+  async function send() {
+    if (busy || !preview || preview.errors.length > 0 || preview.entries.length === 0) return;
+    setBusy(true);
+    setServerErrors([]);
+    try {
+      const { data, error } = await createClient().rpc("compendium_import_entries", { p_campaign_id: campaignId, p_entries: preview.entries });
+      if (error) throw error;
+      const result = data as { inserted: number; errors: CompendiumImportError[] };
+      if (result.errors?.length) { setServerErrors(result.errors); return; }
+      setText(""); setPreview(null);
+      onDone(`${result.inserted} verbete(s) enviados para revisão. Nada foi aprovado automaticamente.`);
+    } catch {
+      setServerErrors([{ index: -1, message: "Não foi possível importar. Confira o limite de 200 verbetes e se você é o narrador da campanha." }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const errors = [...(preview?.errors ?? []), ...serverErrors];
+  return (
+    <div className={styles.form}>
+      <label htmlFor={`${id}-file`}>Arquivo (.json ou .csv)
+        <input id={`${id}-file`} type="file" accept=".json,.csv,application/json,text/csv" onChange={(e) => void onFile(e.target.files?.[0])} />
+      </label>
+      <label htmlFor={`${id}-format`}>Formato
+        <select id={`${id}-format`} value={format} onChange={(e) => { const kind = e.target.value as "json" | "csv"; setFormat(kind); analyze(text, kind); }}>
+          <option value="json">JSON (lista de objetos)</option><option value="csv">CSV (cabeçalho + linhas)</option>
+        </select>
+      </label>
+      <label className={styles.wide} htmlFor={`${id}-text`}>Ou cole o conteúdo (até 200 verbetes; texto próprio, sem copiar livros)
+        <textarea id={`${id}-text`} value={text} onChange={(e) => { setText(e.target.value); analyze(e.target.value, format); }}
+          placeholder={format === "json" ? '[{"title":"…","entry_type":"merit","description":"…","source_title":"Caderno da mesa"}]' : "title,entry_type,level,tags,cost,pool,duration,description,source_title,source_page,source_kind"} />
+      </label>
+      {preview && <p className={`${styles.wide} ${styles.notice}`} role="status">
+        {preview.errors.length === 0 ? `${preview.entries.length} verbete(s) válidos, prontos para enviar.` : `${preview.entries.length} válido(s) e ${preview.errors.length} problema(s). Corrija tudo antes de enviar.`}
+      </p>}
+      {errors.length > 0 && <ul className={`${styles.wide} ${styles.notice}`} role="alert">
+        {errors.map((error, index) => <li key={`${error.index}-${index}`}>{error.index >= 0 ? `Verbete ${error.index + 1}: ` : ""}{error.message}</li>)}
+      </ul>}
+      {preview && preview.errors.length === 0 && preview.entries.length > 0 && <ul className={`${styles.wide} ${styles.queue}`}>
+        {preview.entries.slice(0, 20).map((entry, index) => <li key={`${entry.title}-${index}`}><strong>{entry.title}</strong> · {typeLabel(entry.entry_type)} · nível {entry.level}</li>)}
+        {preview.entries.length > 20 && <li>… e mais {preview.entries.length - 20}</li>}
+      </ul>}
+      <div className={`${styles.wide} ${styles.actions}`}>
+        <button className={styles.selectButton} type="button" disabled={busy || !preview || preview.errors.length > 0 || preview.entries.length === 0} onClick={() => void send()}>
+          {busy ? "Enviando…" : "Enviar para revisão"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function EntryDialog({ entry, onClose }: { entry?: CompendiumEntry; onClose: () => void }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -113,7 +194,7 @@ function ProposalForm({ campaignId, onSaved }: { campaignId: string; onSaved: (m
       <label htmlFor={`${id}-title`}>Nome<input id={`${id}-title`} value={draft.title} maxLength={120} required onChange={(e) => field("title", e.target.value)} /></label>
       <label htmlFor={`${id}-type`}>Tipo
         <select id={`${id}-type`} value={draft.type} onChange={(e) => field("type", e.target.value as CompendiumProposalDraft["type"])}>
-          <option value="discipline">Disciplina</option><option value="advantage">Vantagem</option>
+          {TYPE_OPTIONS}
         </select>
       </label>
       <label htmlFor={`${id}-level`}>Nível
@@ -248,7 +329,7 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
         </label>
         <label htmlFor={`${id}-type`}>Tipo
           <select id={`${id}-type`} value={type} onChange={(event) => setType(event.target.value)}>
-            <option value="all">Todos</option><option value="discipline">Disciplina</option><option value="advantage">Vantagem</option>
+            <option value="all">Todos</option>{TYPE_OPTIONS}
           </select>
         </label>
         <label htmlFor={`${id}-level`}>Nível
@@ -280,7 +361,7 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
           return <article className={styles.card} key={entry.id}>
             <div className={styles.cardTop}>
               <div><p className={styles.cardMeta}>{typeLabel(entry.type)} · nível {entry.level}</p><h3>{entry.title}</h3></div>
-              {onSelect && <button type="button" className={isSelected ? styles.selectedButton : styles.selectButton} aria-pressed={isSelected} onClick={() => onSelect(entry.title)}>
+              {onSelect && COMPENDIUM_SHEET_INSERTABLE_TYPES.includes(entry.type) && <button type="button" className={isSelected ? styles.selectedButton : styles.selectButton} aria-pressed={isSelected} onClick={() => onSelect(entry.title)}>
                 {isSelected ? "Selecionado" : "Adicionar à ficha"}
               </button>}
             </div>
@@ -298,6 +379,12 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
         <summary>Propor verbete para a campanha</summary>
         <p className={styles.notice}>A proposta fica pendente até o narrador aprovar. Escreva com suas palavras e cite a fonte e a página.</p>
         <ProposalForm campaignId={campaignId} onSaved={afterChange} />
+      </details>}
+
+      {campaignId && canReview && <details className={styles.workflow}>
+        <summary>Importar verbetes</summary>
+        <p className={styles.notice}>Somente o narrador importa. Os verbetes entram como pendentes e precisam de revisão individual; se um único verbete for inválido, nenhum é enviado.</p>
+        <ImportSection campaignId={campaignId} onDone={afterChange} />
       </details>}
 
       {campaignId && mine.length > 0 && <section className={styles.workflow} aria-labelledby={`${id}-mine`}>

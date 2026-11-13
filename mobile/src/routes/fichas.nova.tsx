@@ -1,3 +1,4 @@
+import { OneRingCharacterBuilder } from "@/components/nexus/OneRingCharacterBuilder";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -43,7 +44,7 @@ function NewSheet() {
     <div data-system-theme={starter?.systemKey === "demon-the-fallen" ? "demon-the-fallen" : undefined} className="sheet-system-theme space-y-4">
       <PageHeader title="Nova ficha" subtitle="Assistente guiado. Modelos-base parciais; regras completas dependem das fontes oficiais." />
       <LocalGate>
-        {starter ? <Wizard starter={starter} onCancel={() => setStarter(null)} /> : templates.length > 0 ? (
+        {starter ? (starter.template.system_key === "one-ring" && starter.template.rules_profile_version === 3 ? <OneRingNewCharacter starter={starter} onCancel={()=>setStarter(null)} /> : <Wizard starter={starter} onCancel={() => setStarter(null)} />) : templates.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {templates.map((s) => (
               <Btn key={s.id} variant="outline" onClick={() => setStarter(s)} className="parchment flex h-auto flex-col items-start bg-card p-4 text-left hover:ring-2 hover:ring-ring">
@@ -60,6 +61,17 @@ function NewSheet() {
 }
 
 type WizardStarter = { id: string; label: string; systemKey: string; templateId: string | null; template: SheetTemplate; values: Record<string, FieldValue> };
+
+function OneRingNewCharacter({starter,onCancel}:{starter:WizardStarter;onCancel:()=>void}) {
+  const {create,mode,accountId,campaignId}=useNexus();
+  const navigate=useNavigate();
+  return <><Btn variant="outline" onClick={onCancel}>Trocar modelo</Btn><OneRingCharacterBuilder accountId={accountId} campaignId={campaignId} templateId={starter.templateId ?? "local-one-ring-v3"} initialValues={starter.values} saveMode={mode==="connected" ? "queued" : "local"} onSave={async(values)=>{
+    const payload:Record<string,JsonValue>=mode==="connected" ? {template_id:starter.templateId!,name:String(values.nome),values} : {name:String(values.nome),system_key:"one-ring",template_name:starter.template.name,template_version:3,values,effects:[]};
+    const id=await create("character_sheets",payload);
+    toast.success(mode==="connected" ? "Ficha enviada para confirmação pelo servidor." : "Ficha criada apenas no modo local.");
+    await navigate({to:"/fichas",search:{ficha:id}});
+  }}/></>;
+}
 
 function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () => void }) {
   const template = starter.template;

@@ -51,10 +51,10 @@ def _int(values: dict[str, Any], field_id: str, default: int = 0) -> int:
 def derived(values: dict[str, Any]) -> dict[str, int]:
     """The formula fields of the v2 starter, computed the same way the template does."""
     return {
-        **{f"tn_{attribute}": TN_BASE - _int(values, attribute) for attribute in ATTRIBUTES},
-        "vigor_max": _int(values, "corpo") + _int(values, "base_vigor"),
-        "esperanca_max": _int(values, "coracao") + _int(values, "base_esperanca"),
-        "aparar": _int(values, "astucia") + _int(values, "base_aparar") + _int(values, "bonus_escudo"),
+        **{f"tn_{attribute}": TN_BASE - _int(values, attribute) - _int(values, f"desconto_tn_{attribute}") for attribute in ATTRIBUTES},
+        "vigor_max": _int(values, "corpo") + _int(values, "base_vigor") + _int(values, "bonus_vigor"),
+        "esperanca_max": _int(values, "coracao") + _int(values, "base_esperanca") + _int(values, "bonus_esperanca"),
+        "aparar": _int(values, "astucia") + _int(values, "base_aparar") + _int(values, "bonus_escudo") + _int(values, "bonus_aparar"),
         "carga_total": _int(values, "carga") + _int(values, "cansaco"),
         "sombra_total": _int(values, "sombra") + _int(values, "cicatrizes"),
     }
@@ -77,7 +77,8 @@ def problems(values: dict[str, Any]) -> list[str]:
     numbers = derived(values)
     found: list[str] = []
     total = sum(_int(values, attribute) for attribute in ATTRIBUTES)
-    if total != ATTRIBUTE_TOTAL:
+    expected_total = 15 if values.get("anel_atributos") and values.get("linhagem") == "Patrulheiros do Norte" else ATTRIBUTE_TOTAL
+    if total != expected_total:
         found.append(f"Corpo, Coração e Astúcia somam {total}; a criação pede {ATTRIBUTE_TOTAL}")
     culture = values.get("linhagem")
     if isinstance(culture, str) and culture in CULTURES:
@@ -91,7 +92,7 @@ def problems(values: dict[str, Any]) -> list[str]:
         found.append(f"Esperança atual passa do máximo {numbers['esperanca_max']}")
     favoured = values.get("pericias_favorecidas", [])
     if isinstance(favoured, list):
-        if len(favoured) > FAVOURED_SKILLS:
+        if not values.get("anel_atributos") and len(favoured) > FAVOURED_SKILLS:
             found.append(f"Até {FAVOURED_SKILLS} perícias favorecidas")
         unknown = [item for item in favoured if item not in SKILL_LABELS]
         if unknown:

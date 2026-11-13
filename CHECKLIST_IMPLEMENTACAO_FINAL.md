@@ -32,6 +32,26 @@ Atualizado em 27/10/2026, depois de concluir as 10 frentes (A a J), as 7 pendên
 | Compêndio com busca e filtros | 75% | 85% | 85% | Cadastrar o acervo autorizado e validar com conteúdo real |
 | Marketplace de modelos | 75% | 85% | 90% | Cadastrar um administrador em `marketplace_admins`; validar publicação, cópia e moderação com contas reais |
 
+## Rodada de 11/11/2026: geradores, diário, inventário, compêndio, marketplace e Spotify
+
+- [x] Geradores: editor de campos do sistema (GER-04), enviado na geração e editável antes de salvar no mundo
+- [x] Chat: o autor edita a própria mensagem (o banco já permitia)
+- [x] Painel de ações V5: rolagem guardada calcula o dano do ataque sob demanda (`POST /v5/rolls/{id}/attack`) e permite aplicar no alvo. O cálculo usa a arma equipada no momento do clique
+- [x] Ficha para impressão mostra o tipo de dano das armas
+- [x] Compêndio: 9 tipos de verbete e importação JSON/CSV em lote (`20261111100000`). Ritual, Magia, Poder, Item e Regra só são consultáveis, não entram na ficha
+- [x] Marketplace: ordenação Recentes/Populares na tela; `marketplace_list_reports` removida (`20261111110000`); script `npm run marketplace:admin -- add|remove|list <email>`
+- [x] Spotify: sincronização da mesa, "Acompanhar", criar/editar playlists, busca, fila e "Tocar cena" (`20261111120000`)
+- [ ] Teste de concorrência real do equipamento: precisa de um Postgres real (`DATABASE_URL`) e do pacote `pg`, que não está no projeto
+
+Verificação local em 11/11: `test:web` 311/311, `test:db` 68 migrations e 1210 asserções sem falha, `test:api` 1790 aprovados, lint e `build` concluídos.
+
+Ambiente real desta rodada:
+
+- [ ] Aplicar `20261111100000`, `20261111110000` e `20261111120000`
+- [ ] No painel do Spotify, manter o app com os escopos de playlist; cada usuário reconecta a conta uma vez
+- [ ] Testar "Acompanhar" com narrador e jogador Premium em contas diferentes
+- [ ] Cadastrar o administrador com `npm run marketplace:admin -- add <email>`
+
 ## Vampiro V5, V3 e Caçador (rodada de 27/10)
 
 Plano: frentes F1 a F5 no backend e na web, F6 no mobile. Migrations `20261029100000` a `20261029140100`.
@@ -75,10 +95,10 @@ Limites conhecidos:
 - [ ] Rolagens dos campos da ficha usam `/api/v1/dice/roll`, que não aceita o contexto da crônica
 - [ ] Dano de ataque sempre vai para Saúde; não há opção de Vontade
 - [ ] Histórico do painel de ações mostra só a sessão do navegador, embora as rolagens fiquem salvas
-- [ ] Chat sem tela de edição de mensagem (o banco permite)
-- [ ] Ficha para impressão não mostra o tipo de dano das armas
+- [x] Chat sem tela de edição de mensagem (resolvido em 11/11)
+- [x] Ficha para impressão não mostra o tipo de dano das armas (resolvido em 11/11)
 - [ ] Uma falha do provedor de e-mail também conta no limite de 5 envios
-- [ ] A consulta antiga `marketplace_list_reports` continua existindo e devolve quem denunciou; nada no app a usa
+- [x] A consulta antiga `marketplace_list_reports` foi removida em `20261111110000`
 - [ ] Modelos V5 já aprovados no banco não recebem as regras novas; vale para o starter novo ou modelo atualizado
 
 ## Conferência de regras no livro
@@ -133,7 +153,7 @@ Limites e configuração:
 - [ ] Decisão sua: em 23/10 a monetização tinha ficado desativada (`docs/NEXUS_LOCAL_FIRST_COMPARISON.md`); o código novo só liga com as variáveis
 - [ ] Conferir o formato do link de afiliado da DriveThruRPG no site real
 - [ ] Canais de voz criados no Discord não são apagados depois
-- [ ] Sem seletor de popularidade na tela do marketplace
+- [x] Seletor de popularidade na tela do marketplace (11/11)
 - [ ] Foco do teclado se perde ao pular a animação do rolador
 - [ ] Ver o rolador num celular fraco e as telas novas no navegador
 

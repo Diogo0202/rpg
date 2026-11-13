@@ -27,6 +27,20 @@ Entrega local em 27/10/2026. A tela **Modelos importados**, na navegação da ca
 - `supabase/migrations/20261029160000_marketplace_template_publication.sql`: RPCs de exportação, revisão e aprovação já presentes no checkout.
 - `scripts/test-marketplace-imports-ui.cjs`: testes em navegador com RPCs fictícias locais, sem credenciais reais.
 
+## Cadastrar administrador
+
+Moderadores ficam na tabela `marketplace_admins`, sem tela pública. Use o script com a chave de serviço, apenas em máquina confiável:
+
+```powershell
+$env:SUPABASE_URL = "https://SEU-PROJETO.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "<chave de serviço>"
+npm run marketplace:admin -- add pessoa@exemplo.com
+npm run marketplace:admin -- remove pessoa@exemplo.com
+npm run marketplace:admin -- list
+```
+
+O e-mail é procurado sem diferenciar maiúsculas de minúsculas na Auth Admin API. O script nunca imprime a chave. A função antiga `marketplace_list_reports`, que expunha quem denunciou, foi removida; a fila oficial é `marketplace_moderation_queue`.
+
 ## Verificação de 27/10/2026
 
 | Verificação | Resultado local |

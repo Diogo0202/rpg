@@ -87,7 +87,7 @@ select is((select usage_count from public.marketplace_systems where id = 'cf2000
 select set_config('request.jwt.claim.sub', 'cf000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
 select throws_ok($$select public.marketplace_moderate_system('cf200000-0000-4000-8000-000000000001', 'restore', null)$$, 'P0001', null, 'restore is blocked while a report is open');
-select public.marketplace_resolve_report((select id from public.marketplace_list_reports(1, 50) where system_id = 'cf200000-0000-4000-8000-000000000001'), 'remove', 'Confirmed by rights holder');
+select public.marketplace_resolve_report((select id from public.marketplace_moderation_queue(1, 50) where system_id = 'cf200000-0000-4000-8000-000000000001'), 'remove', 'Confirmed by rights holder');
 reset role;
 select is((select status from public.marketplace_systems where id = 'cf200000-0000-4000-8000-000000000001'), 'removed', 'moderator removes a reported system');
 select set_config('test.cf_report', (select id::text from public.marketplace_reports where system_id = 'cf200000-0000-4000-8000-000000000001' limit 1), false);

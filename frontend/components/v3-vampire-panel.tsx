@@ -8,18 +8,19 @@ import { v3Derived, v3Traits } from "../lib/v3-rules";
 import { authenticatedPost, authenticatedPostWithChronicle } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";
 
-type Character = { id: string; name: string; values: Record<string, unknown> };
+type Character = { id: string; version?: number; name: string; values: Record<string, unknown> };
 type RollResult = {
-  dice: number[]; difficulty: number; successes: number; botch: boolean; success: boolean; verdict: string;
+  dice: number[]; specialty_dice?: number[]; difficulty: number; successes: number; botch: boolean; success: boolean; verdict: string;
   penalty: number; rolled: number; willpower_spent: boolean; specialty: boolean;
 };
-type ActionResult = { sheet?: { values?: Record<string, unknown> }; test?: { outcome?: string; roll?: { dice?: number[]; successes?: number } }; replayed?: boolean; applied?: number };
+type ActionResult = { sheet?: { values?: Record<string, unknown>; version?: number }; test?: { outcome?: string; roll?: { dice?: number[]; successes?: number } }; replayed?: boolean; applied?: number; unapplied?: number; state?: string };
 type Entry = { title: string; at: string; text: string };
-type Action = "sangue" | "cura" | "dano" | "sangue_inicial" | "frenesi" | "rotschreck" | "degeneracao";
+type Action = "sangue" | "cura" | "dano" | "sangue_inicial" | "frenesi" | "rotschreck" | "degeneracao" | "alimentar" | "torpor" | "despertar" | "morte_final";
 const NONE = "__none__";
 
 function describeRoll(result: RollResult): string {
   return `${result.verdict} · ${result.successes} sucesso(s) · dificuldade ${result.difficulty} · dados ${result.dice.join(" · ") || "nenhum"}`
+    + `${result.specialty_dice?.length ? ` · dados de especialização ${result.specialty_dice.join(" · ")}` : ""}`
     + `${result.penalty ? ` · Vitalidade ${result.penalty}` : ""}${result.specialty ? " · especialização" : ""}${result.willpower_spent ? " · +1 Vontade" : ""}`;
 }
 
@@ -28,7 +29,7 @@ function describeRoll(result: RollResult): string {
  * sheet, Willpower spent atomically, and blood, damage, healing, frenzy, Rötschreck and degeneration
  * through the v3_* RPCs. Rules are marked for checking in the book.
  */
-export function V3VampirePanel({ character, campaignId, onSheet }: { character: Character; campaignId?: string; onSheet?: (values: Record<string, unknown>) => void }) {
+export function V3VampirePanel({ character, campaignId, onSheet, canManage = false }: { character: Character; campaignId?: string; onSheet?: (values: Record<string, unknown>, version?: number) => void; canManage?: boolean }) {
   const values = character.values as Record<string, FieldValue>;
   const derived = v3Derived(values);
   const traits = v3Traits(values);
@@ -43,12 +44,28 @@ export function V3VampirePanel({ character, campaignId, onSheet }: { character: 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [history, setHistory] = useState<Entry[]>([]);
+  const [lifeState, setLifeState] = useState("unknown");
+  const [note, setNote] = useState("");
+  const [confirmDeath, setConfirmDeath] = useState(false);
+  const operationIds = useRef(new Map<string, string>());
   const controller = useRef<AbortController | null>(null);
 
   useEffect(() => {
     controller.current?.abort();
+    operationIds.current.clear();
+    setConfirmDeath(false);
     setAttributeId(""); setAbilityId(NONE); setHistory([]); setMessage(""); setWillpower(false); setSpecialty(false);
+    return () => controller.current?.abort();
   }, [character.id]);
+
+  useEffect(() => {
+    const current = new AbortController();
+    setLifeState("unknown");
+    void authenticatedPost(`/api/v1/system-rolls/vampire-v3/sheets/${character.id}/state`, {}, current.signal)
+      .then((result: { state?: string }) => { if (!current.signal.aborted && ["active", "torpor", "final_death"].includes(result.state ?? "")) setLifeState(result.state!); })
+      .catch(() => { if (!current.signal.aborted) setMessage("Não foi possível consultar o estado V3. Atualize a ficha antes de agir."); });
+    return () => current.abort();
+  }, [character.id, character.version]);
 
   const attribute = traits.attributes.find((trait) => trait.id === attributeId) ?? traits.attributes[0];
   const ability = traits.abilities.find((trait) => trait.id === abilityId);
@@ -73,30 +90,41 @@ export function V3VampirePanel({ character, campaignId, onSheet }: { character: 
   const roll = () => run(async (signal) => {
     if (pool < 1 || pool > 30) throw new Error("A parada precisa ficar entre 1 e 30 dados.");
     if (derived.penalty === null) throw new Error("Incapacitado não pode agir.");
+    if (lifeState !== "active") throw new Error("Confirme o estado ativo antes de rolar.");
     if (willpower && willpowerLeft < 1) throw new Error("Sem Força de Vontade disponível.");
     const title = `${attribute?.label ?? ""}${ability ? ` + ${ability.label}` : ""}`;
     const chronicle = buildChronicleContext({ sheetId: character.id, campaignId, traitIds: [attribute?.id, ability?.id], rollKey: newRollKey("v3") });
     const payload = withChronicle({
       pool, difficulty, specialty, use_willpower: willpower, damage_levels: derived.marked,
-      ...(willpower ? { sheet_id: character.id, operation_id: crypto.randomUUID() } : {}),
+      sheet_id: character.id,
+      ...(willpower ? { operation_id: crypto.randomUUID() } : {}),
     }, chronicle);
     const { data } = await authenticatedPostWithChronicle("/api/v1/system-rolls/vampire-v3", payload, signal);
+    if (signal.aborted) return;
     push(title, describeRoll(data as RollResult));
     setWillpower(false);
   });
 
   const act = (action: Action, title: string, extra: Record<string, unknown> = {}) => run(async (signal) => {
+    const key = JSON.stringify({ sheet: character.id, action, extra });
+    let operationId = operationIds.current.get(key);
+    if (!operationId) { operationId = crypto.randomUUID(); operationIds.current.set(key, operationId); }
     const result = await authenticatedPost(`/api/v1/system-rolls/vampire-v3/sheets/${character.id}/actions`,
-      { operation_id: crypto.randomUUID(), action, ...extra }, signal) as ActionResult;
+      { operation_id: operationId, action, ...extra }, signal) as ActionResult;
+    if (signal.aborted) return;
+    operationIds.current.delete(key);
+    if (result.state) setLifeState(result.state);
     const test = result.test;
     const sheet = result.sheet?.values ?? {};
     const parts = [
       test?.outcome, test?.roll?.dice?.length ? `dados ${test.roll.dice.join(" · ")}` : null,
       typeof result.applied === "number" ? `${result.applied} nível(is) marcado(s)` : null,
+      typeof result.unapplied === "number" && result.unapplied > 0 ? `${result.unapplied} nível(is) excedente(s) registrado(s)` : null,
+      result.state === "torpor" ? "Torpor" : result.state === "final_death" ? "Morte Final" : null,
       "pontos_sangue" in sheet ? `sangue ${String(sheet.pontos_sangue)}` : null,
     ].filter(Boolean);
     push(title, parts.join(" · ") || "Aplicado.");
-    if (result.sheet?.values) onSheet?.(result.sheet.values);
+    if (result.sheet?.values) onSheet?.(result.sheet.values, result.sheet.version);
   });
 
   const turnKey = turn.trim() || undefined;
@@ -112,12 +140,13 @@ export function V3VampirePanel({ character, campaignId, onSheet }: { character: 
       <label>Dificuldade<input type="number" min={2} max={10} value={difficulty} onChange={(event) => setDifficulty(Number(event.target.value))} /></label>
     </div>
     <div className={styles.checks}>
-      <label><input type="checkbox" checked={specialty} onChange={(event) => setSpecialty(event.target.checked)} /> Especialização (10 vale dois)</label>
+      <label><input type="checkbox" checked={specialty} onChange={(event) => setSpecialty(event.target.checked)} /> Especialização (rerrole cada 10)</label>
       <label><input type="checkbox" checked={willpower} disabled={willpowerLeft < 1} onChange={(event) => setWillpower(event.target.checked)} /> Gastar 1 Vontade (+1 sucesso)</label>
     </div>
     <p className={styles.poolLine}>Parada: <b>{Math.max(0, pool + (derived.penalty ?? 0))} dados</b>{derived.penalty ? ` (${pool} ${derived.penalty})` : ""}. Cada 1 anula um sucesso; sem sucessos e com um 1 é falha crítica.</p>
     {message && <p className={styles.message} role="status">{message}</p>}
-    <button className={styles.rollButton} type="button" disabled={busy || !attribute || derived.penalty === null} onClick={() => void roll()}>{busy ? "Rolando…" : "Rolar"}</button>
+    <p role="status">Estado: {lifeState === "active" ? "Ativo" : lifeState === "torpor" ? "Torpor" : lifeState === "final_death" ? "Morte Final" : "consultando"}.</p>
+    <button className={styles.rollButton} type="button" disabled={busy || !attribute || derived.penalty === null || lifeState !== "active"} onClick={() => void roll()}>{busy ? "Rolando…" : "Rolar"}</button>
 
     <h3>Sangue, dano e testes</h3>
     <div className={styles.selectGrid}>
@@ -125,6 +154,16 @@ export function V3VampirePanel({ character, campaignId, onSheet }: { character: 
       <label>Tipo de dano<select value={damageKind} onChange={(event) => setDamageKind(event.target.value as typeof damageKind)}><option value="contundente">Contundente (vampiro: metade)</option><option value="letal">Letal</option><option value="agravado">Agravado</option></select></label>
       <label>Turno (opcional)<input value={turn} maxLength={80} placeholder="combate:rodada" onChange={(event) => setTurn(event.target.value)} /></label>
     </div>
+    {canManage && <fieldset disabled={busy || lifeState === "unknown" || lifeState === "final_death"}>
+      <legend>Decisões do narrador</legend>
+      <label>Registro da decisão<input value={note} minLength={12} maxLength={240} onChange={(event) => setNote(event.target.value)} /></label>
+      <p>Para Despertar, confirme no registro o repouso e o teste de Despertar resolvidos pela mesa. O comando gasta 1 ponto de sangue.</p>
+      <button type="button" disabled={note.trim().length < 12} onClick={() => void act("alimentar", "Alimentação", { amount, note })}>Registrar alimentação</button>
+      <button type="button" disabled={note.trim().length < 12} onClick={() => void act("torpor", "Torpor", { note })}>Entrar em Torpor</button>
+      <button type="button" disabled={note.trim().length < 12 || lifeState !== "torpor"} onClick={() => void act("despertar", "Despertar", { note })}>Confirmar Despertar</button>
+      <label><input type="checkbox" checked={confirmDeath} onChange={(event) => setConfirmDeath(event.target.checked)} /> Confirmo a Morte Final permanente</label>
+      <button type="button" disabled={!confirmDeath || note.trim().length < 12} onClick={() => void act("morte_final", "Morte Final", { note })}>Registrar Morte Final</button>
+    </fieldset>}
     <div className={styles.checks}>
       <button className={styles.ghostButton} type="button" disabled={busy} onClick={() => void act("sangue", "Gasto de sangue", { amount, turn: turnKey })}>Gastar sangue</button>
       <button className={styles.ghostButton} type="button" disabled={busy} onClick={() => void act("cura", "Cura com sangue", { amount, turn: turnKey })}>Curar (1 sangue por nível)</button>

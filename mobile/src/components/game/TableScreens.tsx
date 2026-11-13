@@ -32,8 +32,13 @@ export function TableScreens({ sheet }: { sheet: Entity<SheetData> }) {
   const template = { ...templateFor(sheet.data), system_key: sheet.data.system_key ?? system };
   const tabs = TABS[system].filter(([id]) => id !== "xp" || isExperienceSystem(template.system_key));
   const active = tabs.some(([id]) => id === tab) ? tab : "roll";
-  const view = { id: sheet.id, name: sheet.data.name, values: sheet.data.values };
-  const donors = (nexus?.list<SheetData>("character_sheets") ?? []).map((item) => ({ id: item.id, name: item.data.name }));
+  const view = { id: sheet.id, version: sheet.version, name: sheet.data.name, values: sheet.data.values };
+  const donors = [
+    ...(nexus?.list<SheetData>("character_sheets") ?? []).map((item) => ({ id: item.id, name: item.data.name, type: "sheet" as const })),
+    ...(nexus?.list<{ kind?: string; name?: string }>("world_entities") ?? [])
+      .filter((item) => item.data.kind === "npc")
+      .map((item) => ({ id: item.id, name: item.data.name ?? "NPC", type: "entity" as const })),
+  ];
   return (
     <section aria-label="Mesa" className="space-y-3">
       <div role="tablist" aria-label="Telas de mesa" className="flex gap-2 overflow-x-auto pb-1">
@@ -46,9 +51,9 @@ export function TableScreens({ sheet }: { sheet: Entity<SheetData> }) {
         ))}
       </div>
       <div role="tabpanel" id={`table-panel-${active}`} aria-labelledby={`table-tab-${active}`}>
-        {active === "roll" && system === "vampire-v3" && <V3TablePanel sheet={view} api={api} />}
+        {active === "roll" && system === "vampire-v3" && <V3TablePanel key={view.id} sheet={view} api={api} />}
         {active === "roll" && system === "hunter" && <HunterTablePanel sheet={view} api={api} />}
-        {active === "roll" && system === "vampire-v5" && <V5RollPanel sheetId={sheet.id} api={api} />}
+        {active === "roll" && system === "vampire-v5" && <V5RollPanel sheetId={sheet.id} potency={Number(view.values.potencia_sangue ?? 0)} hunger={Number(view.values.fome ?? 0)} api={api} />}
         {active === "blood" && <V5BloodPanel sheet={view} api={api} />}
         {active === "hunt" && <V5SanguinePanel sheetId={sheet.id} sheetName={sheet.data.name} api={api} donors={donors} />}
         {active === "xp" && <ExperienceTablePanel sheet={{ ...view, version: sheet.version, template }} api={api} />}

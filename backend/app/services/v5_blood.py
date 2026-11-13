@@ -279,6 +279,7 @@ def blood_state(values: dict[str, object]) -> dict[str, object]:
     hunger = clamp(_int(values, "fome", 0), 0, HUNGER_MAX)
     humanity = clamp(_int(values, "humanidade", 7), 0, 10)
     stains = clamp(_int(values, "manchas", 0), 0, 10)
+    excess_stains = max(0, stains - (10 - humanity))
     willpower_max = clamp(_int(values, "autocontrole", 0) + _int(values, "resolucao", 0), 0, 30)
     willpower_current = max(0, willpower_max - max(0, _int(values, "vontade_superficial", 0)) - max(0, _int(values, "vontade_agravada", 0)))
     clan = values.get("cla") if isinstance(values.get("cla"), str) else None
@@ -289,6 +290,9 @@ def blood_state(values: dict[str, object]) -> dict[str, object]:
         "hunger": hunger,
         "humanity": humanity,
         "stains": stains,
+        "excess_stains": excess_stains,
+        "impaired": excess_stains > 0,
+        "stain_willpower_aggravated": excess_stains,
         "remorse_pool": remorse_pool(humanity, stains) if stains else 0,
         "remorse_success": float(remorse_success_probability(humanity, stains)) if stains else None,
         "willpower_current": willpower_current,

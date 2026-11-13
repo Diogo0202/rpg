@@ -64,3 +64,57 @@ describe("offline game action queue", () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("queue durability and lifecycle", () => {
+  it("does not accept an action if durable storage fails", async () => {
+    const queue = new GameActionQueue({ read: async () => [], write: async () => { throw new Error("disk full"); } });
+    await expect(queue.enqueue(action(1))).rejects.toThrow("disk full");
+  });
+  it("preserves more than 100 existing receipts instead of silently truncating", () => {
+    expect(normalizeQueue(Array.from({ length: 105 }, (_, index) => action(index + 1)))).toHaveLength(105);
+  });
+  it("blocks pending sends and retry after revocation", async () => {
+    const queue = new GameActionQueue(memoryStorage());
+    await queue.enqueue(action(1));
+    queue.disable();
+    const send = vi.fn();
+    await expect(queue.flush(send)).rejects.toThrow();
+    await expect(queue.retry(op(1))).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+    expect(await queue.list()).toHaveLength(1);
+  });
+  it("waits for inflight sends before clearing on logout", async () => {
+    const storage = memoryStorage();
+    const queue = new GameActionQueue(storage);
+    await queue.enqueue(action(1));
+    await queue.enqueue(action(2));
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    const send = vi.fn(async () => { await gate; return {}; });
+    const running = queue.flush(send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    const clearing = queue.clear();
+    finish();
+    await Promise.all([running, clearing]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(storage.value).toEqual([]);
+  });
+});
+
+describe("cross-instance flush merge", () => {
+  it("preserves concurrent appends while another tab waits for HTTP", async () => {
+    const storage = memoryStorage() as ReturnType<typeof memoryStorage> & { update: (change: (items: ReturnType<typeof normalizeQueue>) => ReturnType<typeof normalizeQueue>) => Promise<ReturnType<typeof normalizeQueue>> };
+    storage.update = async (change) => { storage.value = change(storage.value); return storage.value; };
+    const first = new GameActionQueue(storage), second = new GameActionQueue(storage);
+    await first.enqueue(action(1));
+    let finish!: () => void;
+    const gate = new Promise<void>((resolve) => { finish = resolve; });
+    const send = vi.fn(async () => { await gate; return {}; });
+    const flush = first.flush(send);
+    await vi.waitFor(() => expect(send).toHaveBeenCalledOnce());
+    await second.enqueue(action(2));
+    finish();
+    await flush;
+    expect(storage.value.map((item) => item.operation_id)).toEqual([op(2)]);
+  });
+});

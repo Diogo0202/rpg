@@ -26,8 +26,8 @@ export const HUNTER_STEP_HELP: Record<string, string> = {
   identity: "Escolha o credo e o ímpeto do caçador. O arquétipo continua disponível nesta etapa (p. 57). A célula é vinculada pelo narrador no painel de células.",
   attributes: "Distribua os valores finais entre os nove atributos: 4/3/3/3/2/2/2/2/1. Não some esses pontos ao valor inicial (pp. 54 e 57).",
   skills: "Escolha um modo e distribua os pontos nas 27 habilidades. As demais ficam em zero. Você escolhe quais habilidades recebem cada valor (p. 61).",
-  traits: "Especializações no formato Habilidade (especialização): uma para Ciência, Erudição, Ofícios e Performance quando tiverem pontos, mais uma livre (p. 61). Vantagens: 7 pontos (Recursos conta); Defeitos: 2 pontos, do catálogo. Triunfos e Distinções: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções, no formato Triunfo: Distinção (p. 54). Registre o equipamento.",
-  story: "Complete Ambição, Desejo e os pares de Convicção e Pedra de Toque. Redenção liga o fim do Desespero ao Ímpeto (pp. 54 e 282).",
+  traits: "Confira especializações e pontos de Vantagens/Defeitos. Na criação, escolha 2 Triunfos ou 1 Triunfo e 2 Distinções (p. 90). Registre o equipamento.",
+  story: "Complete Ambição, Desejo e até 3 Pilares, pessoas com vínculos significativos (pp. 56 e 282). Redenção liga o fim da Aflição ao Ímpeto.",
 };
 
 /** Skills that always get a free specialty when they have dots; one more goes to any skill with dots (p. 61). */
@@ -65,11 +65,11 @@ export const HUNTER_ADVANTAGE_RULES: CollectionPointsRule[] = [
 
 /** Rules the table should confirm against the book (F4). */
 export const HUNTER_REVIEW_RULES = [
-  "Nomes em português dos Triunfos (Edges) e Distinções (Perks), e as Distinções de cada Triunfo.",
-  "Criação: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções.",
+  "Catálogo dos Triunfos e Distinções conferido no livro básico, pp. 89–100; opções antigas Vira-Casaca e Purificar o Sobrenatural ficam fora das escolhas novas.",
+  "Criação: 2 Triunfos, ou 1 Triunfo e 2 Distinções (p. 90).",
   "Catálogo de Vantagens e Defeitos e seus pontos (7 e 2).",
-  "Desesperação: um 1 nos dados de Desesperação num sucesso deixa a mesa escolher Overreach (Perigo +1) ou Despair; numa falha é Despair.",
-  "Em Despair o caçador não soma dados de Desesperação e não usa Triunfos.",
+  "Desesperação: em sucesso, o jogador escolhe Forçar a Barra e eleva Perigo por cada 1, ou falha e entra em Aflição. Em falha com 1 há Aflição (pp. 127–128).",
+  "Em Aflição não se rolam dados de Desesperação; Distinções continuam disponíveis (p. 90).",
   "Rerrolagem de Vontade: até 3 dados comuns, uma vez por teste, gastando 1 de Vontade.",
   "Redenção: cumprir o Ímpeto encerra o Despair, com decisão do narrador.",
 ];

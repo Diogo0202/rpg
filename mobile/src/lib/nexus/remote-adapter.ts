@@ -123,7 +123,7 @@ export function toRemotePath(type: string, path: string[], value: JsonValue | un
 
 export function makeSheetStarter(template: { id: string; name: string; version: number; schema: JsonValue }) {
   const schema = object(template.schema);
-  if (schema.rules_profile_version != null) return null;
+  if (schema.rules_profile_version != null && !(schema.system_key === "one-ring" && schema.rules_profile_version === 3 && template.version === 3)) return null;
   if (!Array.isArray(schema.fields) || schema.fields.length < 1 || schema.fields.length > 200) return null;
   const fields = schema.fields as Record<string, unknown>[];
   if (fields.some((field) => !field || typeof field.id !== "string" || typeof field.label !== "string" || !["text", "number", "select", "checkbox", "collection", "formula", "roll"].includes(String(field.kind)))) return null;
@@ -139,9 +139,10 @@ export function makeSheetStarter(template: { id: string; name: string; version: 
     return typeof currency.id === "string" && typeof currency.field === "string" && (currency.mode === "pool" || currency.mode === "track");
   }) } : {};
   return {
-    id: template.id, label: template.name, templateId: template.id, systemKey: template.id,
+    id: template.id, label: template.name, templateId: template.id, systemKey: typeof schema.system_key === "string" ? schema.system_key : template.id,
     template: { name: template.name, version: template.version, fields: normalized, ...rules, ...experience, ...currencies,
       ...(typeof schema.system_key === "string" ? { system_key: schema.system_key } : {}),
+        ...(schema.rules_profile_version === 3 ? { rules_profile_version: 3 } : {}),
     } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
     values: {} as Record<string, string | number | boolean | string[]>,
   };

@@ -37,6 +37,7 @@ class RollChronicleContext(BaseModel):
     campaign_id: uuid.UUID | None = None
     trait_ids: list[StrictStr] = Field(default_factory=list, max_length=50)
     roll_key: StrictStr | None = Field(default=None, min_length=1, max_length=120)
+    roll_field_id: StrictStr | None = Field(default=None, pattern=r"^[a-z][a-z0-9_]{1,63}$")
 
     @field_validator("trait_ids")
     @classmethod
@@ -93,3 +94,22 @@ async def record_from_context(authorization: str | None, context: RollChronicleC
         authorization, sheet_id=context.sheet_id, trait_ids=context.trait_ids,
         roll_key=context.roll_key, campaign_id=context.campaign_id,
     )
+
+
+async def record_field_roll(authorization: str | None, context: RollChronicleContext | None, expression: str) -> RollActivityResult | None:
+    """Records a roll field without attributing use to unrelated numeric traits."""
+    if context is None:
+        return None
+    if context.roll_field_id is None:
+        return await record_from_context(authorization, context)
+    try:
+        result = await call_rpc("rpg_record_sheet_field_roll", authorization or "", {
+            "p_sheet_id": str(context.sheet_id), "p_campaign_id": str(context.campaign_id) if context.campaign_id else None,
+            "p_field_id": context.roll_field_id, "p_expression": expression,
+            "p_roll_key": context.roll_key or f"field:{uuid.uuid4()}",
+        })
+    except HTTPException:
+        return RollActivityResult(status="error")
+    if not isinstance(result, dict) or result.get("status") not in ROLL_ACTIVITY_STATUSES:
+        return RollActivityResult(status="error")
+    return RollActivityResult(status=result["status"], activity_id=str(result["activity_id"]) if result.get("activity_id") else None)

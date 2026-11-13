@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from app.services.hunter_traits import template_creation_problems
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_creation import approved_template_draft, creation_report, prepare_sheet_creation
+from app.services.one_ring_creation import evaluate_creation as evaluate_one_ring_creation, is_one_ring_v3
 from app.services.sotdl_progression import validate_sotdl_advance
 from app.services.sheet_values import validate_sheet_values
 
@@ -29,8 +30,8 @@ class SheetCreate(BaseModel):
     template_id: UUID
     name: StrictStr = Field(min_length=1, max_length=120)
     values: dict[str, Any] = Field(default_factory=dict, max_length=200)
-    # Required for new sheets: map pins show this photo to the whole table.
-    portrait_path: StrictStr = Field(max_length=200)
+    # One Ring v3 permits creation without a portrait; legacy profiles still require one.
+    portrait_path: StrictStr | None = Field(default=None, max_length=200)
 
     @field_validator("values")
     @classmethod
@@ -40,14 +41,16 @@ class SheetCreate(BaseModel):
 
     @field_validator("portrait_path")
     @classmethod
-    def portrait_shape(cls, value: str) -> str:
+    def portrait_shape(cls, value: str | None) -> str | None:
+        if value is None: return None
         if not PORTRAIT_PATH.fullmatch(value):
             raise ValueError("retrato inválido; envie a foto do personagem novamente")
         return value
 
 
-def _check_portrait_owner(portrait_path: str, campaign_id: UUID, user_id: str) -> None:
+def _check_portrait_owner(portrait_path: str | None, campaign_id: UUID, user_id: str) -> None:
     """The photo must sit in this campaign's folder and belong to the uploader."""
+    if portrait_path is None: return
     campaign_part, uploader_part, _ = portrait_path.split("/", 2)
     if campaign_part != str(campaign_id) or uploader_part != user_id:
         raise HTTPException(status_code=422, detail="o retrato precisa ser enviado por você nesta campanha")
@@ -345,10 +348,25 @@ async def validate_creation(
     """Checks a wizard draft against the approved template's limits and creation rules."""
     await _current_user_id(authorization)
     template = await _get_template(campaign_id, payload.template_id, authorization or "")
+    if is_one_ring_v3(template):
+        report = evaluate_one_ring_creation(payload.values)
+        fields={field.id:field.model_dump(mode="json") for field in approved_template_draft(template).fields}
+        for key,value in payload.values.items():
+            if key not in fields: report["errors"].append({"field":key,"message":f"campo desconhecido: {key}"})
+            else:
+                try: validate_sheet_values({key:value},{key:fields[key]})
+                except ValueError as error: report["errors"].append({"field":key,"message":str(error)})
+        return {"valid": not report["errors"], "field_errors": [problem["message"] for problem in report["errors"]],
+                "field_problems": report["errors"], "violations": [], "derived": report["derived"],
+                "spent": report["spent"], "remaining": report["remaining"]}
     try:
         errors, violations = creation_report(template, payload.values)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    draft = approved_template_draft(template)
+    errors.extend(template_creation_problems(
+        draft.system_key, draft.version, {field.id for field in draft.fields}, payload.values,
+    ))
     return {
         "valid": not errors and not violations,
         "field_errors": errors,
@@ -365,6 +383,8 @@ async def create_campaign_sheet(
     user_id = await _current_user_id(authorization)
     _check_portrait_owner(payload.portrait_path, campaign_id, user_id)
     template = await _get_template(campaign_id, payload.template_id, authorization or "")
+    if payload.portrait_path is None and not is_one_ring_v3(template):
+        raise HTTPException(status_code=422, detail="envie o retrato do personagem antes de criar a ficha")
     try:
         draft, sheet_name, sheet_values = prepare_sheet_creation(template, payload.name, payload.values)
     except ValueError as error:
@@ -373,6 +393,13 @@ async def create_campaign_sheet(
     hunter_problems = template_creation_problems(draft.system_key, draft.version, {field.id for field in draft.fields}, sheet_values)
     if hunter_problems:
         raise HTTPException(status_code=422, detail="; ".join(hunter_problems))
+    if is_one_ring_v3(template):
+        result = await _request("POST", "rpc/create_one_ring_sheet", authorization,
+                                payload={"p_campaign_id": str(campaign_id), "p_template_id": str(payload.template_id),
+                                         "p_name": sheet_name, "p_values": sheet_values, "p_portrait_path": payload.portrait_path})
+        if not result:
+            raise HTTPException(status_code=403, detail="operação não permitida nesta campanha")
+        return result[0] if isinstance(result, list) else result
     result = await _request(
         "POST",
         "character_sheets",

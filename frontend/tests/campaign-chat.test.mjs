@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  applyChatChange, canDeleteMessage, CHAT_MAX_LENGTH, chatErrorMessage, chatTopic, mergeMessages, messageVisibility,
+  applyChatChange, canDeleteMessage, canEditMessage, CHAT_MAX_LENGTH, chatErrorMessage, chatTopic, mergeMessages, messageVisibility,
   parseChatMessage, privateRecipients, resyncMessages, setMessageStatus, sortMessages, validateChatDraft, authorLabel,
 } from "../lib/campaign-chat.ts";
 
@@ -121,4 +121,13 @@ test("chatErrorMessage and chatTopic", () => {
   assert.match(chatErrorMessage({ code: "42501" }), /permissão/);
   assert.match(chatErrorMessage(null), /servidor/);
   assert.equal(chatTopic(CAMPAIGN), `campaign-chat-${CAMPAIGN}`);
+});
+
+test("canEditMessage allows only the author on stored messages", () => {
+  assert.equal(canEditMessage(msg(2), PLAYER), true, "author edits own");
+  assert.equal(canEditMessage(msg(2), PLAYER2), false, "others cannot");
+  assert.equal(canEditMessage(msg(2), NARRATOR), false, "moderators delete but do not edit");
+  assert.equal(canEditMessage({ ...msg(2), status: "sending" }, PLAYER), false, "in-flight sends");
+  assert.equal(canEditMessage({ ...msg(2), status: "failed" }, PLAYER), false, "failed sends");
+  assert.equal(canEditMessage({ ...msg(2), deleted_at: "2026-10-26T20:00:00Z" }, PLAYER), false, "deleted rows");
 });

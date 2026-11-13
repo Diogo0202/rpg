@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
 import { combatBlockOf, narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content";
+import { buildSystemFields, fieldsToRows, SYSTEM_FIELD_LIMITS, type SystemFieldRow } from "../lib/generation-fields";
 import { buildMapGenerationRequest, MAP_GENERATION_LIMITS, roomCapacity } from "../lib/map-generation";
 
 const combatSystems = [["v5", "Vampiro V5"], ["v3", "Vampiro V3"], ["hunter", "Caçador"], ["one_ring", "O Um Anel"], ["sotdl", "Shadow of the Demon Lord"]] as const;
@@ -45,6 +46,24 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
   const [combats, setCombats] = useState<ActiveCombat[]>([]);
   const [combatId, setCombatId] = useState("");
   const [alsoSaveEntity, setAlsoSaveEntity] = useState(true);
+  const [fieldRows, setFieldRows] = useState<SystemFieldRow[]>([]);
+  const [entryRows, setEntryRows] = useState<SystemFieldRow[]>([]);
+
+  function updateRows(setRows: (update: (rows: SystemFieldRow[]) => SystemFieldRow[]) => void, index: number, patch: Partial<SystemFieldRow>) {
+    setRows((rows) => rows.map((row, position) => position === index ? { ...row, ...patch } : row));
+  }
+
+  function renderFieldEditor(idPrefix: string, rows: SystemFieldRow[], setRows: (update: (rows: SystemFieldRow[]) => SystemFieldRow[]) => void, legend: string) {
+    return <fieldset className="generation-map-options">
+      <legend>{legend}</legend>
+      {rows.map((row, index) => <div className="generation-actions" key={index}>
+        <input aria-label={`Nome do campo ${index + 1}`} value={row.key} maxLength={SYSTEM_FIELD_LIMITS.maxKeyLength} placeholder="Nome (ex.: Nível)" onChange={(event) => updateRows(setRows, index, { key: event.target.value })} />
+        <input aria-label={`Valor do campo ${index + 1}`} value={row.value} maxLength={SYSTEM_FIELD_LIMITS.maxValueLength} placeholder="Valor" onChange={(event) => updateRows(setRows, index, { value: event.target.value })} />
+        <button className="quiet" type="button" aria-label={`Remover campo ${index + 1}`} onClick={() => setRows((current) => current.filter((_, position) => position !== index))}>Remover</button>
+      </div>)}
+      <button className="quiet" type="button" id={`${idPrefix}-add`} disabled={rows.length >= SYSTEM_FIELD_LIMITS.maxKeys} onClick={() => setRows((current) => [...current, { key: "", value: "" }])}>Adicionar campo</button>
+    </fieldset>;
+  }
 
   useEffect(() => {
     if (!canManage) return;
@@ -103,6 +122,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
       const { name, description, secret: hidden, questions: _questions, relationships: _relationships, ...details } = payload.result;
       setSecret(typeof hidden === "string" ? hidden : "");
       setEntry({ kind, name: String(name ?? "Sem nome"), summary: String(description ?? ""), details, seed: 0, system: null, ai: true });
+      setEntryRows([]);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao gerar com IA.");
     } finally { setLoading(false); }
@@ -110,12 +130,19 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
 
   async function saveGenerated(target:"map"|"entry") {
     if(!canManage)return;
+    let savedEntry = entry;
+    if (target === "entry" && entry) {
+      const built = buildSystemFields(entryRows);
+      if (built.errors.length) { setMessage(built.errors[0]); return; }
+      const hasFields = Object.keys(built.fields).length > 0;
+      savedEntry = { ...entry, system: hasFields || entry.system ? { name: entry.system?.name ?? "Personalizado", fields: built.fields } : entry.system };
+    }
     setLoading(true);setMessage("");
     try {
       const client=createClient();
       const result=target==="map"&&map
         ?await client.from("maps").insert({campaign_id:campaignId,name:mapName.trim()||`Mapa ${map.seed}`,document:map,created_by:viewerId}).select("id").single()
-        :entry?await client.from("world_entities").insert({campaign_id:campaignId,kind:entry.kind==="item"?"item":"npc",name:entry.name,created_by:viewerId,body:{description:entry.summary,generated:publicGeneratedEntry(entry),role:entry.kind==="enemy"?"antagonist":"neutral",source:entry.ai?"Rascunho de IA revisado pelo narrador":"Gerador original RPG-Atlas"}}).select("id").single():null;
+        :savedEntry?await client.from("world_entities").insert({campaign_id:campaignId,kind:savedEntry.kind==="item"?"item":"npc",name:savedEntry.name,created_by:viewerId,body:{description:savedEntry.summary,generated:publicGeneratedEntry(savedEntry),role:savedEntry.kind==="enemy"?"antagonist":"neutral",source:savedEntry.ai?"Rascunho de IA revisado pelo narrador":"Gerador original RPG-Atlas"}}).select("id").single():null;
       if(!result||result.error||!result.data)throw new Error("Falha ao gravar. Confira suas permissões e as migrations.");
       setMessage(target==="map"?"Mapa salvo. Abra Mapas para editar seus marcadores.":"Conteúdo salvo na biblioteca do mundo.");
     } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gravar.");}
@@ -152,7 +179,10 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     setMessage("");
     try {
       if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-      const payload: { kind: string; seed?: number; combat_system?: CombatSystem; difficulty?: CombatTier } = { kind };
+      const payload: { kind: string; seed?: number; combat_system?: CombatSystem; difficulty?: CombatTier; system_fields?: Record<string, string | number | boolean> } = { kind };
+      const builtFields = buildSystemFields(fieldRows);
+      if (builtFields.errors.length) throw new Error(builtFields.errors[0]);
+      if (Object.keys(builtFields.fields).length) payload.system_fields = builtFields.fields;
       if (kind !== "item" && combatSystem) { payload.combat_system = combatSystem; payload.difficulty = difficulty; }
       if (seed.trim()) {
         const parsedSeed = Number(seed);
@@ -166,7 +196,9 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
         body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error("Não foi possível criar esse conteúdo.");
-      setEntry((await response.json()) as GeneratedEntry);
+      const generated = (await response.json()) as GeneratedEntry;
+      setEntry(generated);
+      setEntryRows(fieldsToRows(generated.system?.fields));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao gerar conteúdo.");
     } finally {
@@ -202,6 +234,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
           </select>
           <button className="quiet" type="button" onClick={generateEntry} disabled={loading}>Gerar</button>
         </div>
+        {renderFieldEditor("generation-fields", fieldRows, setFieldRows, "Campos do sistema (opcional)")}
         {kind !== "item" && <div className="generation-actions">
           <label className="select-label" htmlFor="combat-system">Bloco de combate</label>
           <select id="combat-system" value={combatSystem} onChange={(event) => setCombatSystem(event.target.value as CombatSystem | "")}>
@@ -239,7 +272,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
           {entry?.ai && secret && <p className="generation-secret"><strong>Segredo (só para você):</strong> {secret} Ele não é salvo no mundo, porque os jogadores leem a biblioteca.</p>}
           {entry && !entry.ai && Object.keys(narratorOnlyDetails(entry.details)).length > 0 && <div className="generation-secret"><strong>Só para você (não é salvo no mundo, porque os jogadores leem a biblioteca):</strong><dl className="generated-details">{Object.entries(narratorOnlyDetails(entry.details)).filter(([, value]) => typeof value !== "object").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl></div>}
           {entry ? (
-            <><h2 className="generated-name">{entry.name}</h2><p>{entry.summary}</p><dl className="generated-details">{Object.entries(publicGeneratedEntry(entry).details).filter(([key, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl><button className="primary" type="button" disabled={loading||!canManage} onClick={()=>void saveGenerated("entry")}>Salvar no mundo</button>
+            <><h2 className="generated-name">{entry.name}</h2><p>{entry.summary}</p><dl className="generated-details">{Object.entries(publicGeneratedEntry(entry).details).filter(([key, value]) => typeof value === "string" || typeof value === "number").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{String(value)}</dd></div>)}</dl>{!entry.ai && renderFieldEditor("entry-fields", entryRows, setEntryRows, `Campos do sistema${entry.system?.name ? ` · ${entry.system.name}` : ""} (editáveis antes de salvar)`)}<button className="primary" type="button" disabled={loading||!canManage} onClick={()=>void saveGenerated("entry")}>Salvar no mundo</button>
               {(() => { const block = combatBlockOf(entry.details); return block && <div className="generation-secret" aria-label="Bloco de combate">
                 <strong>Bloco de combate · {block.system_label} · {block.tier_label} (só para você)</strong>
                 <dl className="generated-details">

@@ -6,18 +6,20 @@ import { createClient } from "../lib/supabase/client";
 import { useCharacterSession, type CharacterEffect } from "../lib/character-session";
 import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
 import { findCompendiumEntry } from "../lib/compendium";
-import { authenticatedPost, type ModifierPreview } from "./character-effects-panel";
+import { authenticatedPost, authenticatedPostWithChronicle, type ModifierPreview } from "./character-effects-panel";
+import { buildChronicleContext, chronicleActivityLabel, newRollKey, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { SYSTEM_STARTERS } from "../lib/system-starters";
 import { characterNameField, fieldKinds, creationSteps, identityKinds, type FieldKind, type SheetField, type SheetTemplate, type FieldValue, type StoredTemplate, type SelectDependency } from "../lib/sheet-template";
 import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sheet-creation";
 import { createCampaignSheet } from "../lib/sheet-api";
 import { AiSheetRequest } from "./ai-assistance-panel";
+import { OneRingCharacterBuilder } from "./one-ring-character-builder";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { PortraitPicker } from "./portrait-picker";
 import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetVersionHistory } from "./sheet-version-history";
 import { deleteCampaignSheet } from "../lib/sheet-history";
-type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview };
+type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview; chronicle?: ChronicleActivityStatus | null };
 type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
 const SHEET_COLUMNS = "id, name, template_id, owner_id, values, version, effects, portrait_path";
 const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
@@ -198,19 +200,19 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     } finally { setBusy(false); }
   }
 
-  async function saveSheet() {
+  async function saveSheet(submittedValues?: Record<string, FieldValue>) {
     if (busy) return;
     if (!canEditSheets) { setFeedback("Seu papel nesta campanha permite apenas leitura das fichas."); return; }
     if (!templateId) { setFeedback("Selecione um modelo salvo antes de gravar a ficha."); return; }
-    const name = sheetName.trim();
+    const name = (typeof submittedValues?.nome === "string" ? submittedValues.nome : sheetName).trim();
     if (!name || name.length > 120) { setFeedback("Informe um nome de ficha com até 120 caracteres."); return; }
-    if (!sheetId && !portraitPath) { setFeedback("Envie o retrato do personagem antes de criar a ficha."); return; }
+    if (!sheetId && !portraitPath && !(template.system_key === "one-ring" && template.rules_profile_version === 3)) { setFeedback("Envie o retrato do personagem antes de criar a ficha."); return; }
     setBusy(true);
     const revision = editorRevision.current;
     const selection = selectedCharacterId.current;
     const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection;
     try {
-      const payloadValues = collectValues() as Record<string, FieldValue>;
+      const payloadValues = submittedValues ?? collectValues() as Record<string, FieldValue>;
       const supabase = createClient();
       if (sheetId) {
         const { data, error } = await supabase.from("character_sheets")
@@ -228,7 +230,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         if (sessionError || !sessionData.session) throw new Error("Entre na campanha para salvar esta ficha.");
         const data = await createCampaignSheet(api, sessionData.session.access_token, campaignId, {
-          template_id: templateId, name, values: payloadValues, portrait_path: portraitPath as string,
+          template_id: templateId, name, values: payloadValues, ...(portraitPath ? {portrait_path:portraitPath} : {}),
         }) as StoredSheet;
         data.effects ??= [];
         setSheets((current) => [...current, data]);
@@ -237,10 +239,12 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         setSheetVersion(data.version);
         selectCharacter(data);
         setMode("editor");
+        setValues(payloadValues); setSheetName(name);
       }
       setFeedback("Ficha salva e selecionada para a sessão.");
     } catch (error) {
       if (isCurrent()) setFeedback(error instanceof Error ? error.message : "Não foi possível salvar a ficha.");
+      if (submittedValues) throw error;
     } finally { setBusy(false); }
   }
 
@@ -551,12 +555,14 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       const nextRolls: Record<string, RollResult> = {};
       for (const field of template.fields.filter((item) => item.kind === "roll")) {
         if (!isCurrent()) return;
-        const result = await authenticatedPost("/api/v1/dice/roll", {
+        const chronicle = buildChronicleContext({ sheetId: sheetId || null, campaignId, rollKey: newRollKey(`field:${field.id}`), rollFieldId: field.id });
+        const { data, chronicle: activity } = await authenticatedPostWithChronicle("/api/v1/dice/roll", withChronicle({
           expression: field.expression, context_tags: contextTags,
           effects: character?.id === sheetId ? character.effects : [],
-        }) as { rolls: number[]; modifier: number; total: number; modifier_preview?: ModifierPreview };
+        }, chronicle));
+        const result = data as { rolls: number[]; modifier: number; total: number; modifier_preview?: ModifierPreview };
         if (!isCurrent()) return;
-        nextRolls[field.id] = { ...result, preview: result.modifier_preview };
+        nextRolls[field.id] = { ...result, preview: result.modifier_preview, chronicle: activity };
       }
       setRollResults(nextRolls);
       setFeedback("Template validado. Prévia atualizada.");
@@ -576,16 +582,19 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={startCreation}>Criar personagem</button>
         <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => setMode("editor")}>Fichas e modelos</button>
       </nav>
-      {mode === "guided" && !sheetId ? <SheetCreationWizard
+      {mode === "guided" && !sheetId ? (template.system_key === "one-ring" && template.rules_profile_version === 3 && templateId ? <>
+        <label>Modelo aprovado<select value={templateId} disabled={busy} onChange={(e)=>chooseTemplate(e.target.value)}>{templates.map((item)=><option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
+        <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={values} busy={busy} canSave={canEditSheets} onSave={saveSheet} />
+      </> : <SheetCreationWizard
         key={templateId || "no-template"}
         campaignId={campaignId}
         templates={templates} templateId={templateId} template={template} values={values}
         name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets} canGrantResources={canManageTemplates}
         loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
         onChooseTemplate={chooseTemplate} onNameChange={changeCharacterName} onValueChange={setValue}
-        onSave={saveSheet} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
+        onSave={() => saveSheet()} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
         viewerId={viewerId} portraitPath={portraitPath} onPortraitChange={setPortraitPath}
-      /> : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
+      />) : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
       <div className="sheet-builder-column">
         <article className="sheet-template-card">
           <p className="eyebrow">FICHAS DA CAMPANHA</p>
@@ -611,7 +620,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           {templateId && canEditSheets && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
             required={!sheetId} disabled={busy} onChange={(path) => { setPortraitPath(path); setFeedback(sheetId ? "Novo retrato enviado. Salve a ficha para aplicá-lo." : ""); }} />}
           <div className="actions">
-            <button className="primary" type="button" onClick={saveSheet} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
+            <button className="primary" type="button" onClick={() => void saveSheet()} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
             <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>
             {sheetId && canManageTemplates && !confirmDelete ? <button className="quiet" type="button" onClick={() => setConfirmDelete(true)}>Excluir ficha</button> : null}
           </div>
@@ -750,7 +759,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
             }
             if (field.kind === "roll") {
               const result = rollResults[field.id];
-              return <div className="sheet-preview-value sheet-computed" key={field.id}><span>{field.label}<small>{field.expression}</small>{result?.preview?.applied.map((effect) => <small key={effect.id} title={effect.source_note ?? effect.label}>{effect.delta >= 0 ? "+" : ""}{effect.delta} dados: {effect.label}</small>)}</span><strong>{result ? `${result.rolls.join(" + ")}${result.modifier ? ` ${result.modifier >= 0 ? "+" : "-"} ${Math.abs(result.modifier)}` : ""} = ${result.total}` : "..."}</strong></div>;
+              return <div className="sheet-preview-value sheet-computed" key={field.id}><span>{field.label}<small>{field.expression}</small>{result?.chronicle && chronicleActivityLabel(result.chronicle) && <small>{chronicleActivityLabel(result.chronicle)}</small>}{result?.preview?.applied.map((effect) => <small key={effect.id} title={effect.source_note ?? effect.label}>{effect.delta >= 0 ? "+" : ""}{effect.delta} dados: {effect.label}</small>)}</span><strong>{result ? `${result.rolls.join(" + ")}${result.modifier ? ` ${result.modifier >= 0 ? "+" : "-"} ${Math.abs(result.modifier)}` : ""} = ${result.total}` : "..."}</strong></div>;
             }
             if (field.kind === "checkbox") {
               return <label className="sheet-preview-check" key={field.id}><input type="checkbox" checked={values[field.id] === true} onChange={(event) => setValue(field.id, event.target.checked)} />{field.label}</label>;

@@ -9,6 +9,7 @@ import { seedFrom } from "../../shared/dice3d/random.ts";
 import { sotdlDice, sotdlFateDice } from "../../shared/dice3d/sotdl.ts";
 import { diceStyleFor } from "../../shared/dice3d/styles.ts";
 import { hunterDice } from "../../shared/dice3d/hunter.ts";
+import { equation, expressionResult, poolResult, resultText, sotdlFateResult, sotdlResult } from "../../shared/dice3d/result.ts";
 
 test("sólidos têm normais para fora e faces opostas somando faces + 1", () => {
   for (const kind of ["d20", "d6", "d10"]) {
@@ -166,6 +167,55 @@ test("redução de movimento: sem animação o resultado já está na face certa
   // O quadro final é o mesmo que o modo reduzido desenha: dados parados na face sorteada.
   for (const track of thrown.tracks) assert.equal(landedValue(track), track.request.value);
   assert.ok(last > 0);
+});
+
+test("resultado SotDL soma d20, atributo e dádiva ou perdição", () => {
+  const boon = sotdlResult({ d20: 14, modifier: 2, boonValue: 5, netBoons: 2, total: 21, target: 10, success: true, critical: true });
+  assert.deepEqual(boon.parts, [{ label: "d20", value: 14 }, { label: "Atributo", value: 2 }, { label: "Dádiva", value: 5 }]);
+  assert.equal(equation(boon), "14 + 2 + 5 = 21");
+  assert.equal(boon.tone, "critical");
+  assert.equal(resultText(boon), "Crítico · 14 + 2 + 5 = 21 · Alvo 10");
+  const bane = sotdlResult({ d20: 9, modifier: -1, boonValue: -4, netBoons: -1, total: 4, target: 10, success: false, critical: false, verdict: "Falha" });
+  assert.deepEqual(bane.parts.map((part) => part.label), ["d20", "Atributo", "Perdição"]);
+  assert.equal(equation(bane), "9 − 1 − 4 = 4");
+  assert.equal(bane.tone, "failure");
+  const plain = sotdlResult({ d20: 17, modifier: 0, boonValue: 0, netBoons: 0, total: 17, target: 10, success: true, critical: false });
+  assert.equal(plain.parts.length, 1);
+  assert.equal(equation(plain), "17");
+  assert.equal(sotdlFateResult(1, "dying", "Morrendo").tone, "failure");
+});
+
+test("resultado de parada soma os dados com 6 ou mais e dois por par de 10", () => {
+  const result = poolResult({ dice: [10, 10, 7, 3, 6, 1], criticalPairs: 1, successes: 6, difficulty: 3, verdict: "Crítico", tone: "critical" });
+  assert.deepEqual(result.parts, [{ label: "Dados com 6+", value: 4 }, { label: "Par de 10", value: 2 }]);
+  assert.equal(resultText(result), "Crítico · 4 + 2 = 6 sucessos · Dificuldade 3");
+  const single = poolResult({ dice: [6, 2], criticalPairs: 0, successes: 1 });
+  assert.equal(single.unit, "sucesso");
+  assert.equal("against" in single, false);
+});
+
+test("expressão livre soma os termos e o modificador com sinal", () => {
+  const result = expressionResult([{ label: "2d6", subtotal: 7 }, { label: "-1d4", subtotal: -3 }, { label: "+2", subtotal: 2 }, { label: "modificador -1", subtotal: -1 }], 5);
+  assert.deepEqual(result.parts.map((part) => part.label), ["2d6", "1d4", "Fixo", "Modificador"]);
+  assert.equal(equation(result), "7 − 3 + 2 − 1 = 5");
+});
+
+test("total que não bate com as parcelas esconde a conta em vez de mostrar soma errada", () => {
+  const result = sotdlResult({ d20: 14, modifier: 2, boonValue: 0, netBoons: 0, total: 19, target: 10, success: true, critical: false });
+  assert.deepEqual(result.parts, []);
+  assert.equal(result.total, 19);
+  assert.equal(equation(result), "19");
+  assert.deepEqual(poolResult({ dice: [6, 7], criticalPairs: 0, successes: 5 }).parts, []);
+});
+
+test("quadros vizinhos da gravação são próximos o bastante para interpolar", () => {
+  const thrown = simulateThrow(v5Dice([8, 2, 10, 5, 7], 2), 77);
+  for (const track of thrown.tracks) {
+    for (let index = 1; index < track.frames.length; index++) {
+      const [a, b] = [track.frames[index - 1].position, track.frames[index].position];
+      assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1.2, "salto entre quadros");
+    }
+  }
 });
 
 test("three, cannon-es e @types/three têm a mesma versão exata no web, no mobile e na raiz", () => {

@@ -11,7 +11,7 @@ import { Check, DiceRow, Field, History, QueueBanner, StatusLine, inputClass, ty
 import { useOperationIds, type TableApi } from "./useTableApi";
 
 const NONE = "__none__";
-type Sheet = { id: string; name: string; values: Record<string, FieldValue> };
+type Sheet = { id: string; version?: number; name: string; values: Record<string, FieldValue> };
 
 /**
  * Vampiro V3 at the table (mobile): the API rolls d10 against difficulty 2-10 with the health
@@ -35,6 +35,18 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
   const [message, setMessage] = useState<{ text: string; tone: "info" | "error" | "queued" }>({ text: "", tone: "info" });
   const [last, setLast] = useState<{ key: string; result: V3RollResult } | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [lifeState, setLifeState] = useState("unknown");
+  const [note, setNote] = useState("");
+  const [confirmDeath, setConfirmDeath] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setLifeState("unknown"); setConfirmDeath(false);
+    if (api.request && api.online) void api.request("GET", `/api/v1/system-rolls/vampire-v3/sheets/${sheet.id}/state`)
+      .then((result) => { const state = (result as { state?: string })?.state; if (active && state && ["active", "torpor", "final_death"].includes(state)) setLifeState(state); })
+      .catch(() => { if (active) setMessage({ text: "Não foi possível consultar o estado V3. Reconecte antes de rolar.", tone: "error" }); });
+    return () => { active = false; };
+  }, [sheet.id, sheet.version, api.request, api.online]);
 
   useEffect(() => {
     setAttributeId(""); setAbilityId(NONE); setHistory([]); setLast(null); setWillpower(false); setSpecialty(false);
@@ -64,6 +76,7 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
     if (!api.request) throw new Error(api.unavailable);
     if (offline) throw new Error("Sem conexão: a rolagem V3 é feita pelo servidor.");
     if (derived.penalty === null) throw new Error("Incapacitado não pode agir.");
+    if (lifeState !== "active") throw new Error("Confirme que o personagem está ativo antes de rolar.");
     if (willpower && willpowerLeft < 1) throw new Error("Sem Força de Vontade disponível.");
     const key = `roll:${pool}:${difficulty}:${specialty}:${willpower}`;
     const body = v3RollBody({ pool, difficulty, specialty, willpower, damageLevels: derived.marked, sheetId: sheet.id, operationId: ops.take(key) });
@@ -83,6 +96,7 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
       const outcome = await api.adjust({ sheetId: sheet.id, label: `${title} (${sheet.name})`, path, body });
       if (outcome.status === "queued") { setMessage({ text: `${title}: na fila, será enviado ao reconectar.`, tone: "queued" }); return; }
       push(title, describeV3Action(outcome.result as V3ActionResult));
+      if ((outcome.result as V3ActionResult).state) setLifeState((outcome.result as V3ActionResult).state!);
       setMessage({ text: `${title}: aplicado.`, tone: "info" });
       return;
     }
@@ -91,6 +105,7 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
     const key = `${action}:${JSON.stringify(body)}`;
     const result = await api.request("POST", path, { ...body, operation_id: ops.take(key) }) as V3ActionResult;
     ops.done(key);
+    if (result.state) setLifeState(result.state);
     push(title, describeV3Action(result));
     setMessage({ text: `${title}: ${describeV3Action(result)}`, tone: "info" });
     api.refreshSheet();
@@ -124,17 +139,21 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
           </Field>
         </div>
         <div className="mt-2 grid gap-1 sm:grid-cols-2">
-          <Check id={`${idp}-spec`} checked={specialty} onChange={setSpecialty}>Especialização (10 vale dois)</Check>
+          <Check id={`${idp}-spec`} checked={specialty} onChange={setSpecialty}>Especialização (rerrole cada 10)</Check>
           <Check id={`${idp}-wp`} checked={willpower} disabled={willpowerLeft < 1} onChange={setWillpower}>Gastar 1 Vontade (+1 sucesso)</Check>
         </div>
         <p className="my-3 text-sm text-ink">Parada: <b>{rolled} dados</b>{derived.penalty ? ` (${pool} ${derived.penalty} de Vitalidade)` : ""}. Cada 1 anula um sucesso; sem sucessos e com um 1 é falha crítica.</p>
-        <Btn className="w-full" disabled={busy || !attribute || derived.penalty === null || !api.request || offline} onClick={() => void roll()} aria-busy={busy}>
+        <p role="status">Estado: {lifeState === "active" ? "Ativo" : lifeState === "torpor" ? "Torpor" : lifeState === "final_death" ? "Morte Final" : "aguardando consulta"}.</p>
+        <Btn className="w-full" disabled={busy || !attribute || derived.penalty === null || !api.request || offline || lifeState !== "active"} onClick={() => void roll()} aria-busy={busy}>
           <Dices className="size-4" aria-hidden />{busy ? "Rolando…" : offline ? "Rolar (precisa de conexão)" : "Rolar"}
         </Btn>
         {last && <div className="mt-4 space-y-2">
           <DiceRow label="Dados da rolagem V3" rollKey={last.key} dice={last.result.dice.map((face) => ({
             face, label: "d10", tone: face === 1 ? "bad" : face >= last.result.difficulty ? "good" : "normal",
           }))} />
+          {!!last.result.specialty_dice?.length && <DiceRow label="Dados de especialização V3" rollKey={`${last.key}-specialty`} dice={last.result.specialty_dice.map((face) => ({
+            face, label: "d10 de especialização", tone: face >= last.result.difficulty ? "good" : "normal",
+          }))} />}
           <p className="text-lg font-bold text-ink">{v3Verdict(last.result)} · {last.result.successes} sucesso(s)</p>
         </div>}
       </Panel>
@@ -165,6 +184,18 @@ export function V3TablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
         </div>
         <p className="mt-2 text-xs text-ink-muted">Testes usam a dificuldade acima e são rolados pelo servidor. Sangue, dano e cura ficam na fila quando não há conexão. Regras marcadas para conferência no livro.</p>
       </Panel>
+
+      {api.narrator && <Panel title="Decisões do narrador">
+        <Field label="Registro da decisão" htmlFor={`${idp}-note`}><input id={`${idp}-note`} className={inputClass} value={note} maxLength={240} onChange={(event) => setNote(event.target.value)} /></Field>
+        <p className="text-xs text-ink-muted">Para Despertar, registre o repouso e o teste resolvidos pela mesa. O comando gasta 1 sangue.</p>
+        <fieldset disabled={busy || offline || !api.request || lifeState === "unknown" || lifeState === "final_death" || note.trim().length < 12} className="grid gap-2 mt-3">
+          <Btn variant="outline" onClick={() => void act("alimentar", "Alimentação", { amount, note })}>Registrar alimentação</Btn>
+          <Btn variant="outline" onClick={() => void act("torpor", "Torpor", { note })}>Entrar em Torpor</Btn>
+          <Btn variant="outline" disabled={lifeState !== "torpor"} onClick={() => void act("despertar", "Despertar", { note })}>Confirmar Despertar</Btn>
+          <Check id={`${idp}-death`} checked={confirmDeath} onChange={setConfirmDeath}>Confirmo a Morte Final permanente</Check>
+          <Btn variant="outline" disabled={!confirmDeath} onClick={() => void act("morte_final", "Morte Final", { note })}>Registrar Morte Final</Btn>
+        </fieldset>
+      </Panel>}
 
       <StatusLine message={message.text} tone={message.tone} />
       <Panel title="Histórico desta sessão"><History items={history} empty="Nenhuma ação nesta sessão." /></Panel>

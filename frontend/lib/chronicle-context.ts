@@ -6,6 +6,7 @@ export type ChronicleContext = {
   campaign_id?: string;
   trait_ids: string[];
   roll_key: string;
+  roll_field_id?: string;
 };
 
 export type ChronicleActivityStatus =
@@ -39,6 +40,7 @@ export function buildChronicleContext(input: {
   campaignId?: string | null;
   traitIds?: readonly (string | null | undefined)[];
   rollKey: string;
+  rollFieldId?: string;
 }): ChronicleContext | undefined {
   const sheetId = input.sheetId?.trim();
   if (!sheetId || !UUID.test(sheetId)) return undefined;
@@ -54,6 +56,7 @@ export function buildChronicleContext(input: {
   const context: ChronicleContext = { sheet_id: sheetId, trait_ids: traits, roll_key: rollKey };
   const campaignId = input.campaignId?.trim();
   if (campaignId && UUID.test(campaignId)) context.campaign_id = campaignId;
+  if (input.rollFieldId && /^[a-z][a-z0-9_]{1,63}$/.test(input.rollFieldId)) context.roll_field_id = input.rollFieldId;
   return context;
 }
 

@@ -5,12 +5,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
 import { CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { createClient } from "../lib/supabase/client";
+import { bloodPotency } from "../lib/v5-blood";
 import {
-  actionChronicle, attackDamageSplit, attackOperationKey, canApplyAttackDamage, damagePenaltiesFrom, damageRpcArgs,
+  actionChronicle, attackDamageSplit, attackDamageOperationId, canApplyAttackDamage, damagePenaltiesFrom, damageRpcArgs,
   describeDamageResult, mergeRollHistory, storedModifierPreview, toggleRerollIndex,
   type AttackResult, type DamageKind, type DamageResult, type ModifierPreview,
 } from "../lib/v5-action-roll";
 import { canThrowV5, v5Dice } from "@dice3d/v5";
+import { poolResult } from "@dice3d/result";
 import { DiceTrayOverlay, type TrayRoll } from "./dice-tray";
 import type { StoredRoll } from "./v5-willpower-reroll";
 import styles from "./v5-action-panel.module.css";
@@ -141,13 +143,14 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   const operationId = useRef(0);
   const pendingOperation = useRef<Operation | null>(null);
   const historyRef = useRef(new Map<string, HistoryEntry[]>());
-  const damageOperations = useRef(new Map<string, string>());
   const [historyRevision, setHistoryRevision] = useState(0);
   const [fieldData, setFieldData] = useState<{ characterId: string; fields: NumericField[]; error: string } | null>(null);
   const [attributeId, setAttributeId] = useState("");
   const [skillId, setSkillId] = useState("");
   const [manualPool, setManualPool] = useState(6);
   const [difficulty, setDifficulty] = useState(3);
+  const [useSurge, setUseSurge] = useState(false);
+  const [turnKey, setTurnKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [tray, setTray] = useState<TrayRoll | null>(null);
   const [message, setMessage] = useState("");
@@ -157,6 +160,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   const [targetId, setTargetId] = useState("");
   const [targetArmor, setTargetArmor] = useState(true);
   // F1: the attack may hit Willpower (social or mental attacks); physical Health damage is halved for vampires on the server.
+  const surgeOperations = useRef(new Map<string, string>());
   const [targetTrack, setTargetTrack] = useState<"health" | "willpower">("health");
   const [targetPhysical, setTargetPhysical] = useState(true);
   const [remoteHistory, setRemoteHistory] = useState<{ sheetId: string; entries: HistoryEntry[]; error: string } | null>(null);
@@ -235,6 +239,8 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     setSkillId("");
     setManualPool(6);
     setDifficulty(3);
+    setUseSurge(false);
+    setTurnKey("");
     setRerollPick(null);
   }, [character?.id, campaignId]);
 
@@ -299,7 +305,25 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   function updateEntry(sheetId: string, rollId: string, update: (entry: HistoryEntry) => HistoryEntry) {
     const entries = historyRef.current.get(sheetId) ?? [];
     historyRef.current.set(sheetId, entries.map((entry) => entry.roll.id === rollId ? update(entry) : entry));
+    // Stored (server) rolls live in remoteHistory; keep them updatable too (attack, applied targets).
+    setRemoteHistory((current) => current && current.sheetId === sheetId
+      ? { ...current, entries: current.entries.map((entry) => entry.roll.id === rollId ? update(entry) : entry) } : current);
     setHistoryRevision((value) => value + 1);
+  }
+
+  // Stored rolls carry no persisted attack: the server derives it from the stored outcome (margin) + equipped weapon.
+  async function calculateStoredAttack(entry: HistoryEntry) {
+    const selected = character;
+    if (!selected) return;
+    const operation = beginOperation(selected);
+    try {
+      const attack = await fetchAttack(entry.roll.id, operation.controller.signal);
+      if (operationIsCurrent(operation)) updateEntry(selected.id, entry.roll.id, (item) => ({ ...item, attackRequested: true, attack, attackError: "" }));
+    } catch (error) {
+      if (operationIsCurrent(operation)) updateEntry(selected.id, entry.roll.id, (item) => ({ ...item, attackError: error instanceof Error ? error.message : "Falha ao calcular o dano." }));
+    } finally {
+      endOperation(operation);
+    }
   }
 
   async function fetchAttack(rollId: string, signal: AbortSignal): Promise<AttackResult> {
@@ -325,21 +349,39 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
       setMessage("A ficha precisa ter Fome entre 0 e 5 antes da rolagem.");
       return;
     }
+    const surgeKey = useSurge ? turnKey.trim() : "";
+    if (useSurge && !surgeKey) {
+      setMessage("Informe a chave desta rodada para usar Surto de Sangue.");
+      return;
+    }
+    const surgeBonus = useSurge ? bloodPotency(integerValue(selected.values.potencia_sangue) ?? 0).surge : 0;
+    if (pool + surgeBonus > 30) {
+      setMessage("Pool mais Surto de Sangue excede 30 dados.");
+      return;
+    }
     const operation = beginOperation(selected);
     const chronicle = actionChronicle({
       sheetId: selected.id, campaignId, attributeId: traits?.attributeId, skillId: traits?.skillId, rollKey: newRollKey("v5-action"),
     });
     try {
       // V5-07: the database rolls the dice and stores them; Hunger, effects and damage come from the saved sheet.
+      const surgeReceiptKey = `${selected.id}:${surgeKey}`;
+      let surgeOperation = useSurge ? surgeOperations.current.get(surgeReceiptKey) : undefined;
+      if (useSurge && !surgeOperation) { surgeOperation = crypto.randomUUID(); surgeOperations.current.set(surgeReceiptKey, surgeOperation); }
       const { body, headers } = await apiPost(`/api/v1/v5/sheets/${selected.id}/rolls`, {
-        pool, difficulty, context_tags: actionTags, ...(chronicle ? { chronicle } : {}),
+        pool, difficulty, context_tags: actionTags,
+        ...(useSurge ? { surge_turn_key: surgeKey, surge_operation_id: surgeOperation } : {}),
+        ...(chronicle ? { chronicle } : {}),
       }, operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
       const roll = body as PanelRoll;
+      const surge = roll.details && typeof roll.details === "object" ? (roll.details as Record<string, unknown>).blood_surge : null;
+      const surgeUsed = surge && typeof surge === "object" && typeof (surge as Record<string, unknown>).bonus_dice === "number"
+        ? Number((surge as Record<string, unknown>).bonus_dice) : 0;
       const preview = storedModifierPreview(roll.details);
       const entry: HistoryEntry = {
         roll, preview, recordedAt: new Date().toLocaleTimeString(),
-        actionName: attackMode ? `Ataque · ${actionName}` : actionName,
+        actionName: `${attackMode ? `Ataque · ${actionName}` : actionName}${surgeUsed ? ` · Surto +${surgeUsed}` : ""}`,
         attackRequested: attackMode, attack: null, attackError: "",
         chronicle: parseChronicleActivity(headers.get(CHRONICLE_ACTIVITY_HEADER)),
         applied: [],
@@ -347,12 +389,18 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
       historyRef.current.set(selected.id, [entry, ...(historyRef.current.get(selected.id) ?? [])].slice(0, 8));
       setHistoryRevision((value) => value + 1);
       setRerollPick(null);
+      if (surgeUsed) setUseSurge(false);
       // The server already decided the dice; the tray only throws them onto those faces.
       if (canThrowV5(roll.normal_dice.length + roll.hunger_dice.length)) {
         setTray({
           id: roll.id, systemKey: "vampire-v5", interactive: true,
           requests: v5Dice([...roll.hunger_dice, ...roll.normal_dice], roll.hunger_dice.length),
           summary: `${entry.actionName} · ${roll.outcome.successes} sucessos / dif. ${roll.difficulty} · ${outcome(entry)}`,
+          result: poolResult({
+            dice: [...roll.hunger_dice, ...roll.normal_dice], criticalPairs: roll.outcome.critical_pairs,
+            successes: roll.outcome.successes, difficulty: roll.difficulty, verdict: outcome(entry),
+            tone: roll.outcome.messy_critical ? "warning" : roll.outcome.clean_critical ? "critical" : roll.outcome.success ? "success" : "failure",
+          }),
         });
       }
       if (attackMode) {
@@ -402,11 +450,11 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     const target = targets.find((item) => item.id === targetId);
     const split = attackDamageSplit(entry.attack);
     if (!selected || !target || !split || !canApplyAttackDamage({ canNarrate, attack: entry.attack, targetId })) return;
-    const key = `${attackOperationKey(entry.roll.id, target.id)}:${targetTrack}`;
-    const operationUuid = damageOperations.current.get(key) ?? crypto.randomUUID();
-    damageOperations.current.set(key, operationUuid);
+    if (entry.applied.includes(target.id)) return;
     const operation = beginOperation(selected);
     try {
+      const operationUuid = await attackDamageOperationId(entry.roll.id, target.id);
+      if (!operationIsCurrent(operation)) return;
       const { data, error } = await createClient().rpc("apply_v5_damage", damageRpcArgs({
         sheetId: target.id, track: targetTrack, superficial: split.superficial, aggravated: split.aggravated,
         armor: targetArmor, operationId: operationUuid, reason: `Ataque de ${selected.name}`, physical: targetPhysical,
@@ -579,6 +627,9 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
       </div>}
       {entry.preview && <p>Modificadores: {entry.preview.total_delta >= 0 ? "+" : ""}{entry.preview.total_delta}, pool final {entry.preview.adjusted_pool}.</p>}
       {entry.attack && <p className={styles.penalty}>Dano causado: <b>{entry.attack.damage} {DAMAGE_LABELS[entry.attack.damage_type]}</b> ({entry.attack.sources.map((source) => `${source.label} ${source.value >= 0 ? "+" : ""}${source.value}`).join(" · ")}){entry.attack.weapon ? "" : " · desarmado"}</p>}
+      {!entry.attack && entry.roll.outcome.success && <div className={styles.rerollRow}>
+        <button type="button" disabled={busy} onClick={() => void calculateStoredAttack(entry)}>Calcular dano do ataque</button>
+      </div>}
       {entry.attackError && <p className={styles.penalty}>{entry.attackError}</p>}
       {canNarrate && split && <form className={styles.targetForm} onSubmit={(event) => { event.preventDefault(); void applyAttackToTarget(entry); }}>
         <label>Alvo do ataque<select value={targetId} onChange={(event) => setTargetId(event.target.value)}>
@@ -619,6 +670,9 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
           {fieldData?.characterId === character.id && !fieldData.error && skillChoices.length === 0 && <p className={styles.note}>Esta ficha não tem campos numéricos de habilidade. Use o pool manual ou acrescente habilidades ao modelo.</p>}
           <p className={styles.poolLine}>Parada selecionada: <b>{(fields.find((field) => field.id === attributeId)?.value ?? 0) + (fields.find((field) => field.id === skillId)?.value ?? 0)} dados</b></p>
           <label className={styles.inlineLabel}>Dificuldade<input type="number" min={1} max={100} value={difficulty} onChange={(event) => setDifficulty(Number(event.target.value))} /></label>
+          <label className={styles.inlineLabel}><input type="checkbox" checked={useSurge} disabled={integerValue(character.values.fome) === 5 && !useSurge} onChange={(event) => setUseSurge(event.target.checked)} /> Usar Surto de Sangue (+{bloodPotency(integerValue(character.values.potencia_sangue) ?? 0).surge} dados)</label>
+          {useSurge && <label className={styles.inlineLabel}>Chave da rodada<input value={turnKey} maxLength={120} placeholder="c1:r1" onChange={(event) => setTurnKey(event.target.value)} /></label>}
+          {useSurge && <p className={styles.note}>O servidor faz a Checagem de Sangue, soma o bônus na rolagem guardada e impede outro Surto com a mesma chave de rodada.</p>}
           <div className={styles.quickGroups}>
             <div><h4>Rolagem rápida · atributos</h4><div className={styles.quickButtons}>{attributeChoices.map((field) => <button type="button" key={field.id} disabled={busy || hungerValue === null} onClick={() => quickRoll(field, "attribute")}>{field.label} {field.value}</button>)}</div></div>
             <div><h4>Rolagem rápida · habilidades</h4><div className={styles.quickButtons}>{skillChoices.map((field) => <button type="button" key={field.id} disabled={busy || hungerValue === null} onClick={() => quickRoll(field, "skill")}>{field.label} {field.value}</button>)}</div></div>

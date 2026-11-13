@@ -32,10 +32,10 @@ export function gameSystem(systemKey: string | null | undefined, values: Record<
 
 // ---------------------------------------------------------------------------------- V3
 export type V3RollResult = {
-  dice: number[]; difficulty: number; successes: number; botch: boolean; success: boolean; verdict?: string;
+  dice: number[]; specialty_dice?: number[]; difficulty: number; successes: number; botch: boolean; success: boolean; verdict?: string;
   penalty: number; rolled: number; pool?: number; willpower_spent: boolean; specialty?: boolean;
 };
-export type V3Action = "sangue" | "cura" | "dano" | "sangue_inicial" | "frenesi" | "rotschreck" | "degeneracao";
+export type V3Action = "sangue" | "cura" | "dano" | "sangue_inicial" | "frenesi" | "rotschreck" | "degeneracao" | "alimentar" | "torpor" | "despertar" | "morte_final";
 export type V3DamageKind = "contundente" | "letal" | "agravado";
 
 /** Adjustments are applied without dice and may wait offline; tests roll on the server. */
@@ -51,11 +51,17 @@ export function v3RollBody(input: { pool: number; difficulty: number; specialty:
   return {
     pool: input.pool, difficulty: input.difficulty, specialty: input.specialty, use_willpower: input.willpower,
     damage_levels: clampInt(input.damageLevels, 0, 7),
-    ...(input.willpower ? { sheet_id: input.sheetId, operation_id: input.operationId } : {}),
+    sheet_id: input.sheetId,
+    ...(input.willpower ? { operation_id: input.operationId } : {}),
   };
 }
 
-export function v3ActionBody(action: V3Action, options: { amount?: number; kind?: V3DamageKind; difficulty?: number; turn?: string }): Record<string, unknown> {
+export function v3ActionBody(action: V3Action, options: { amount?: number; kind?: V3DamageKind; difficulty?: number; turn?: string; note?: string }): Record<string, unknown> {
+  if (["alimentar", "torpor", "despertar", "morte_final"].includes(action)) {
+    const note = options.note?.trim();
+    if (!note || note.length < 12 || note.length > 240) throw new Error("Registre a decisão do narrador em 12 a 240 caracteres.");
+    return { action, note, ...(action === "alimentar" ? { amount: clampInt(options.amount ?? 1, 1, 50) } : {}) };
+  }
   const turn = options.turn?.trim();
   if (turn && !/^[A-Za-z0-9:._-]{1,80}$/.test(turn)) throw new Error("Turno: use letras, números e : . _ - (até 80).");
   if (action === "sangue" || action === "cura") return { action, amount: clampInt(options.amount ?? 1, 1, 50), ...(turn ? { turn } : {}) };
@@ -70,10 +76,11 @@ export function v3Verdict(result: Pick<V3RollResult, "botch" | "success" | "verd
 
 export function describeV3Roll(result: V3RollResult): string {
   return `${v3Verdict(result)} · ${result.successes} sucesso(s) · dificuldade ${result.difficulty} · dados ${result.dice.join(" · ") || "nenhum"}`
+    + `${result.specialty_dice?.length ? ` · dados de especialização ${result.specialty_dice.join(" · ")}` : ""}`
     + `${result.penalty ? ` · Vitalidade ${result.penalty}` : ""}${result.specialty ? " · especialização" : ""}${result.willpower_spent ? " · +1 Vontade" : ""}`;
 }
 
-export type V3ActionResult = { sheet?: { values?: Record<string, unknown> }; test?: { outcome?: string; roll?: { dice?: number[] } }; replayed?: boolean; applied?: number };
+export type V3ActionResult = { sheet?: { values?: Record<string, unknown> }; test?: { outcome?: string; roll?: { dice?: number[] } }; replayed?: boolean; applied?: number; unapplied?: number; state?: string };
 export function describeV3Action(result: V3ActionResult | null | undefined): string {
   const body = result ?? {};
   const sheet = body.sheet?.values ?? {};
@@ -82,6 +89,8 @@ export function describeV3Action(result: V3ActionResult | null | undefined): str
     body.test?.outcome ?? null,
     body.test?.roll?.dice?.length ? `dados ${body.test.roll.dice.join(" · ")}` : null,
     typeof body.applied === "number" ? `${body.applied} nível(is) marcado(s)` : null,
+    body.unapplied ? `${body.unapplied} nível(is) excedente(s) registrado(s)` : null,
+    body.state === "torpor" ? "Torpor" : body.state === "final_death" ? "Morte Final" : null,
     "pontos_sangue" in sheet ? `sangue ${String(sheet.pontos_sangue)}` : null,
   ].filter(Boolean);
   return parts.join(" · ") || "Aplicado.";
@@ -104,15 +113,15 @@ export const HUNTER_ATTRIBUTES: Array<[string, string]> = [
 ];
 
 export const HUNTER_CHOICE_LABEL: Record<HunterChoice, string> = {
-  overreach: "Overreach: mantém o sucesso, Perigo da célula +1",
-  despair: "Despair: o teste falha e o caçador entra em Desespero",
+  overreach: "Forçar a Barra: mantém o sucesso; Perigo +1 por cada resultado 1",
+  despair: "Falhar e entrar em Aflição",
 };
 
 export function hunterRollBody(input: { basePool: number; difficulty: number; useDesperation: boolean; edge: string; despair: boolean }): Record<string, unknown> {
   if (input.basePool < 1 || input.basePool > 30) throw new Error("A reserva precisa ficar entre 1 e 30 dados.");
   if (input.difficulty < 1 || input.difficulty > 69) throw new Error("Dificuldade inválida.");
-  // In Despair there are no Desperation dice and Edges are blocked (the server checks again).
-  const edge = input.despair ? "" : input.edge.trim().slice(0, 80);
+  // Aflição blocks extra Desperation dice; Perks remain available (book p. 90).
+  const edge = input.edge.trim().slice(0, 80);
   return { base_pool: input.basePool, difficulty: input.difficulty, use_desperation: input.useDesperation && !input.despair, ...(edge ? { edge } : {}) };
 }
 
@@ -123,9 +132,9 @@ export function isHunterRoll(value: unknown): value is HunterRoll {
 }
 
 export function describeHunterRoll(result: HunterRoll): string {
-  const resolved = result.resolution ? ` · mesa: ${result.resolution === "overreach" ? "Overreach (Perigo +1)" : "Despair"}` : "";
+  const resolved = result.resolution ? ` · ${result.resolution === "overreach" ? "jogador: Forçar a Barra" : "Aflição"}` : "";
   return `${result.verdict} · ${result.successes}/${result.difficulty} sucessos · base ${result.normal_dice.join(" · ") || "—"} · Desesperação ${result.desperation_dice.join(" · ") || "não usada"}`
-    + `${result.desperation_ones && !resolved ? ` · ${result.desperation_ones} resultado(s) 1, ${result.desperation_consequence === "despair" ? "Despair" : "escolha Despair ou Overreach"}` : ""}`
+    + `${result.desperation_ones && !resolved ? ` · ${result.desperation_ones} resultado(s) 1; o jogador decide em caso de sucesso` : ""}`
     + `${result.critical ? " · crítico" : ""}${resolved}`;
 }
 
@@ -146,6 +155,7 @@ export type BloodPotency = { potency: number; surge: number; mend: number; power
 export type FrenzyKind = "fury" | "hunger" | "terror";
 export type BloodState = {
   potency: BloodPotency; hunger: number; humanity: number; stains: number; remorse_pool: number; remorse_success: number | null;
+  excess_stains?: number; impaired?: boolean; stain_willpower_aggravated?: number;
   willpower_current: number; frenzy_pool: Record<FrenzyKind, number>; rouse_success: number; in_torpor: boolean; torpor_duration: string;
   compulsion: string | null; compulsion_detail: { name: string; effect: string } | null; clan_compulsion: { name: string; effect: string } | null;
 };
@@ -155,7 +165,7 @@ export type BloodResponse = { replayed: boolean; outcome: Record<string, unknown
 /** Same list as backend COMPULSION_OPTIONS (app/services/v5_blood.py), from the shared lib. */
 export const COMPULSION_OPTIONS: readonly string[] = V5_BLOOD_COMPULSIONS;
 export const FRENZY_LABELS: Record<FrenzyKind, string> = { fury: "Fúria", hunger: "Fome", terror: "Terror (Rötschreck)" };
-export const BLOOD_KIND_LABELS: Record<string, string> = { rouse: "Rouse", awaken: "Despertar", remorse: "Remorso", frenzy: "Frenesi", compulsion: "Compulsão", torpor: "Torpor" };
+export const BLOOD_KIND_LABELS: Record<string, string> = { rouse: "Rouse", awaken: "Despertar", remorse: "Remorso", frenzy: "Frenesi", compulsion: "Compulsão", torpor: "Torpor", mend: "Remendar", surge: "Surto de Sangue" };
 /** Blood actions without dice (sheet adjustments) may wait offline; the others roll on the server. A
  * compulsion is queueable only when chosen (no d10). */
 export const BLOOD_QUEUEABLE: ReadonlySet<string> = new Set(["torpor"]);
@@ -193,6 +203,10 @@ export function describeBloodEvent(event: Pick<BloodEvent, "kind" | "outcome">):
       return `${String(o.compulsion)}${o.clan_compulsion ? ` (${String(o.clan_compulsion)})` : ""}${o.rolled ? " · sorteada" : ""}`;
     case "torpor":
       return o.in_torpor ? `entrou em Torpor · duração ${String(o.duration)}` : "saiu do Torpor";
+    case "mend":
+      return `curou ${String(o.healed)} superficial · Rouse ${o.success ? "bem-sucedido" : "falhou"} · Fome ${String(o.hunger_before)} → ${String(o.hunger_after)}${o.hunger_frenzy_test ? " · teste de frenesi de fome" : ""}`;
+    case "surge":
+      return `Rouse ${o.success ? "bem-sucedido" : "falhou"} · +${String(o.bonus_dice)} dado(s) nesta rolagem · Fome ${String(o.hunger_before)} → ${String(o.hunger_after)}${o.hunger_frenzy_test ? " · teste de frenesi de fome" : ""}`;
     default:
       return "";
   }

@@ -136,6 +136,10 @@ async def roll_vampire_v3_action(
     _: None = Depends(require_signed_in_user),
 ) -> V3RollResponse:
     """With use_willpower and a sheet, 1 Willpower is spent atomically before the dice are rolled."""
+    if payload.sheet_id:
+        life = await supabase_rpc.call_rpc("v3_life_state", authorization or "", {"p_sheet_id": payload.sheet_id})
+        if not isinstance(life, dict) or life.get("state") != "active":
+            raise HTTPException(status_code=409, detail="personagem em Torpor ou Morte Final nao pode agir")
     if payload.use_willpower and payload.sheet_id:
         if not payload.operation_id:
             raise HTTPException(status_code=422, detail="o gasto de Força de Vontade precisa de operation_id")
@@ -163,15 +167,20 @@ class V3SheetAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     operation_id: UUID
-    action: Literal["sangue", "cura", "dano", "sangue_inicial", "frenesi", "rotschreck", "degeneracao"]
+    action: Literal["sangue", "cura", "dano", "sangue_inicial", "frenesi", "rotschreck", "degeneracao", "alimentar", "torpor", "despertar", "morte_final"]
     amount: StrictInt | None = Field(default=None, ge=0, le=50)
     kind: Literal["contundente", "letal", "agravado"] | None = None
     difficulty: StrictInt | None = Field(default=None, ge=2, le=10)
     turn: str | None = Field(default=None, min_length=1, max_length=80, pattern=r"^[A-Za-z0-9:._-]+$")
+    note: str | None = Field(default=None, min_length=12, max_length=240)
 
 
 def _v3_rpc(sheet_id: UUID, payload: V3SheetAction) -> tuple[str, dict[str, Any]]:
     base: dict[str, Any] = {"p_sheet_id": str(sheet_id), "p_operation_id": str(payload.operation_id)}
+    if payload.action in ("alimentar", "torpor", "despertar", "morte_final"):
+        if not payload.note or (payload.action == "alimentar" and not payload.amount):
+            raise HTTPException(status_code=422, detail="registre a decisão do narrador e a quantidade da alimentação")
+        return "v3_life_action", {**base, "p_action": payload.action, "p_amount": payload.amount, "p_note": payload.note}
     if payload.action in ("sangue", "cura"):
         if not payload.amount:
             raise HTTPException(status_code=422, detail="informe a quantidade")
@@ -199,3 +208,13 @@ async def vampire_v3_sheet_action_rpc(
 ) -> Any:
     function, body = _v3_rpc(sheet_id, payload)
     return await supabase_rpc.call_rpc(function, authorization or "", body)
+
+
+@router.get("/vampire-v3/sheets/{sheet_id}/state")
+@router.post("/vampire-v3/sheets/{sheet_id}/state")
+async def vampire_v3_life_state(
+    sheet_id: UUID,
+    authorization: str | None = Header(default=None),
+    _: None = Depends(require_signed_in_user),
+) -> Any:
+    return await supabase_rpc.call_rpc("v3_life_state", authorization or "", {"p_sheet_id": str(sheet_id)})

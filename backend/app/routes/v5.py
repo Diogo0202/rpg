@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, ValidationError, field_validator, model_validator
 
 from app.services.v5_probability import (
     MAX_CURVE_DIFFICULTIES,
@@ -21,7 +21,7 @@ from app.services.v5_blood import (
 )
 from app.routes.generators import require_signed_in_user
 from app.routes.sheets import _request, _rpc
-from app.services.modifiers import ModifierPreview, Tag, preview_modifiers
+from app.services.modifiers import Effect, ModifierPreview, Tag, preview_modifiers
 from app.services.session_roll_activity import RollChronicleContext, record_from_context
 
 
@@ -125,6 +125,11 @@ async def _sheet_roll_context(
             pool=pool, hunger=hunger, difficulty=difficulty, effects=effects,
             context_tags=context_tags, damage=_sheet_damage(values),
         )
+        if blood_state(values)["excess_stains"]:
+            payload.effects.append(Effect(
+                id="__v5_excess_stains", label="Comprometido por Manchas excedentes", delta=-2,
+                source_note="Manchas acima dos espaços vazios de Humanidade",
+            ))
         modifiers, _ = build_v5_modifier_request(payload)
         preview = preview_modifiers(modifiers)
     except (ValidationError, ValueError) as error:
@@ -162,6 +167,11 @@ async def get_sheet_probabilities(
             context_tags=request.context_tags,
             damage=_sheet_damage(values),
         )
+        if blood_state(values)["excess_stains"]:
+            payload.effects.append(Effect(
+                id="__v5_excess_stains", label="Comprometido por Manchas excedentes", delta=-2,
+                source_note="Manchas acima dos espaços vazios de Humanidade",
+            ))
         modifiers, _ = build_v5_modifier_request(payload)
         preview = preview_modifiers(modifiers)
         hunger_dice = min(hunger, preview.adjusted_pool)
@@ -242,8 +252,16 @@ class StoredRollRequest(BaseModel):
     pool: StrictInt = Field(ge=0, le=30)
     difficulty: StrictInt = Field(ge=1, le=100)
     context_tags: list[Tag] = Field(default_factory=list, max_length=20)
+    surge_turn_key: StrictStr | None = Field(default=None, min_length=1, max_length=120)
+    surge_operation_id: UUID | None = None
     # DRA-05: optional chronicle activity, same contract as POST /api/v1/v5/roll.
     chronicle: RollChronicleContext | None = None
+
+    @model_validator(mode="after")
+    def surge_fields_match(self) -> Self:
+        if (self.surge_turn_key is None) != (self.surge_operation_id is None):
+            raise ValueError("Surto de Sangue precisa de chave de turno e ID de operação")
+        return self
 
 
 class WillpowerRerollRequest(BaseModel):
@@ -316,7 +334,36 @@ async def create_stored_roll(
     """Rola no banco (dados gerados pelo Postgres) e guarda no histórico da ficha."""
     if request.chronicle is not None and request.chronicle.sheet_id != sheet_id:
         raise HTTPException(status_code=422, detail="a atividade da crônica deve ser da mesma ficha")
-    preview, hunger_dice = await _sheet_roll_context(sheet_id, request.pool, request.difficulty, request.context_tags, authorization)
+    pool = request.pool
+    surge_outcome: dict[str, Any] | None = None
+    if request.surge_turn_key is not None and request.surge_operation_id is not None:
+        prior = await _rpc("v5_surge_roll_receipt", authorization, {
+            "p_sheet_id": str(sheet_id), "p_operation_id": str(request.surge_operation_id),
+            "p_base_pool": request.pool, "p_difficulty": request.difficulty, "p_turn_key": request.surge_turn_key,
+            "p_context_tags": list(request.context_tags),
+        })
+        if prior is not None:
+            return _stored_roll(prior)
+        surge_result = await _rpc("v5_blood_surge", authorization, {
+            "p_sheet_id": str(sheet_id), "p_operation_id": str(request.surge_operation_id),
+            "p_turn_key": request.surge_turn_key, "p_base_pool": request.pool,
+        })
+        if not isinstance(surge_result, dict) or not isinstance(surge_result.get("outcome"), dict):
+            raise HTTPException(status_code=502, detail="resposta inesperada do Surto de Sangue")
+        surge_event = surge_result.get("event")
+        canonical_operation = surge_event.get("operation_id") if isinstance(surge_event, dict) else None
+        surge_outcome = {**surge_result["outcome"], "operation_id": canonical_operation or str(request.surge_operation_id)}
+        bonus = surge_outcome.get("bonus_dice")
+        if type(bonus) is not int or not 1 <= bonus <= 6:
+            raise HTTPException(status_code=502, detail="bônus do Surto de Sangue inválido")
+        pool += bonus
+    preview, hunger_dice = await _sheet_roll_context(sheet_id, pool, request.difficulty, request.context_tags, authorization)
+    if surge_outcome is not None:
+        hunger_before = surge_outcome.get("hunger_before")
+        if type(hunger_before) is not int or not 0 <= hunger_before <= 4:
+            raise HTTPException(status_code=502, detail="Fome anterior do Surto de Sangue invalida")
+        # The Rouse result affects later actions, not the action receiving this Surge.
+        hunger_dice = min(hunger_before, preview.adjusted_pool)
     if preview.adjusted_pool == 0:
         raise HTTPException(status_code=422, detail="A parada ficou com zero dados. Combine com a mesa como resolver a ação.")
     row = await _rpc("record_v5_roll", authorization, {
@@ -326,6 +373,7 @@ async def create_stored_roll(
         "p_difficulty": request.difficulty,
         "p_details": {
             "base_pool": request.pool,
+            "blood_surge": surge_outcome,
             "context_tags": list(request.context_tags),
             "modifier_preview": preview.model_dump(mode="json"),
         },
@@ -405,6 +453,11 @@ class CompulsionRequest(BloodOperationRequest):
 
 class TorporRequest(BloodOperationRequest):
     in_torpor: bool
+
+
+class BloodSurgeRequest(BloodOperationRequest):
+    turn_key: str = Field(min_length=1, max_length=120)
+    base_pool: StrictInt = Field(ge=0, le=30)
 
 
 class BloodActionResponse(BaseModel):
@@ -533,4 +586,21 @@ async def set_torpor(sheet_id: UUID, request: TorporRequest, _: None = Depends(r
                      authorization: str | None = Header(default=None)) -> BloodActionResponse:
     return await _blood_rpc("v5_set_torpor", authorization, {
         "p_sheet_id": str(sheet_id), "p_operation_id": str(request.operation_id), "p_in_torpor": request.in_torpor,
+    })
+
+
+@router.post("/sheets/{sheet_id}/mend", response_model=BloodActionResponse)
+async def mend(sheet_id: UUID, request: BloodOperationRequest, _: None = Depends(require_signed_in_user),
+               authorization: str | None = Header(default=None)) -> BloodActionResponse:
+    return await _blood_rpc("v5_mend", authorization, {
+        "p_sheet_id": str(sheet_id), "p_operation_id": str(request.operation_id),
+    })
+
+
+@router.post("/sheets/{sheet_id}/surge", response_model=BloodActionResponse)
+async def blood_surge(sheet_id: UUID, request: BloodSurgeRequest, _: None = Depends(require_signed_in_user),
+                      authorization: str | None = Header(default=None)) -> BloodActionResponse:
+    return await _blood_rpc("v5_blood_surge", authorization, {
+        "p_sheet_id": str(sheet_id), "p_operation_id": str(request.operation_id), "p_turn_key": request.turn_key,
+        "p_base_pool": request.base_pool,
     })

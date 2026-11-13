@@ -109,5 +109,8 @@ def test_blood_state_derives_from_sheet_values():
     assert state["potency"]["surge"] == 2 and state["remorse_pool"] == 1 and state["willpower_current"] == 4
     assert state["frenzy_pool"] == {"fury": 4, "hunger": 6, "terror": 6}
     assert state["compulsion_detail"]["name"] == "Rebeldia" and state["in_torpor"] is False
+    assert state["excess_stains"] == 0 and state["impaired"] is False
+    excess = blood_state({"humanidade": 7, "manchas": 4})
+    assert excess["excess_stains"] == 1 and excess["stain_willpower_aggravated"] == 1
     empty = blood_state({})
     assert empty["remorse_pool"] == 0 and empty["remorse_success"] is None

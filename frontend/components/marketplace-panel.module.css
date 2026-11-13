@@ -5,7 +5,8 @@
 .eyebrow { color:var(--accent); font-size:11px; font-weight:700; letter-spacing:.15em; margin:0; }
 .publishToggle,.search button,.cardActions button,.report button,.clone button { min-height:42px; border:1px solid var(--ink); padding:9px 13px; background:var(--ink); color:white; }
 .publishToggle:disabled,.cardActions button:disabled,.report button:disabled,.clone button:disabled { opacity:.5; cursor:not-allowed; }
-.search { display:grid; grid-template-columns:minmax(180px,1fr) minmax(180px,.7fr) auto; align-items:end; gap:12px; padding:18px; background:var(--panel); border:1px solid var(--line); margin:26px 0; }
+.search select { width:100%; padding:11px; color:var(--ink); background:#fffef9; border:1px solid var(--line); font:inherit; }
+.search { display:grid; grid-template-columns:minmax(180px,1fr) minmax(180px,.7fr) minmax(150px,.5fr) auto; align-items:end; gap:12px; padding:18px; background:var(--panel); border:1px solid var(--line); margin:26px 0; }
 .search label,.publish label,.report label,.clone label { display:grid; gap:6px; font-size:13px; font-weight:700; }
 .search input,.publish input,.publish textarea,.publish select,.report input,.clone input,.clone select { width:100%; padding:11px; color:var(--ink); background:#fffef9; border:1px solid var(--line); font:inherit; }
 .publish { display:grid; gap:14px; padding:24px; margin:22px 0; background:var(--panel); border:1px solid var(--line); }

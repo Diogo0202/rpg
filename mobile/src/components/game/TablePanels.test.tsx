@@ -6,6 +6,7 @@ import { V3TablePanel } from "./V3TablePanel";
 import { HunterTablePanel } from "./HunterTablePanel";
 import { V5RollPanel } from "./V5RollPanel";
 import { V5BloodPanel } from "./V5BloodPanel";
+import { V5SanguinePanel } from "./V5SanguinePanel";
 import { ExperienceTablePanel } from "./ExperienceTablePanel";
 
 const SHEET = "22222222-2222-4222-8222-222222222222";
@@ -23,12 +24,37 @@ describe("V3 table panel", () => {
   const sheet = { id: SHEET, name: "Lucita", values: { sistema: "Vampiro V3", ant_geracao: 1, forca: 3, briga: 2, pontos_sangue: 5, forca_vontade: 4 } };
 
   it("rolls on the server with the health penalty and shows 2D dice", async () => {
-    const request = vi.fn(async () => ({ dice: [7, 1, 9], difficulty: 6, successes: 1, botch: false, success: true, penalty: 0, rolled: 3, willpower_spent: false }));
+    const request = vi.fn(async (method: string) => method === "GET" ? { state: "active" } : ({ dice: [7, 1, 9], difficulty: 6, successes: 1, botch: false, success: true, penalty: 0, rolled: 3, willpower_spent: false }));
     render(<V3TablePanel sheet={sheet} api={fakeApi(request as unknown as GameRequest)} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Rolar$/ })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: /^Rolar$/ }));
     await waitFor(() => expect(screen.getByLabelText("Dados da rolagem V3")).toBeInTheDocument());
     expect(request).toHaveBeenCalledWith("POST", "/api/v1/system-rolls/vampire-v3", expect.objectContaining({ pool: 3, difficulty: 6, damage_levels: 0 }));
     expect(screen.getAllByRole("img")).toHaveLength(3);
+  });
+
+  it("shows recursive specialty dice separately from the original pool", async () => {
+    const request = vi.fn(async (method: string) => method === "GET" ? { state: "active" } : ({ dice: [10, 4, 3], specialty_dice: [10, 7], difficulty: 6, successes: 3, botch: false, success: true, penalty: 0, rolled: 3, willpower_spent: false }));
+    render(<V3TablePanel sheet={sheet} api={fakeApi(request as unknown as GameRequest)} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Rolar$/ })).toBeEnabled());
+    fireEvent.click(screen.getByLabelText("Especialização (rerrole cada 10)"));
+    fireEvent.click(screen.getByRole("button", { name: /^Rolar$/ }));
+    await waitFor(() => expect(screen.getByLabelText("Dados de especialização V3")).toBeInTheDocument());
+    expect(screen.getAllByRole("img")).toHaveLength(5);
+    expect(request).toHaveBeenCalledWith("POST", "/api/v1/system-rolls/vampire-v3", expect.objectContaining({ specialty: true, sheet_id: SHEET }));
+  });
+
+  it("refreshes lifecycle when the sheet version changes", async () => {
+    let state = "active";
+    const request = vi.fn(async () => ({ state }));
+    const api = fakeApi(request as unknown as GameRequest);
+    const view = render(<V3TablePanel sheet={{ ...sheet, version: 1 }} api={api} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Rolar$/ })).toBeEnabled());
+    state = "final_death";
+    view.rerender(<V3TablePanel sheet={{ ...sheet, version: 2 }} api={api} />);
+    await waitFor(() => expect(screen.getByText("Estado: Morte Final.")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /^Rolar$/ })).toBeDisabled();
+    expect(request).toHaveBeenCalledTimes(2);
   });
 
   it("queues blood spending offline and blocks server tests", async () => {
@@ -103,6 +129,26 @@ describe("V5 panels", () => {
     expect(api.refreshSheet).toHaveBeenCalled();
   });
 
+  it("uses Blood Surge in the saved roll with a stable retry ID", async () => {
+    let attempts = 0;
+    const request = vi.fn(async (method: string, _path: string, _body?: unknown) => {
+      if (method === "POST" && attempts++ === 0) throw new Error("Sem conexão.");
+      return stored;
+    });
+    const api = fakeApi(request as unknown as GameRequest);
+    render(<V5RollPanel sheetId={SHEET} potency={2} hunger={2} api={api} />);
+    fireEvent.click(screen.getByLabelText(/Usar Surto/));
+    fireEvent.change(screen.getByLabelText(/Chave da rodada/), { target: { value: "c1:r2" } });
+    fireEvent.click(screen.getByRole("button", { name: /Rolar e guardar/ }));
+    await screen.findByText("Sem conexão.");
+    fireEvent.click(screen.getByRole("button", { name: /Rolar e guardar/ }));
+    await waitFor(() => expect(request).toHaveBeenCalledWith("POST", `/api/v1/v5/sheets/${SHEET}/rolls`, expect.objectContaining({
+      pool: 5, difficulty: 3, surge_turn_key: "c1:r2", surge_operation_id: expect.any(String),
+    })));
+    const payloads = request.mock.calls.filter(([method]) => method === "POST").map(([, , body]) => body as Record<string, unknown>);
+    expect(payloads[0].surge_operation_id).toBe(payloads[1].surge_operation_id);
+  });
+
   it("rouses with a stable operation id after a lost reply and queues torpor", async () => {
     const state = { potency: { potency: 2, surge: 1, mend: 2, power_bonus: 1, rouse_reroll_level: 1, bane_severity: 2 }, hunger: 2, humanity: 7, stains: 0, remorse_pool: 0, remorse_success: null,
       willpower_current: 4, frenzy_pool: { fury: 6, hunger: 6, terror: 6 }, rouse_success: 0.75, in_torpor: false, torpor_duration: "um mês", compulsion: null, compulsion_detail: null, clan_compulsion: null };
@@ -126,6 +172,19 @@ describe("V5 panels", () => {
     expect(ids[0]).toBe(ids[1]);
     fireEvent.click(screen.getByRole("button", { name: "Entrar em Torpor" }));
     await waitFor(() => expect(api.adjust).toHaveBeenCalledWith(expect.objectContaining({ path: `/api/v1/v5/sheets/${SHEET}/torpor`, body: { in_torpor: true } })));
+  });
+
+  it("records a blood bond drink from a campaign NPC entity", async () => {
+    const request = vi.fn(async () => []);
+    const api = fakeApi(request as unknown as GameRequest, { narrator: true, adjust: vi.fn(async () => ({ status: "queued" as const })) });
+    const npcId = "44444444-4444-4444-8444-444444444444";
+    render(<V5SanguinePanel sheetId={SHEET} sheetName="Vlad" api={api} donors={[{ id: npcId, name: "Mara", type: "entity" }]} />);
+    fireEvent.change(screen.getByLabelText("Doador (ficha ou NPC da campanha)"), { target: { value: `entity:${npcId}` } });
+    fireEvent.click(screen.getByRole("button", { name: "Registrar ingestão" }));
+    await waitFor(() => expect(api.adjust).toHaveBeenCalledWith(expect.objectContaining({
+      sheetId: SHEET,
+      body: { regnant_sheet_id: null, regnant_entity_id: npcId, notes: null },
+    })));
   });
 });
 

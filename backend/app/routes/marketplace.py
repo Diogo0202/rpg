@@ -212,6 +212,39 @@ async def managed_campaigns(authorization: str | None = Header(default=None)) ->
     return {"items": [{"id": row.get("id"), "name": row.get("name")} for row in rows]}
 
 
+@router.get("/campaigns/{campaign_id}/imports")
+async def pending_imports(campaign_id: UUID, authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    await marketplace.current_user_id(authorization)
+    rows = await marketplace.request_user(
+        "POST", "rpc/marketplace_pending_imports", authorization, payload={"p_campaign_id": str(campaign_id)},
+    )
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise HTTPException(status_code=503, detail="lista de importações inválida")
+    fields = ("id", "name", "version", "schema", "source_name", "source_status")
+    return {"items": [{field: row.get(field) for field in fields} for row in rows]}
+
+
+@router.post("/campaigns/{campaign_id}/imports/{template_id}/approve")
+async def approve_import(campaign_id: UUID, template_id: UUID,
+                         authorization: str | None = Header(default=None)) -> dict[str, Any]:
+    await marketplace.current_user_id(authorization)
+    review = await marketplace.request_user(
+        "POST", "rpc/marketplace_import_review", authorization,
+        payload={"p_campaign_id": str(campaign_id), "p_template_id": str(template_id)},
+    )
+    if not isinstance(review, dict) or not isinstance(review.get("schema"), dict):
+        raise HTTPException(status_code=503, detail="importação inválida")
+    marketplace.validate_import_schema(review["schema"])
+    approved_id = await marketplace.request_user(
+        "POST", "rpc/marketplace_approve_import", authorization,
+        payload={"p_campaign_id": str(campaign_id), "p_template_id": str(template_id),
+                 "p_expected_schema": review["schema"]},
+    )
+    if approved_id != str(template_id):
+        raise HTTPException(status_code=503, detail="aprovação não confirmada")
+    return {"id": approved_id, "status": "approved"}
+
+
 @router.get("/publishable-templates/{template_id}")
 async def publishable_template(template_id: UUID, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     await marketplace.current_user_id(authorization)

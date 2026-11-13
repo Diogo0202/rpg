@@ -1,5 +1,5 @@
 begin;
-select plan(40);
+select plan(56);
 
 insert into auth.users(id) values
   ('91000000-0000-4000-8000-000000000001'),
@@ -29,7 +29,11 @@ insert into public.character_sheets(id,campaign_id,template_id,owner_id,name,val
    '{"cla":"Brujah","vigor":2,"autocontrole":2,"resolucao":2,"saude_superficial":0,"saude_agravada":0,"vontade_superficial":0,"vontade_agravada":0,
      "fome":5,"humanidade":7,"manchas":2,"potencia_sangue":1,"compulsao_atual":"Nenhuma","torpor":false}'),
   ('94000000-0000-4000-8000-000000000002','92000000-0000-4000-8000-000000000001','93000000-0000-4000-8000-000000000002',
-   '91000000-0000-4000-8000-000000000002','Mortal','{"vigor":2,"saude_superficial":0,"saude_agravada":0}');
+   '91000000-0000-4000-8000-000000000002','Mortal','{"vigor":2,"saude_superficial":0,"saude_agravada":0}'),
+  ('94000000-0000-4000-8000-000000000003','92000000-0000-4000-8000-000000000001','93000000-0000-4000-8000-000000000001',
+   '91000000-0000-4000-8000-000000000002','Lia ferida',
+   '{"cla":"Brujah","vigor":2,"autocontrole":2,"resolucao":2,"saude_superficial":3,"saude_agravada":0,"vontade_superficial":0,"vontade_agravada":0,
+     "fome":2,"humanidade":7,"manchas":2,"potencia_sangue":1,"compulsao_atual":"Nenhuma","torpor":false}');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000002',true);
@@ -52,6 +56,48 @@ select is((select (r -> 'outcome' ->> 'success')::boolean = exists (select 1 fro
 select is((public.v5_rouse_check('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000001',1,'Rapidez') ->> 'replayed'),'true',
   'retrying the same operation replays');
 select is((select count(*)::integer from public.v5_blood_events where sheet_id='94000000-0000-4000-8000-000000000001'),1,'the replay adds no event');
+
+-- Force the failed-Rouse branch: mending still works, and Hunger rises.
+reset role;
+create or replace function private.v5_random_die() returns integer language sql volatile as $$ select 1 $$;
+set local role authenticated;
+create temp table mend_a as select public.v5_mend('94000000-0000-4000-8000-000000000003','95000000-0000-4000-8000-000000000020') as r;
+select is((select (r -> 'outcome' ->> 'healed')::integer = 1 from mend_a), true,
+  'mend heals one superficial at Blood Potency 1 even when the Rouse fails');
+select is((select (r -> 'outcome' ->> 'hunger_after')::integer = case when (r -> 'outcome' ->> 'success')::boolean then (r -> 'outcome' ->> 'hunger_before')::integer else least(5, (r -> 'outcome' ->> 'hunger_before')::integer + 1) end from mend_a), true,
+  'a failed mend Rouse raises Hunger, capped at five');
+select is((select (r -> 'sheet' -> 'values' ->> 'saude_superficial')::integer = 3 - (r -> 'outcome' ->> 'healed')::integer from mend_a), true,
+  'mend and Hunger update commit in the same result');
+select is((public.v5_mend('94000000-0000-4000-8000-000000000003','95000000-0000-4000-8000-000000000020') ->> 'replayed'),'true',
+  'repeating mend does not roll or heal twice');
+
+select throws_ok($$select public.v5_mend('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000024')$$,
+  '23514', null, 'Hunger 5 prevents voluntary mending');
+select throws_ok($$select public.v5_blood_surge('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000025','hungry:turn',5)$$,
+  '23514', null, 'Hunger 5 prevents voluntary Blood Surge');
+reset role;
+update public.character_sheets set values = values || '{"fome":3}' where id='94000000-0000-4000-8000-000000000001';
+set local role authenticated;
+-- Blood Surge is limited to one action for a stable sheet/turn key.
+create temp table surge_a as select public.v5_blood_surge('94000000-0000-4000-8000-000000000001',
+  '95000000-0000-4000-8000-000000000021','c1:r1',5) as r;
+select is((select (r -> 'outcome' ->> 'bonus_dice')::integer = 2 and (r -> 'outcome' ->> 'base_pool')::integer = 5 from surge_a), true,
+  'Blood Surge returns BP 1 bonus and records the base pool');
+select is((public.v5_blood_surge('94000000-0000-4000-8000-000000000001',
+  '95000000-0000-4000-8000-000000000021','c1:r1',5) ->> 'replayed'),'true', 'retrying a Surge replays its same Rouse');
+select is(public.v5_blood_surge('94000000-0000-4000-8000-000000000001',
+  '95000000-0000-4000-8000-000000000022','c1:r1',5)->>'replayed','true','same turn after browser restart replays existing Surge');
+select throws_ok($$select public.v5_blood_surge('94000000-0000-4000-8000-000000000001',
+  '95000000-0000-4000-8000-000000000023','c1:r2',29)$$, '22023', null, 'Surge cannot push a pool above 30');
+create temp table surged_roll as select public.record_v5_roll('94000000-0000-4000-8000-000000000001',7,3,3,
+  '{"base_pool":5,"context_tags":[],"blood_surge":{"operation_id":"95000000-0000-4000-8000-000000000021","turn_key":"c1:r1"}}') as r;
+select is((select count(*)::integer from public.v5_roll_records),1,'a Surge creates exactly one stored roll');
+select is(public.record_v5_roll('94000000-0000-4000-8000-000000000001',8,0,3,
+  '{"base_pool":5,"context_tags":[],"blood_surge":{"operation_id":"95000000-0000-4000-8000-000000000021","turn_key":"c1:r1"}}'),
+  (select r from surged_roll),'Surge retry preserves original roll despite changed current modifiers');
+select throws_ok($$select public.record_v5_roll('94000000-0000-4000-8000-000000000001',7,3,4,
+  '{"base_pool":5,"context_tags":[],"blood_surge":{"operation_id":"95000000-0000-4000-8000-000000000021","turn_key":"c1:r1"}}')$$,
+  '23505',null,'Surge receipt rejects a different action difficulty');
 select is((public.v5_rouse_check('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000002',2) -> 'outcome' ->> 'reroll_allowed'),'false',
   'BP 1 does not reroll a level 2 power');
 select throws_ok($$select public.v5_remorse_check('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000001')$$,'23505',null,
@@ -125,5 +171,15 @@ select throws_ok($$select public.v5_rouse_check('94000000-0000-4000-8000-0000000
   'another player cannot rouse this sheet');
 select is((select count(*)::integer from public.v5_blood_events),0,'another player cannot read the blood events');
 
+reset role;
+delete from public.campaign_members where campaign_id='92000000-0000-4000-8000-000000000001' and user_id='91000000-0000-4000-8000-000000000002';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','91000000-0000-4000-8000-000000000002',true);
+select throws_ok($$select public.v5_mend('94000000-0000-4000-8000-000000000003','95000000-0000-4000-8000-000000000020')$$,
+  '42501', null, 'revoked sheet owner cannot replay a mend receipt');
+select throws_ok($$select public.v5_blood_surge('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000030','revoked:turn',5)$$,
+  '42501', null, 'revoked sheet owner cannot invoke a security definer Surge');
+select throws_ok($$select public.v5_surge_roll_receipt('94000000-0000-4000-8000-000000000001','95000000-0000-4000-8000-000000000021',5,3,'c1:r1','[]')$$,
+  '42501',null,'revoked owner cannot fetch a saved surged roll receipt');
 select * from finish();
 rollback;

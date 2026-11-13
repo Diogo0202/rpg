@@ -1,10 +1,15 @@
 import entriesJson from "../data/compendium-homebrew.json";
 import { searchCompendiumEntries } from "./compendium-search.ts";
 
+import type { CompendiumEntryType } from "./compendium-types.ts";
+
+export { COMPENDIUM_ENTRY_TYPES, COMPENDIUM_TYPE_LABELS, COMPENDIUM_SHEET_INSERTABLE_TYPES } from "./compendium-types.ts";
+export type { CompendiumEntryType } from "./compendium-types.ts";
+
 export type CompendiumEntry = {
   id: string;
   title: string;
-  type: "discipline" | "advantage";
+  type: CompendiumEntryType;
   level: 0 | 1 | 2 | 3 | 4 | 5;
   tags: string[];
   cost: string;

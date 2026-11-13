@@ -1,5 +1,5 @@
 begin;
-select plan(41);
+select plan(46);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -20,6 +20,28 @@ values ('3a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-0000000
     {"id":"vontade_superficial","kind":"number"},{"id":"vontade_agravada","kind":"number"},
     {"id":"vontade_max","kind":"formula","formula":"autocontrole + resolucao"}],
     "meta_currencies":[{"id":"vontade","label":"Vontade","field":"vontade_superficial","mode":"track","max_field":"vontade_max"}]}'::jsonb);
+insert into public.system_templates (id, campaign_id, owner_id, name, status, schema)
+values
+  ('3a000000-0000-0000-0000-000000000002', '2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001',
+   'Hunter v4 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"conviccao_1"},{"id":"distincoes"},{"id":"triunfos"}]}'::jsonb),
+  ('3a000000-0000-0000-0000-000000000003', '2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001',
+   'Hunter v5 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"pilares"},{"id":"distincoes"},{"id":"triunfos"}]}'::jsonb);
+select lives_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000002','1a000000-0000-0000-0000-000000000002','v4 preserved',
+   '{"triunfos":["Arsenal","Frota"],"distincoes":["Arsenal: Excepcional"]}')$$,
+  'v4 approved creation contract remains accepted');
+select lives_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 verified',
+   '{"pilares":["Irmã Clara"],"triunfos":["Arsenal","Frota"],"distincoes":[]}')$$,
+  'v5 verified creation contract is accepted');
+select throws_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 bad catalog',
+   '{"pilares":["Irmã Clara"],"triunfos":["Vira-Casaca","Arsenal"],"distincoes":[]}')$$,
+  '22023', null, 'v5 rejects unverified legacy Edge picks');
+select throws_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 wrong parent',
+   '{"pilares":["Irmã Clara"],"triunfos":["Arsenal"],"distincoes":["Arsenal: Irrastreável","Frota: Armadura"]}')$$,
+  '22023', null, 'v5 requires each Perk to match a selected Edge');
 insert into public.character_sheets (id, campaign_id, template_id, owner_id, name, values)
 values
   ('4a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-000000000001', '3a000000-0000-0000-0000-000000000001',
@@ -65,8 +87,8 @@ insert into public.hunter_roll_records (id, campaign_id, sheet_id, cell_id, auth
   normal_dice, desperation_dice, outcome)
 values
   ('6a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-000000000001', '4a000000-0000-0000-0000-000000000001',
-   '5a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000002', 3, 1, 2, '{7,8,2}', '{1}',
-   private.hunter_roll_outcome('{7,8,2}', '{1}', 2)),
+   '5a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000002', 3, 2, 2, '{7,8,2}', '{1,1}',
+   private.hunter_roll_outcome('{7,8,2}', '{1,1}', 2)),
   ('6a000000-0000-0000-0000-000000000002', '2a000000-0000-0000-0000-000000000001', '4a000000-0000-0000-0000-000000000001',
    '5a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000002', 2, 1, 3, '{2,3}', '{1}',
    private.hunter_roll_outcome('{2,3}', '{1}', 3)),
@@ -96,8 +118,12 @@ select throws_ok($$select public.reroll_hunter_roll('6a000000-0000-0000-0000-000
 
 -- Overreach and Despair.
 select throws_ok($$select public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000003', 'despair')$$, '22023', null, 'no 1, nothing to resolve');
-select is((public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000001', 'overreach') -> 'cell' ->> 'danger')::integer, 2,
-  'Overreach raises the cell Danger');
+select is((public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000001', 'overreach') -> 'cell' ->> 'danger')::integer, 3,
+  'Forçar a Barra adds one Danger per Desperation 1');
+select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000003', true);
+select throws_ok($$select public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000001', 'overreach')$$,
+  '42501', null, 'only the player who rolled chooses the result');
+select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000002', true);
 select is((public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000001', 'overreach') ->> 'replayed')::boolean, true,
   'the same choice replays without raising Danger again');
 select throws_ok($$select public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000001', 'despair')$$, '23505', null, 'the choice cannot change');
@@ -106,8 +132,8 @@ select throws_ok($$select public.resolve_hunter_desperation('6a000000-0000-0000-
 select is((public.resolve_hunter_desperation('6a000000-0000-0000-0000-000000000002', 'despair') ->> 'in_despair')::boolean, true, 'Despair marks the sheet');
 select throws_ok($$select public.record_hunter_roll('4a000000-0000-0000-0000-000000000001', 3, 2, true)$$, '55000', null,
   'a hunter in Despair adds no Desperation dice');
-select throws_ok($$select public.record_hunter_roll('4a000000-0000-0000-0000-000000000001', 3, 2, false, '{"edge":"Arsenal"}')$$, '55000', null,
-  'Edges are blocked in Despair');
+select lives_ok($$select public.record_hunter_roll('4a000000-0000-0000-0000-000000000001', 3, 2, false, '{"edge":"Arsenal"}')$$,
+  'Distinctions remain usable in Aflição');
 
 -- Redemption: the player asks, the narrator decides.
 create temporary table redemption on commit drop as

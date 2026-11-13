@@ -1,5 +1,5 @@
 begin;
-select plan(21);
+select plan(23);
 
 insert into auth.users(id, aud, role, email) values
   ('a1000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'manager@market.test'),
@@ -58,6 +58,21 @@ select is(public.marketplace_approve_import('a2000000-0000-4000-8000-00000000000
   (select schema from public.system_templates where id = 'a3000000-0000-4000-8000-000000000002')),
   'a3000000-0000-4000-8000-000000000002'::uuid, 'repeated approval is idempotent');
 reset role;
+
+update public.marketplace_systems
+   set template = jsonb_set(template, '{version}', '2'::jsonb)
+ where id = 'a4000000-0000-4000-8000-000000000001';
+select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000001', false);
+set local role authenticated;
+select is((public.marketplace_clone('a4000000-0000-4000-8000-000000000001',
+  'a2000000-0000-4000-8000-000000000001', 'import-key-version-2') ->> 'version')::integer,
+  2, 'clone keeps the published model version');
+reset role;
+select is((select (template.schema ->> 'version')::integer
+    from public.marketplace_clone_operations operation
+    join public.system_templates template on template.id = operation.template_id
+   where operation.idempotency_key = 'import-key-version-2'),
+  2, 'clone keeps the schema version aligned with the row');
 
 select set_config('request.jwt.claim.sub', 'a1000000-0000-4000-8000-000000000002', false);
 set local role authenticated;

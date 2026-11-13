@@ -1,3 +1,4 @@
+import { oneRingReminders } from "../../../../shared/one-ring/reminders.ts";
 import { useState } from "react";
 import { Download, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -60,6 +61,7 @@ export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
         </div>
       </Panel>
     </form>
+    {sheet.data.system_key==="one-ring" && <Panel title="Lembretes de combate e Sombra"><ul>{oneRingReminders(values).map(note=><li key={note.id}>{note.text} (p. {note.page})</li>)}</ul></Panel>}
     <InventoryEditor sheetId={sheet.id} />
   </div>;
 }

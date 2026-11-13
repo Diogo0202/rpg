@@ -1,9 +1,10 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { BookOpen, Bot, Library, Music2, Settings } from "lucide-react";
+import { BookOpen, Bot, Library, Music2, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 import { SheetImport } from "@/components/nexus/SheetImport";
+import { OneRingCompanyPanel } from "@/components/nexus/OneRingCompanyPanel";
 import { ConnectionPanel } from "@/components/nexus/ConnectionPanel";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { useNexus, outboxSummary } from "@/lib/nexus/store";
@@ -24,13 +25,14 @@ export const Route = createFileRoute("/mais")({
 });
 
 type MusicLink = { title: string; url: string };
-type Section = "inicio" | "music" | "library" | "assistant" | "settings";
+type Section = "inicio" | "music" | "library" | "assistant" | "settings" | "one-ring";
 const NAV_ITEMS: { id: Section; label: string; icon: typeof BookOpen }[] = [
   { id: "inicio", label: "Mais", icon: BookOpen },
   { id: "music", label: "Música", icon: Music2 },
   { id: "library", label: "Biblioteca", icon: Library },
   { id: "assistant", label: "Assistente", icon: Bot },
   { id: "settings", label: "Configurações", icon: Settings },
+  { id: "one-ring", label: "O Um Anel", icon: Users },
 ];
 const SPOTIFY_HOSTS = new Set(["open.spotify.com", "spotify.link"]);
 
@@ -143,6 +145,7 @@ function MaisHome() {
         </Panel>
       )}
       {section === "settings" && <SettingsPanel />}
+      {section === "one-ring" && <OneRingCompanyPanel />}
     </LocalGate>
   );
 }

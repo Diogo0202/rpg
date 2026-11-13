@@ -163,6 +163,13 @@ export function canDeleteMessage(message: ChatMessage, viewerId: string, canMana
   return message.author_id === viewerId || canManage;
 }
 
+/** Only the author edits (the database grants UPDATE(body) to authors); unsent or failed local rows cannot be edited. */
+export function canEditMessage(message: ChatMessage, viewerId: string): boolean {
+  if (message.status) return false;
+  if ((message as { deleted_at?: unknown }).deleted_at) return false;
+  return message.author_id === viewerId;
+}
+
 export const CHAT_ROLE_LABELS: Record<ChatRole, string> = { narrador: "Narrador", jogador: "Jogador", convidado: "Convidado" };
 
 export function authorLabel(message: ChatMessage, viewerId: string): string {

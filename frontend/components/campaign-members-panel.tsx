@@ -86,7 +86,7 @@ export function CampaignMembersPanel({ campaignId, viewerId, isOwner, canManage 
           <h2 id="members-title">Quem está na mesa</h2>
           <p className={styles.intro}>
             {canManage
-              ? "Convide por e-mail ou código, ajuste papéis e remova participantes. Mestres administram jogadores e convidados; só o dono lida com mestres."
+              ? "Convide por e-mail ou código, ajuste papéis e remova participantes. Donos e mestres administram outros mestres."
               : "Veja quem participa desta campanha. Convites e papéis são geridos pelo dono e pelos mestres."}
           </p>
         </div>
@@ -134,7 +134,7 @@ export function CampaignMembersPanel({ campaignId, viewerId, isOwner, canManage 
         })}
       </ul>
 
-      {canManage ? <InviteSection campaignId={campaignId} roles={roles} invites={invites} busy={busy} isOwner={isOwner}
+      {canManage ? <InviteSection campaignId={campaignId} roles={roles} invites={invites} busy={busy} canManage={canManage}
         onCreated={load} onRevoke={(invite) => run(() => revokeCampaignInvite(campaignId, invite.id), "Revogar este convite?")} /> : null}
 
       {isOwner && details ? <OwnerSection campaignId={campaignId} details={details} onSaved={load} /> : null}
@@ -142,8 +142,8 @@ export function CampaignMembersPanel({ campaignId, viewerId, isOwner, canManage 
   );
 }
 
-function InviteSection({ campaignId, roles, invites, busy, isOwner, onCreated, onRevoke }: {
-  campaignId: string; roles: InviteRole[]; invites: Invite[]; busy: boolean; isOwner: boolean;
+function InviteSection({ campaignId, roles, invites, busy, canManage, onCreated, onRevoke }: {
+  campaignId: string; roles: InviteRole[]; invites: Invite[]; busy: boolean; canManage: boolean;
   onCreated: () => Promise<void>; onRevoke: (invite: Invite) => void;
 }) {
   const [state, action, pending] = useActionState(async (previous: AdminActionState, formData: FormData) => {
@@ -195,7 +195,7 @@ function InviteSection({ campaignId, roles, invites, busy, isOwner, onCreated, o
       {invites.length === 0 ? <p className={styles.empty}>Nenhum convite pendente.</p> : (
         <ul className={styles.list}>
           {invites.map((invite) => {
-            const manageable = invite.role !== "master" || isOwner;
+            const manageable = canManage;
             const send = emailStates[invite.id];
             const sentCount = invite.email_sent_count ?? 0;
             return (

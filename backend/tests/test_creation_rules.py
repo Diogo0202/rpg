@@ -131,3 +131,45 @@ def test_validate_creation_endpoint_reports_without_creating(monkeypatch) -> Non
     assert report["valid"] is False
     assert any("entre 1 e 5" in error for error in report["field_errors"])
     assert [item["rule_id"] for item in report["violations"]] == ["atributos"]
+
+
+def test_validate_creation_endpoint_reports_hunter_edge_count_before_submit(monkeypatch) -> None:
+    app = FastAPI()
+    app.include_router(sheets.router)
+    client = TestClient(app)
+
+    async def current_user(_authorization):
+        return "00000000-0000-0000-0000-000000000003"
+
+    fields = [
+        {"id": "nome", "label": "Nome", "kind": "text", "character_name": True},
+        {"id": "credo", "label": "Credo", "kind": "select", "options": ["Inquisitivo"]},
+        {"id": "impulso", "label": "Ímpeto", "kind": "select", "options": ["Curiosidade"]},
+        {"id": "conviccao_1", "label": "Convicção", "kind": "text"},
+        {"id": "pedra_toque_1", "label": "Pedra de Toque", "kind": "text"},
+        {"id": "triunfos", "label": "Triunfos", "kind": "collection"},
+        {"id": "distincoes", "label": "Distinções", "kind": "collection"},
+        {"id": "desespero", "label": "Desesperação", "kind": "number", "min": 0, "max": 5},
+        {"id": "em_desespero", "label": "Em Desespero", "kind": "checkbox"},
+    ]
+    hunter_template = {"name": "Caçador", "version": 4, "schema": {
+        "system_key": "hunter", "fields": fields, "creation_rules": [],
+    }}
+
+    async def get_template(_campaign, _template, _authorization):
+        return hunter_template
+
+    monkeypatch.setattr(sheets, "_current_user_id", current_user)
+    monkeypatch.setattr(sheets, "_get_template", get_template)
+    response = client.post(
+        "/api/v1/campaigns/00000000-0000-0000-0000-000000000001/sheets/validate-creation",
+        json={"template_id": "00000000-0000-0000-0000-000000000002", "values": {
+            "credo": "Inquisitivo", "impulso": "Curiosidade", "conviccao_1": "Proteger os inocentes",
+            "pedra_toque_1": "Irmã Clara", "triunfos": ["Arsenal"], "distincoes": [],
+            "desespero": 0, "em_desespero": False,
+        }},
+        headers={"Authorization": "Bearer t"},
+    )
+    assert response.status_code == 200
+    assert response.json()["valid"] is False
+    assert any("Na criação" in error for error in response.json()["field_errors"])

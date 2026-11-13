@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  actionChronicle, attackDamageSplit, attackOperationKey, canApplyAttackDamage, damagePenaltiesFrom,
+  actionChronicle, attackDamageSplit, attackOperationKey, attackDamageOperationId, damageRpcArgs, canApplyAttackDamage, damagePenaltiesFrom,
   describeDamageResult, storedModifierPreview, toggleRerollIndex,
 } from "../lib/v5-action-roll.ts";
 
@@ -63,4 +63,14 @@ test("Willpower reroll selection keeps at most three distinct dice", () => {
   assert.deepEqual(toggleRerollIndex([], 2), [2]);
   assert.deepEqual(toggleRerollIndex([2], 2), []);
   assert.deepEqual(toggleRerollIndex([0, 1, 2], 3), [0, 1, 2]);
+});
+
+test("attack damage keeps its receipt across track changes and reloads", async () => {
+  const operationId = await attackDamageOperationId("saved-roll-1", TARGET);
+  const health = damageRpcArgs({ sheetId: TARGET, track: "health", superficial: 2, aggravated: 0, armor: false, physical: false, operationId });
+  const willpower = damageRpcArgs({ sheetId: TARGET, track: "willpower", superficial: 2, aggravated: 0, armor: false, physical: false, operationId: await attackDamageOperationId("saved-roll-1", TARGET) });
+  assert.equal(health.p_operation_id, willpower.p_operation_id);
+  assert.match(operationId, /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.notEqual(operationId, await attackDamageOperationId("saved-roll-2", TARGET));
+  assert.notEqual(operationId, await attackDamageOperationId("saved-roll-1", "another-target"));
 });

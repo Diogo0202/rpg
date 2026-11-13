@@ -116,8 +116,15 @@ export function V5BloodPanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
         {state?.hunger === 5 && <p className="mt-2 text-sm font-semibold text-destructive">Fome 5: um Rouse que falhar pede teste de frenesi de fome.</p>}
       </Panel>
 
+      <Panel title="Remendar">
+        <p className="text-sm text-ink">Rouse voluntário exige Fome abaixo de 5. A cura acontece mesmo quando o Rouse falha.</p>
+        <Btn className="mt-2 w-full" disabled={disabled || offline || state?.hunger === 5 || Number(sheet.values.saude_superficial ?? 0) <= 0}
+          onClick={() => void act("mend", {})}>Remendar ({potency?.mend ?? 0} superficial)</Btn>
+      </Panel>
+
       <Panel title="Remorso e Frenesi">
         <p className="text-sm text-ink">Remorso: <b>{state?.stains ? `${state.remorse_pool} dado(s) · ${Math.round((state.remorse_success ?? 0) * 100)}% de manter a Humanidade` : "sem Manchas"}</b></p>
+        {state?.impaired && <p className="mt-1 text-sm font-semibold text-destructive">Manchas excedentes: −2 dados e {state.stain_willpower_aggravated} dano(s) agravado(s) na Vontade.</p>}
         <Btn variant="outline" className="mt-2 w-full" disabled={disabled || offline || !state?.stains} onClick={() => void act("remorse", {})}>Teste de Remorso</Btn>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <Field label="Tipo de frenesi" htmlFor={`${idp}-fkind`}>

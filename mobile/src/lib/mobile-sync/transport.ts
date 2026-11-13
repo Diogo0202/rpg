@@ -1,25 +1,9 @@
 import type { SnapshotPage, SyncCampaign, SyncCapabilities, SyncChangeEvent, SyncPage, SyncRecord, SyncResult, SyncTransport } from "./types.ts";
 import { validateChanges } from "./merge.ts";
 
-export class SyncHttpError extends Error {
-  readonly status: number;
-  readonly retryAfterMs?: number;
-  readonly code?: string;
-  constructor(message: string, status: number, retryAfterMs?: number, code?: string) {
-    super(message); this.name = "SyncHttpError";
-    this.status = status; this.retryAfterMs = retryAfterMs; this.code = code;
-  }
-}
+import { SyncHttpError, parseRetryAfter } from "../../../../shared/sync/core.ts";
+export { SyncHttpError, parseRetryAfter } from "../../../../shared/sync/core.ts";
 export type AccessTokenProvider = (refresh?: boolean) => Promise<string | null>;
-
-export function parseRetryAfter(value: string | null, now = Date.now(), capMs = 120000): number | undefined {
-  if (!value) return undefined;
-  const seconds = Number(value);
-  const raw = Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : Date.parse(value) - now;
-  if (!Number.isFinite(raw)) return undefined;
-  if (raw < 0) return 0;
-  return Math.min(capMs, Math.floor(raw));
-}
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const entityPattern = /^[a-z][a-z0-9_]{0,63}$/;

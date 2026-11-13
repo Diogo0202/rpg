@@ -39,6 +39,8 @@ export async function createTestDatabase({ through } = {}) {
     grant usage on schema storage to authenticated;
     grant select,insert,update,delete on storage.objects to authenticated;
     create extension pgtap;
+    -- Supabase supplies this publication before application migrations.
+    create publication supabase_realtime;
   `);
   const files = (await readdir(path.join(root, "supabase/migrations")))
     .filter((name) => name.endsWith(".sql") && (!through || name <= through)).sort();

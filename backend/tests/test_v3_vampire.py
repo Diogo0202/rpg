@@ -42,9 +42,10 @@ def test_ones_cancel_successes_and_a_botch_needs_no_success_at_all() -> None:
     assert v3_outcome([10, 9], 10).successes == 1
 
 
-def test_specialty_tens_count_twice_and_willpower_cannot_be_cancelled() -> None:
-    assert v3_outcome([10, 3], 6, specialty=True).successes == 2
-    assert v3_outcome([10, 1], 6, specialty=True).successes == 1
+def test_specialty_reads_extra_faces_and_willpower_cannot_be_cancelled() -> None:
+    assert v3_outcome([10, 3], 6, specialty=True, specialty_dice=[7]).successes == 2
+    assert v3_outcome([10, 1], 6, specialty=True, specialty_dice=[7]).successes == 1
+    assert v3_outcome([10, 3], 6, specialty=True, specialty_dice=[2]).successes == 1
     spent = v3_outcome([1, 1, 2], 6, willpower=True)
     assert (spent.successes, spent.botch, spent.success) == (1, False, True)
     assert v3_outcome([6, 1, 1], 6, willpower=True).successes == 1
@@ -61,10 +62,20 @@ def test_enumerated_botch_chance_matches_the_closed_form(pool: int, difficulty: 
     assert (with_willpower["botch"], with_willpower["success"]) == (0, 1)
 
 
-def test_enumerated_specialty_adds_the_chance_of_tens() -> None:
-    plain = enumerate_pool(2, 6)["successes"]
-    special = enumerate_pool(2, 6, specialty=True)["successes"]
-    assert special - plain == Fraction(2, 10)  # each die adds one more success on a 10
+def test_specialty_rolls_tens_again_until_the_chain_ends(monkeypatch: pytest.MonkeyPatch) -> None:
+    batches = iter([[10, 2], [10], [7]])
+    monkeypatch.setattr(v3_vampire, "roll_dice", lambda count: next(batches))
+    result = roll_v3(V3RollRequest(pool=2, difficulty=6, specialty=True))
+    assert result.dice == [10, 2]
+    assert result.specialty_dice == [10, 7]
+    assert result.successes == 3
+
+
+def test_specialty_reroll_failure_keeps_the_original_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    batches = iter([[10], [1]])
+    monkeypatch.setattr(v3_vampire, "roll_dice", lambda count: next(batches))
+    result = roll_v3(V3RollRequest(pool=1, difficulty=6, specialty=True))
+    assert (result.successes, result.ones, result.specialty_dice) == (1, 0, [1])
 
 
 def test_sampled_rolls_follow_the_enumeration(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -118,6 +129,8 @@ def client(monkeypatch: pytest.MonkeyPatch):
         calls.append((function, payload))
         if payload.get("p_sheet_id") == "00000000-0000-0000-0000-000000000099":
             raise HTTPException(status_code=422, detail="limite da ficha atingido")
+        if function == "v3_life_state":
+            return {"state": "active"}
         return {"sheet": {"values": {}}, "replayed": False}
 
     app = FastAPI()
@@ -134,7 +147,7 @@ def test_route_spends_willpower_before_rolling(client) -> None:
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["willpower_spent"] is True and body["successes"] >= 1 and body["botch"] is False
-    assert calls == [("v3_spend_willpower", {"p_sheet_id": SHEET_ID, "p_operation_id": OPERATION_ID})]
+    assert calls == [("v3_life_state", {"p_sheet_id": SHEET_ID}), ("v3_spend_willpower", {"p_sheet_id": SHEET_ID, "p_operation_id": OPERATION_ID})]
 
 
 def test_route_refuses_the_roll_when_willpower_is_gone(client) -> None:
@@ -154,6 +167,10 @@ def test_route_refuses_the_roll_when_willpower_is_gone(client) -> None:
     ({"action": "frenesi", "difficulty": 8}, "v3_frenzy_test", {"p_kind": "frenesi", "p_difficulty": 8}),
     ({"action": "rotschreck", "difficulty": 7}, "v3_frenzy_test", {"p_kind": "rotschreck", "p_difficulty": 7}),
     ({"action": "degeneracao", "difficulty": 6}, "v3_degeneration_test", {"p_difficulty": 6}),
+    ({"action": "alimentar", "amount": 2, "note": "Presa aprovada pela mesa"}, "v3_life_action", {"p_action": "alimentar", "p_amount": 2, "p_note": "Presa aprovada pela mesa"}),
+    ({"action": "torpor", "note": "Repouso decidido pela mesa"}, "v3_life_action", {"p_action": "torpor", "p_amount": None, "p_note": "Repouso decidido pela mesa"}),
+    ({"action": "despertar", "note": "Repouso e teste aprovados"}, "v3_life_action", {"p_action": "despertar", "p_amount": None, "p_note": "Repouso e teste aprovados"}),
+    ({"action": "morte_final", "note": "Morte Final confirmada pela mesa"}, "v3_life_action", {"p_action": "morte_final", "p_amount": None, "p_note": "Morte Final confirmada pela mesa"}),
 ])
 def test_sheet_actions_reach_their_rpc(client, body: dict[str, Any], function: str, sent: dict[str, Any]) -> None:
     http, calls = client
@@ -169,6 +186,8 @@ def test_sheet_actions_need_their_numbers(client) -> None:
     assert http.post(url, json={"operation_id": OPERATION_ID, "action": "frenesi"}).status_code == 422
     assert http.post(url, json={"operation_id": OPERATION_ID, "action": "dano", "amount": 2}).status_code == 422
     assert http.post(url, json={"operation_id": OPERATION_ID, "action": "sangue", "amount": 1, "turn": "bad turn"}).status_code == 422
+    assert http.post(url, json={"operation_id": OPERATION_ID, "action": "alimentar", "amount": 2}).status_code == 422
+    assert http.post(url, json={"operation_id": OPERATION_ID, "action": "morte_final", "note": "curta"}).status_code == 422
     assert calls == []
 
 
@@ -178,3 +197,20 @@ def test_sheet_route_migrates_and_derives(client) -> None:
     assert response.status_code == 200
     body = response.json()
     assert "predador" not in body["values"] and body["derived"]["sangue_max"] == 14 and body["warnings"]
+
+@pytest.mark.parametrize("state", ["torpor", "final_death"])
+def test_saved_v3_roll_refuses_dormant_state_without_spending(monkeypatch, state):
+    calls = []
+    async def call_rpc(function, authorization, payload, **kwargs):
+        calls.append(function)
+        return {"state": state}
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[generators.require_signed_in_user] = lambda: None
+    monkeypatch.setattr(supabase_rpc, "call_rpc", call_rpc)
+    with TestClient(app) as http:
+        response = http.post("/api/v1/system-rolls/vampire-v3", json={
+            "pool": 3, "difficulty": 6, "sheet_id": SHEET_ID,
+            "use_willpower": True, "operation_id": OPERATION_ID})
+    assert response.status_code == 409
+    assert calls == ["v3_life_state"]

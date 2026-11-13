@@ -23,6 +23,7 @@ from app.services.hunter_traits import (
     hunter_edge_problems,
     roll_outcome,
     usable_edges,
+    template_creation_problems,
 )
 
 SHEET = "4a000000-0000-0000-0000-000000000001"
@@ -54,20 +55,33 @@ def test_table_choices_follow_success() -> None:
 
 
 def test_edge_catalog_and_perks_belong_to_edges() -> None:
-    assert len(HUNTER_EDGES) == 14
+    assert len(HUNTER_EDGES) == 12
     assert all(perk.split(": ")[0] in HUNTER_EDGES for perk in HUNTER_PERKS)
-    assert hunter_edge_problems({"triunfos": ["Arsenal"], "distincoes": ["Arsenal: Excepcional"]}) == []
-    assert hunter_edge_problems({"triunfos": ["Arsenal"], "distincoes": ["Frota: Blindagem"]}) == ["Distinção Frota: Blindagem pede o Triunfo Frota"]
+    assert hunter_edge_problems({"triunfos": ["Arsenal"], "distincoes": ["Arsenal: Características Especiais"]}) == []
+    assert hunter_edge_problems({"triunfos": ["Arsenal"], "distincoes": ["Frota: Armadura"]}) == ["Distinção Frota: Armadura pede o Triunfo Frota"]
     assert "Triunfo Telecinese fora do catálogo" in hunter_edge_problems({"triunfos": ["Telecinese"]})
     assert hunter_edge_problems({"triunfos": ["Arsenal", "Arsenal"]}) == ["Triunfos e Distinções não se repetem"]
 
 
-def test_creation_counts_and_despair_blocks_edges() -> None:
+def test_creation_counts_and_affliction_keeps_edges() -> None:
     base = {"credo": "Marcial", "impulso": "Juramento", "conviccao_1": "a", "pedra_toque_1": "b"}
     assert hunter_creation_problems({**base, "triunfos": ["Arsenal", "Frota"], "distincoes": ["Frota: Blindagem"]}) == []
     assert hunter_creation_problems({**base, "triunfos": [], "distincoes": []})[-1].startswith("Na criação")
     assert usable_edges({"triunfos": ["Arsenal"]}) == ["Arsenal"]
-    assert usable_edges({"triunfos": ["Arsenal"], "em_desespero": True}) == []
+    assert usable_edges({"triunfos": ["Arsenal"], "em_desespero": True}) == ["Arsenal"]
+
+
+def test_v4_catalog_and_creation_contract_remain_valid_while_v5_uses_basic_catalog() -> None:
+    v4_fields = {"conviccao_1", "triunfos", "distincoes"}
+    v4 = {"credo": "Marcial", "impulso": "Juramento", "conviccao_1": "x", "pedra_toque_1": "y",
+          "triunfos": ["Arsenal", "Frota"], "distincoes": ["Arsenal: Excepcional"]}
+    assert template_creation_problems("hunter", 4, v4_fields, v4) == []
+    v5_fields = {"pilares", "triunfos", "distincoes"}
+    v5 = {"credo": "Marcial", "impulso": "Juramento", "pilares": ["Irmã Clara"],
+          "triunfos": ["Arsenal", "Frota"], "distincoes": []}
+    assert template_creation_problems("hunter", 5, v5_fields, v5) == []
+    v5["triunfos"] = ["Vira-Casaca", "Arsenal"]
+    assert any("fora do catálogo" in problem for problem in template_creation_problems("hunter", 5, v5_fields, v5))
 
 
 def test_python_and_typescript_catalogs_match() -> None:
@@ -76,7 +90,7 @@ def test_python_and_typescript_catalogs_match() -> None:
         assert edge in source
         for perk in perks:
             assert f'"{perk}"' in source
-    assert "[[2, 1], [1, 2]]" in source and hunter_traits.HUNTER_EDGE_STARTS == [(2, 1), (1, 2)]
+    assert "[[2, 0], [1, 2]]" in source and hunter_traits.HUNTER_EDGE_STARTS == [(2, 0), (1, 2)]
 
 
 # --- Routes -----------------------------------------------------------------------------------
@@ -211,6 +225,15 @@ def test_sheet_creation_refuses_a_hunter_without_starting_edges(monkeypatch: pyt
     portrait = f"{campaign}/{user}/3a000000-0000-0000-0000-000000000009.webp"
     body = {"template_id": "3a000000-0000-0000-0000-000000000001", "name": "Mara", "portrait_path": portrait}
     with TestClient(app) as test_client:
+        validation = test_client.post(f"/api/v1/campaigns/{campaign}/sheets/validate-creation",
+            json={"template_id": body["template_id"], "values": {**values_for_mode(0), "triunfos": ["Arsenal"], "distincoes": []}})
+        assert validation.status_code == 200
+        assert validation.json()["valid"] is False
+        assert any("Na cria" in message for message in validation.json()["field_errors"])
+        valid_validation = test_client.post(f"/api/v1/campaigns/{campaign}/sheets/validate-creation",
+            json={"template_id": body["template_id"], "values": values_for_mode(0)})
+        assert valid_validation.status_code == 200
+        assert valid_validation.json()["valid"] is True
         refused = test_client.post(f"/api/v1/campaigns/{campaign}/sheets",
                                    json={**body, "values": {**values_for_mode(0), "triunfos": ["Arsenal"], "distincoes": []}})
         accepted = test_client.post(f"/api/v1/campaigns/{campaign}/sheets", json={**body, "values": values_for_mode(0)})

@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dices, RefreshCw } from "lucide-react";
+import { bloodPotency } from "@/lib/v5-blood";
 import { clampInt, describeStoredRoll, isStoredRoll, toggleDie, v5OutcomeLabel, type V5StoredRoll } from "@/lib/game/table-rules";
 import { Btn, Panel } from "@/components/nexus/ui";
 import { DiceRow, Field, History, StatusLine, formatWhen, inputClass } from "./TableUi";
-import type { TableApi } from "./useTableApi";
+import { useOperationIds, type TableApi } from "./useTableApi";
 
 /**
  * V5 stored roll (mobile): POST /api/v1/v5/sheets/{id}/rolls rolls on the server with the sheet's
  * Hunger and modifiers, the remote history comes from GET …/rolls, and the one Willpower reroll of
  * up to 3 ordinary dice goes to /rolls/{id}/willpower-reroll.
  */
-export function V5RollPanel({ sheetId, api }: { sheetId: string; api: TableApi }) {
+export function V5RollPanel({ sheetId, potency = 0, hunger = 0, api }: { sheetId: string; potency?: number; hunger?: number; api: TableApi }) {
+  const ops = useOperationIds();
   const request = api.request;
   const [pool, setPool] = useState(5);
   const [difficulty, setDifficulty] = useState(3);
+  const [useSurge, setUseSurge] = useState(false);
+  const [turnKey, setTurnKey] = useState("");
   const [history, setHistory] = useState<V5StoredRoll[]>([]);
   const [current, setCurrent] = useState<V5StoredRoll | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -49,8 +53,14 @@ export function V5RollPanel({ sheetId, api }: { sheetId: string; api: TableApi }
   }
 
   const roll = () => guard(async (send) => {
-    const result = await send("POST", `/api/v1/v5/sheets/${sheetId}/rolls`, { pool, difficulty, context_tags: [] });
+    if (useSurge && (!turnKey.trim() || pool + bloodPotency(potency).surge > 30)) throw new Error("Informe a chave da rodada e mantenha o total em até 30 dados.");
+    const key = `surge:${turnKey.trim()}`;
+    const result = await send("POST", `/api/v1/v5/sheets/${sheetId}/rolls`, {
+      pool, difficulty, context_tags: [],
+      ...(useSurge ? { surge_turn_key: turnKey.trim(), surge_operation_id: ops.take(key) } : {}),
+    });
     if (!isStoredRoll(result)) throw new Error("Resposta de rolagem inválida.");
+    if (useSurge) { ops.done(key); setUseSurge(false); }
     setCurrent(result); setSelected([]);
     setMessage({ text: describeStoredRoll(result), tone: "info" });
     await load();
@@ -83,6 +93,15 @@ export function V5RollPanel({ sheetId, api }: { sheetId: string; api: TableApi }
         <Btn className="w-full" disabled={busy || !request || offline} onClick={() => void roll()} aria-busy={busy}>
           <Dices className="size-4" aria-hidden />{busy ? "Rolando…" : offline ? "Rolar (precisa de conexão)" : "Rolar e guardar"}
         </Btn>
+      </Panel>
+
+      <Panel title="Surto de Sangue">
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={useSurge} disabled={hunger >= 5} onChange={(event) => setUseSurge(event.target.checked)} /> Usar Surto (+{bloodPotency(potency).surge} dados)</label>
+        {hunger >= 5 && <p className="text-xs text-destructive">Fome 5 impede Rouse voluntário.</p>}
+        {useSurge && <Field label="Chave da rodada" htmlFor={`${idp}-turn`} hint="a mesma chave impede um segundo uso no turno">
+          <input id={`${idp}-turn`} className={inputClass} maxLength={100} value={turnKey} onChange={(event) => setTurnKey(event.target.value)} />
+        </Field>}
+        {useSurge && <p className="text-xs text-ink-muted">Bônus e Rouse são guardados com a rolagem. O Rouse falho aumenta a Fome depois da rolagem.</p>}
       </Panel>
 
       {current && <Panel title={`${v5OutcomeLabel(current.outcome)} · ${current.outcome.successes}/${current.difficulty}`}>

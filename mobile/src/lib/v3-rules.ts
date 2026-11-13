@@ -21,9 +21,10 @@ export function isV3Sheet(values: Values): boolean {
 
 export type V3Outcome = { successes: number; botch: boolean; success: boolean; raw: number; ones: number };
 
-/** Same reading as v3_outcome in the API: 1s cancel, botch without any success, specialty 10 twice, Willpower +1. */
-export function v3Outcome(dice: number[], difficulty: number, specialty = false, willpower = false): V3Outcome {
-  const raw = dice.reduce((sum, die) => sum + (die >= difficulty ? (specialty && die === 10 ? 2 : 1) : 0), 0);
+/** Revised core p.117: extra specialty faces come from server rerolls of tens. */
+export function v3Outcome(dice: number[], difficulty: number, specialty = false, willpower = false, specialtyDice: number[] = []): V3Outcome {
+  const raw = dice.filter((die) => die >= difficulty).length
+    + (specialty ? specialtyDice.filter((die) => die >= difficulty).length : 0);
   const ones = dice.filter((die) => die === 1).length;
   const botch = raw === 0 && ones > 0 && !willpower;
   const successes = Math.max(0, raw - ones) + (willpower ? 1 : 0);

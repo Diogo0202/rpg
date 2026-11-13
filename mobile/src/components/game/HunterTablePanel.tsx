@@ -21,8 +21,8 @@ function traitsOf(list: Array<[string, string]>, values: Record<string, FieldVal
 
 /**
  * Caçador at the table (mobile), same routes as the web: the server reads the cell's Desperation,
- * rolls and stores the dice; the table resolves Overreach/Despair, the one Willpower reroll of up to
- * 3 ordinary dice, Despair blocks Desperation dice and Edges, and Redemption waits for the narrator.
+ * rolls and stores the dice; the player resolves successful Desperation 1s, Aflição blocks extra
+ * Desperation dice, Distinctions stay available, and Redemption waits for the narrator.
  * Cell Danger/Desperation steps (narrator) wait in the offline queue.
  */
 export function HunterTablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }) {
@@ -113,7 +113,7 @@ export function HunterTablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }
     const result = await online()("POST", `/api/v1/hunter/rolls/${latest.roll_id}/resolve`, { choice });
     if (!isHunterRoll(result)) throw new Error("Resposta de rolagem inválida.");
     setLatest(result);
-    push(choice === "overreach" ? "Overreach" : "Despair", result);
+    push(choice === "overreach" ? "Forçar a Barra" : "Aflição", result);
     api.refreshSheet();
     await loadState();
   });
@@ -184,8 +184,8 @@ export function HunterTablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }
         <Check id={`${idp}-desp`} checked={useDesperation && !despair} disabled={despair || !desperationDice} onChange={setUseDesperation}>
           Somar {desperationDice} dado(s) de Desesperação{despair ? " (bloqueado em Desespero)" : ""}
         </Check>
-        <Field label="Triunfo usado" htmlFor={`${idp}-edge`} hint={despair ? "bloqueado em Desespero" : undefined}>
-          <select id={`${idp}-edge`} className={inputClass} value={despair ? "" : edge} disabled={despair || !edges.length} onChange={(event) => setEdge(event.target.value)}>
+        <Field label="Triunfo usado" htmlFor={`${idp}-edge`}>
+          <select id={`${idp}-edge`} className={inputClass} value={edge} disabled={!edges.length} onChange={(event) => setEdge(event.target.value)}>
             <option value="">Nenhum</option>
             {edges.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
@@ -215,7 +215,7 @@ export function HunterTablePanel({ sheet, api }: { sheet: Sheet; api: TableApi }
       </Panel>}
 
       <Panel title="Desespero e Redenção">
-        <p className="text-sm text-ink">{despair ? "Em Desespero: sem dados de Desesperação e Triunfos bloqueados." : "Fora do Desespero."} Ímpeto <b>{String(values.impulso ?? "—")}</b>.</p>
+        <p className="text-sm text-ink">{despair ? "Em Aflição: sem dados adicionais de Desesperação." : "Fora da Aflição."} Ímpeto <b>{String(values.impulso ?? "—")}</b>.</p>
         {despair && !state?.pending_redemption && <div className="mt-3 space-y-2">
           <Field label="Como o Ímpeto foi cumprido" htmlFor={`${idp}-note`}>
             <textarea id={`${idp}-note`} className="field-input min-h-24 w-full" maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { GenerationPanel } from "./generation-panel";
 import { V5ProbabilityPanel } from "./v5-probability-panel";
@@ -30,14 +30,17 @@ import { SystemRollPanel } from "./system-roll-panel";
 import { AiAssistancePanel } from "./ai-assistance-panel";
 import { CampaignMembersPanel } from "./campaign-members-panel";
 import { AffiliateLinks } from "./affiliate-links";
+import { clearOfflineAccount } from "../lib/one-ring-offline";
+import { OneRingCompanyPanel } from "./one-ring-company-panel";
 import { MarketplaceImportsPanel } from "./marketplace-imports-panel";
 
-type Area = "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "marketplace" | "cofre" | "inventario" | "acoes" | "sangue" | "vinculos" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai" | "participantes";
+type Area = "companhia" | "biblioteca" | "regras" | "compendio" | "grupo" | "si" | "cronica" | "efeitos" | "fichas" | "marketplace" | "cofre" | "inventario" | "acoes" | "sangue" | "vinculos" | "sistemas" | "diario" | "experiencia" | "musica" | "mundo" | "mapa" | "mesa" | "geracao" | "v5" | "ai" | "participantes";
 type Book = { name: string; kind: string; state: "Pronto" | "Em revisão" | "Na fila" };
 
 const initialBooks: Book[] = [];
 
 const areas: Array<{ id: Area; label: string; detail: string }> = [
+  { id: "companhia", label: "Companhia", detail: "Sociedade e Focos de O Um Anel" },
   { id: "biblioteca", label: "Biblioteca", detail: "Livros autorizados e extração" },
   { id: "regras", label: "Regras", detail: "Busca com página de origem" },
   { id: "compendio", label: "Compêndio", detail: "Poderes e vantagens por tags" },
@@ -73,6 +76,13 @@ export function CampaignWorkbench(props: WorkbenchProps) {
 
 function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTemplates, canEditSheets }: WorkbenchProps) {
   const [area, setArea] = useState<Area>(canManageTemplates ? "grupo" : "fichas");
+  // Volta do OAuth do Spotify: abre direto em Música e limpa a URL.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("area") !== "musica") return;
+    setArea("musica");
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
   const [books] = useState<Book[]>(initialBooks);
   const active = useMemo(() => areas.find((item) => item.id === area)!, [area]);
 
@@ -88,7 +98,7 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
             </button>
           ))}
         </nav>
-        <form action="/auth/signout" method="post"><button className="nav" type="submit">Sair da conta</button></form>
+        <form action="/auth/signout" method="post" onSubmit={(event)=>{event.preventDefault();const form=event.currentTarget;void clearOfflineAccount(viewerId).finally(()=>form.submit());}}><button className="nav" type="submit">Sair da conta</button></form>
         <a className="created-by" href="https://deerflow.tech" target="_blank" rel="noreferrer">Created By Deerflow</a>
         <div className="privacy">Painéis em desenvolvimento<br /><span>confira o estado de gravação em cada ferramenta</span></div>
       </aside>
@@ -116,6 +126,7 @@ function Workbench({ campaignId, campaignName, viewerId, isOwner, canManageTempl
           </section>
         )}
 
+        {area === "companhia" && <OneRingCompanyPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} viewerRole={canManageTemplates ? "narrator" : canEditSheets ? "player" : "guest"} />}
         {area === "fichas" && <SheetBuilder campaignId={campaignId} viewerId={viewerId} canManageTemplates={canManageTemplates} canEditSheets={canEditSheets} />}
         {area === "marketplace" && canManageTemplates && <MarketplaceImportsPanel campaignId={campaignId} viewerId={viewerId} canManage={canManageTemplates} onOpenSheets={() => setArea("fichas")} />}
         {area === "regras" && <RulesSearchPanel campaignId={campaignId} />}

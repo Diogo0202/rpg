@@ -5,6 +5,8 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react()],
   test: {
+    // JSDOM workers and Workbox minification compete for CPU and memory on Windows.
+    maxWorkers: 4,
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

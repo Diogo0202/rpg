@@ -156,6 +156,9 @@ export type BloodState = {
   hunger: number;
   humanity: number;
   stains: number;
+  excessStains: number;
+  impaired: boolean;
+  stainWillpowerAggravated: number;
   remorsePool: number;
   remorseChance: number | null;
   willpowerCurrent: number;
@@ -171,6 +174,7 @@ export function bloodState(values: Record<string, unknown>): BloodState {
   const potency = clamp(int(values.potencia_sangue, 0), 0, 10);
   const humanity = clamp(int(values.humanidade, 7), 0, 10);
   const stains = clamp(int(values.manchas, 0), 0, 10);
+  const excessStains = Math.max(0, stains - (10 - humanity));
   const willpowerMax = clamp(int(values.autocontrole, 0) + int(values.resolucao, 0), 0, 30);
   const willpowerCurrent = Math.max(0, willpowerMax - Math.max(0, int(values.vontade_superficial, 0)) - Math.max(0, int(values.vontade_agravada, 0)));
   const clan = typeof values.cla === "string" ? values.cla : null;
@@ -180,6 +184,9 @@ export function bloodState(values: Record<string, unknown>): BloodState {
     hunger: clamp(int(values.fome, 0), 0, HUNGER_MAX),
     humanity,
     stains,
+    excessStains,
+    impaired: excessStains > 0,
+    stainWillpowerAggravated: excessStains,
     remorsePool: stains ? remorsePool(humanity, stains) : 0,
     remorseChance: stains ? remorseSuccessChance(humanity, stains) : null,
     willpowerCurrent,

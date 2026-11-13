@@ -85,6 +85,69 @@ def test_create_roll_uses_sheet_hunger_and_effects_and_db_dice(client, monkeypat
     assert body["recommended_reroll"] == [0]
 
 
+def test_create_roll_applies_excess_stain_penalty_from_saved_sheet(client, monkeypatch):
+    calls = []
+
+    async def fake_request(method, path, authorization, *, params=None, payload=None):
+        return _sheet(values={"manchas": 4, "humanidade": 7})
+
+    async def fake_rpc(name, authorization, payload):
+        calls.append(payload)
+        return _row(pool=payload["p_pool"], hunger=payload["p_hunger"], details=payload["p_details"])
+
+    monkeypatch.setattr("app.routes.v5._request", fake_request)
+    monkeypatch.setattr("app.routes.v5._rpc", fake_rpc)
+    response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rolls", json={"pool": 6, "difficulty": 3}, headers=AUTH)
+    assert response.status_code == 201
+    assert calls[0]["p_pool"] == 4
+    applied = calls[0]["p_details"]["modifier_preview"]["applied"]
+    assert any(effect["id"] == "__v5_excess_stains" and effect["delta"] == -2 for effect in applied)
+
+
+def test_sheet_probabilities_apply_excess_stain_penalty(client, monkeypatch):
+    async def fake_request(method, path, authorization, *, params=None, payload=None):
+        return _sheet(values={"manchas": 4, "humanidade": 7})
+
+    monkeypatch.setattr("app.routes.v5._request", fake_request)
+    response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/probabilities", json={"pool": 6, "difficulty": 3}, headers=AUTH)
+    assert response.status_code == 200
+    applied = response.json()["modifier_preview"]["applied"]
+    assert any(effect["id"] == "__v5_excess_stains" and effect["delta"] == -2 for effect in applied)
+
+
+def test_create_roll_resolves_and_applies_blood_surge(client, monkeypatch):
+    calls = []
+
+    async def fake_request(method, path, authorization, *, params=None, payload=None):
+        return _sheet(values={"fome": 2, "potencia_sangue": 2})
+
+    async def fake_rpc(name, authorization, payload):
+        calls.append((name, payload))
+        if name == "v5_surge_roll_receipt":
+            return None
+        if name == "v5_blood_surge":
+            return {"outcome": {"bonus_dice": 2, "turn_key": "c1:r1", "success": False, "hunger_before": 1, "hunger_after": 2}}
+        return _row(pool=payload["p_pool"], hunger=payload["p_hunger"], details=payload["p_details"])
+
+    monkeypatch.setattr("app.routes.v5._request", fake_request)
+    monkeypatch.setattr("app.routes.v5._rpc", fake_rpc)
+    response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rolls", json={
+        "pool": 5, "difficulty": 3, "surge_turn_key": "c1:r1", "surge_operation_id": str(uuid4()),
+    }, headers=AUTH)
+    assert response.status_code == 201
+    assert [name for name, _ in calls] == ["v5_surge_roll_receipt", "v5_blood_surge", "record_v5_roll"]
+    assert calls[1][1]["p_base_pool"] == 5
+    assert calls[2][1]["p_pool"] == 7 and calls[2][1]["p_hunger"] == 1
+    assert calls[2][1]["p_details"]["blood_surge"]["bonus_dice"] == 2
+
+
+def test_surge_fields_must_be_paired(client):
+    response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rolls", json={
+        "pool": 5, "difficulty": 3, "surge_turn_key": "c1:r1",
+    }, headers=AUTH)
+    assert response.status_code == 422
+
+
 def test_create_roll_rejects_zero_dice_without_calling_database(client, monkeypatch):
     async def fake_request(*args, **kwargs):
         return _sheet(effects=[{"id": "x", "label": "X", "delta": -5}])
@@ -203,3 +266,22 @@ def test_create_roll_rejects_chronicle_for_another_sheet(client, monkeypatch):
     other = {"sheet_id": str(uuid4()), "trait_ids": ["forca"], "roll_key": "k"}
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rolls", json={"pool": 4, "difficulty": 2, "chronicle": other}, headers=AUTH)
     assert response.status_code == 422
+
+def test_surge_retry_returns_saved_dice_before_reading_changed_sheet(client, monkeypatch):
+    calls = []
+    saved = _row(pool=7, hunger=1)
+    async def rpc(name, authorization, payload):
+        calls.append(name)
+        assert name == "v5_surge_roll_receipt"
+        return saved
+    async def changed_sheet(*args, **kwargs):
+        raise AssertionError("retry must not recalculate against changed sheet")
+    monkeypatch.setattr("app.routes.v5._rpc", rpc)
+    monkeypatch.setattr("app.routes.v5._request", changed_sheet)
+    response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rolls", json={
+        "pool": 5, "difficulty": 3, "surge_turn_key": "c1:r1", "surge_operation_id": str(uuid4()),
+    }, headers=AUTH)
+    assert response.status_code == 201
+    assert response.json()["normal_dice"] == saved["normal_dice"]
+    assert response.json()["id"] == saved["id"]
+    assert calls == ["v5_surge_roll_receipt"]

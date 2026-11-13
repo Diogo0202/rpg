@@ -27,7 +27,7 @@ describe("shared helpers", () => {
 describe("V3", () => {
   it("builds the roll body and spends Willpower only with an operation id", () => {
     expect(v3RollBody({ pool: 5, difficulty: 6, specialty: true, willpower: false, damageLevels: 2, sheetId: SHEET, operationId: OP }))
-      .toEqual({ pool: 5, difficulty: 6, specialty: true, use_willpower: false, damage_levels: 2 });
+      .toEqual({ pool: 5, difficulty: 6, specialty: true, use_willpower: false, damage_levels: 2, sheet_id: SHEET });
     expect(v3RollBody({ pool: 5, difficulty: 6, specialty: false, willpower: true, damageLevels: 0, sheetId: SHEET, operationId: OP }))
       .toMatchObject({ use_willpower: true, sheet_id: SHEET, operation_id: OP });
     expect(() => v3RollBody({ pool: 0, difficulty: 6, specialty: false, willpower: false, damageLevels: 0, sheetId: SHEET, operationId: OP })).toThrow("1 e 30");

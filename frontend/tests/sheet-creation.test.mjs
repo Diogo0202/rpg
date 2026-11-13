@@ -83,7 +83,7 @@ test("starters têm system_key e metadata explícita de identidade e nome", () =
   assert.ok(SYSTEM_STARTERS.length >= 3);
   for (const starter of SYSTEM_STARTERS) {
     assert.equal(starter.template.system_key, starter.id);
-    assert.equal(starter.template.rules_profile_version, undefined);
+    assert.equal(starter.template.rules_profile_version, starter.id === "one-ring" ? 3 : undefined);
     const name = starter.template.fields.find((item) => item.id === "nome");
     assert.equal(name.character_name, true);
   }

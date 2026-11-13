@@ -1,8 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { createClient } from "../lib/supabase/client";
+import { bindCampaignJournalRealtime } from "../lib/campaign-journal-sync";
+import { connectionLabel, startRealtimeSync, type RealtimeConnection } from "../lib/realtime-sync";
 import styles from "./campaign-journal-panel.module.css";
 
 type SessionStatus = "planned" | "played" | "archived";
@@ -155,6 +158,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
   const [showEventForm, setShowEventForm] = useState(false);
   const [worldEntities, setWorldEntities] = useState<LinkableEntity[]>([]);
   const [entityLinks, setEntityLinks] = useState<EventEntityLink[]>([]);
+  const [syncStatus, setSyncStatus] = useState<RealtimeConnection>("connecting");
   const [linkDrafts, setLinkDrafts] = useState<Record<string, { entity_id: string; link_kind: LinkKind }>>({});
   const campaignRef = useRef(campaignId);
   const refreshRef = useRef<() => void>(() => undefined);
@@ -219,6 +223,18 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
       active = false;
       refreshRef.current = () => undefined;
     };
+  }, [campaignId]);
+
+  useEffect(() => {
+    const client = createClient();
+    const sync = startRealtimeSync<RealtimeChannel>({
+      client,
+      topic: `campaign-journal-${campaignId}`,
+      bind: (channel) => bindCampaignJournalRealtime(channel, campaignId, () => refreshRef.current()),
+      onResync: () => refreshRef.current(),
+      onStatus: setSyncStatus,
+    });
+    return () => sync.stop();
   }, [campaignId]);
 
   const filteredEvents = events.filter((item) => {
@@ -529,6 +545,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
       </div>
 
       <p className={styles.intro}>Sessões, eventos da crônica e tensão das facções ficam salvos nesta campanha.</p>
+      <p className={styles.recordMeta} role="status">Sincronização: {connectionLabel(syncStatus)}</p>
       <p className={styles.message} role="status" aria-live="polite">{message}</p>
 
       <section className={styles.section} aria-labelledby={inputId("sessions-title")}>

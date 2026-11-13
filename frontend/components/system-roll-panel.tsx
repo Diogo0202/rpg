@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCharacterSession } from "../lib/character-session";
 import { HUNTER_SKILLS as HUNTER_SKILL_LIST } from "../lib/hunter-creation-data";
 import { hunterTraitProblems, inDespair, isLegacyHunterSheet, migrateHunterTraits, usableEdges } from "../lib/hunter-traits";
+import { oneRingReminders } from "../../shared/one-ring/reminders.ts";
 import { ONE_RING_SKILLS, oneRingDerived, oneRingProblems, oneRingStates } from "../lib/one-ring-rules";
 import type { FieldValue } from "../lib/sheet-template";
 import { buildChronicleContext, chronicleActivityLabel, newRollKey, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
@@ -12,6 +13,7 @@ import { sotdlDice, sotdlFateDice } from "@dice3d/sotdl";
 import { authenticatedPost, authenticatedPostWithChronicle } from "./character-effects-panel";
 import { DiceTrayOverlay, type TrayRoll } from "./dice-tray";
 import { hunterDice } from "@dice3d/hunter";
+import { poolResult, sotdlFateResult, sotdlResult } from "@dice3d/result";
 import { HunterCellsPanel } from "./hunter-cells-panel";
 import { HunterConsequencesCard, useHunterState, type HunterRoll } from "./hunter-roll-card";
 import styles from "./system-roll-panel.module.css";
@@ -76,8 +78,8 @@ function describeRing(result: OneRingResult): string {
 
 function describe(result: RollResult): string {
   if ("normal_dice" in result) {
-    const resolved = "resolution" in result && result.resolution ? ` · mesa: ${result.resolution === "overreach" ? "Overreach (Perigo +1)" : "Despair"}` : "";
-    return `${result.verdict} · ${result.successes}/${result.difficulty} sucessos · base ${result.normal_dice.join(" · ")} · Desesperação ${result.desperation_dice.join(" · ") || "não usada"}${result.desperation_ones && !resolved ? ` · ${result.desperation_ones} resultado(s) 1, ${result.desperation_consequence === "despair" ? "Despair" : "escolha Despair ou Overreach pela mesa"}` : ""}${result.critical ? " · crítico" : ""}${resolved}`;
+    const resolved = "resolution" in result && result.resolution ? ` · ${result.resolution === "overreach" ? "jogador escolheu Forçar a Barra" : "Aflição"}` : "";
+    return `${result.verdict} · ${result.successes}/${result.difficulty} sucessos · base ${result.normal_dice.join(" · ")} · Desesperação ${result.desperation_dice.join(" · ") || "não usada"}${result.desperation_ones && !resolved ? ` · ${result.desperation_ones} resultado(s) 1, ${result.desperation_consequence === "despair" ? "Aflição" : "jogador decide se mantém o sucesso ou entra em Aflição"}` : ""}${result.critical ? " · crítico" : ""}${resolved}`;
   }
   if ("shadow_gained" in result) return `${describeRing(result.roll)} · Sombra +${result.shadow_gained} (fica ${result.shadow_after})${result.miserable_after ? " · Miserável" : ""}`;
   if ("role_die" in result) return `${result.label} · Feito ${result.feat_dice.join(" / ")} · Cansaço +${result.fatigue} · teste de ${result.role_label} (d6 ${result.role_die}) · sucesso: ${result.on_success} · falha: ${result.on_failure}`;
@@ -103,7 +105,7 @@ function clamp(value: number, max: number) {
 }
 
 export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?: string; canManage?: boolean } = {}) {
-  const { character } = useCharacterSession();
+  const { character, acceptSavedCharacter } = useCharacterSession();
   const selectedRef = useRef(character);
   selectedRef.current = character;
   const operationId = useRef(0);
@@ -258,7 +260,7 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
         const basePool = selectedAttribute.value + (selectedSkill?.value ?? 0);
         if (basePool < 1 || basePool > 30) throw new Error("A parada precisa ficar entre 1 e 30 dados.");
         if (!Number.isSafeInteger(difficulty) || difficulty < 1 || difficulty > 69) throw new Error("Informe uma dificuldade de 1 a 69.");
-        const edge = hunterDespair ? "" : hunterEdge;
+        const edge = hunterEdge;
         title = `${selectedAttribute.label}${selectedSkill ? ` + ${selectedSkill.label}` : ""}${edge ? ` · ${edge}` : ""}`;
         result = await postWithChronicle(`/api/v1/hunter/sheets/${selected.id}/rolls`, {
           base_pool: basePool, difficulty, use_desperation: useDesperation && !hunterDespair, ...(edge ? { edge } : {}),
@@ -281,7 +283,12 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
         const requests = "outcome" in result ? sotdlFateDice(result.die)
           : "d20" in result ? sotdlDice({ d20: result.d20, boonDice: result.boon_dice, netBoons: result.net_boons }) : null;
         if (requests) {
-          setTray({ id: `${selected.id}-${operation.id}-${entry.at}`, systemKey: system, requests, summary: `${title} · ${describe(result)}` });
+          const shown = "outcome" in result ? sotdlFateResult(result.die, result.outcome, result.verdict)
+            : "d20" in result ? sotdlResult({
+              d20: result.d20, modifier: result.modifier, boonValue: result.boon_value, netBoons: result.net_boons,
+              total: result.total, target: result.target, success: result.success, critical: result.critical, verdict: result.verdict,
+            }) : undefined;
+          setTray({ id: `${selected.id}-${operation.id}-${entry.at}`, systemKey: system, requests, summary: `${title} · ${describe(result)}`, result: shown });
           return;
         }
       }
@@ -291,6 +298,15 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
           id: `${selected.id}-${operation.id}-${entry.at}`, systemKey: system, requests,
           summary: `${title} · ${describe(result)}${omitted ? ` · ${omitted} dado(s) comuns fora da animação` : ""}`,
           interactive: true,
+          result: poolResult({
+            dice: [...result.normal_dice, ...result.desperation_dice], criticalPairs: result.critical_pairs,
+            successes: result.successes, difficulty: result.difficulty, verdict: result.verdict,
+            tone: result.critical ? "critical" : !result.success ? "failure" : result.desperation_ones ? "warning" : "success",
+            note: [
+              result.desperation_ones ? `${result.desperation_ones} dado(s) de Desespero em 1` : "",
+              omitted ? `${omitted} dado(s) comuns fora da animação` : "",
+            ].filter(Boolean).join(" · ") || undefined,
+          }),
         });
         return;
       }
@@ -307,7 +323,7 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
   const cells = campaignId ? <HunterCellsPanel campaignId={campaignId} canManage={canManage} /> : null;
   if (!character) return <><section className={`content ${styles.panel}`}><h2>{title}</h2><p>Selecione uma ficha da sessão.</p></section>{cells}</>;
   // Vampiro V3 (frente F3): its own roller and sheet actions.
-  if (!system && isV3Sheet(values)) return <section className={`content ${styles.panel}`}><h2>Rolador de Vampiro V3</h2><V3VampirePanel character={character} campaignId={campaignId} /></section>;
+  if (!system && isV3Sheet(values)) return <section className={`content ${styles.panel}`}><h2>Rolador de Vampiro V3</h2><V3VampirePanel key={character.id} character={character} campaignId={campaignId} canManage={canManage} onSheet={(nextValues, version) => acceptSavedCharacter({ ...character, version: version ?? character.version, values: nextValues })} /></section>;
   if (!system) return <><section className={`content ${styles.panel}`}><h2>{title}</h2><p>A ficha selecionada não tem campos reconhecidos desses sistemas.</p></section>{cells}</>;
   const eyebrow = system === "shadow-demon-lord" ? "SHADOW OF THE DEMON LORD · d20" : system === "hunter" ? "CAÇADOR · 5ª EDIÇÃO" : "O UM ANEL · 2ª EDIÇÃO";
   const tnKey = selectedAttribute ? `tn_${selectedAttribute.id}` as const : null;
@@ -338,7 +354,7 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
             ? <>Célula {hunterState.cell.name}: Desesperação <b>{hunterState.cell.desperation}</b> · Perigo <b>{hunterState.cell.danger}</b></>
             : "Sem célula vinculada"}{hunterDespair ? " · em Desespero" : ""}.</p>
           <div className={styles.checks}><label><input type="checkbox" checked={useDesperation && !hunterDespair} disabled={hunterDespair || !hunterState?.cell?.desperation} onChange={(event) => setUseDesperation(event.target.checked)} /> Somar {hunterState?.cell?.desperation ?? 0} dado(s) de Desesperação</label></div>
-          <label>Triunfo usado<select value={hunterDespair ? "" : hunterEdge} disabled={hunterDespair || !hunterEdges.length} onChange={(event) => setHunterEdge(event.target.value)}><option value="">Nenhum</option>{hunterEdges.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+          <label>Triunfo usado<select value={hunterEdge} disabled={!hunterEdges.length} onChange={(event) => setHunterEdge(event.target.value)}><option value="">Nenhum</option>{hunterEdges.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
           <p className={styles.note}>Dados de Desesperação são adicionais e opcionais, quando a ação corresponde ao Credo ({String(values.credo ?? "sem credo")}); o servidor lê o valor da célula. Um 1 neles pede a escolha da mesa. Em Desespero, nem dados de Desesperação nem Triunfos.</p>
         </> : <>
           <div className={styles.selectGrid}>
@@ -357,7 +373,7 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
         {currentHistory.length ? <ol className={styles.history}>{currentHistory.map((entry, index) => <li key={`${entry.at}-${index}`}><div><b>{entry.title}</b><time>{entry.at}</time></div><p>{describe(entry.result)}</p>{chronicleActivityLabel(entry.chronicle ?? null) && <small className={styles.chronicle}>{chronicleActivityLabel(entry.chronicle ?? null)}</small>}</li>)}</ol> : <p>Nenhuma rolagem nesta sessão.</p>}
       </article>
       {ring && <article className={styles.card}>
-        <h3>Estado do herói</h3>
+        <h3>Estado do herói</h3><ul aria-label="Lembretes de combate">{oneRingReminders(values,"combat").map((note)=><li key={note.id}>{note.text} (p. {note.page})</li>)}</ul>
         <ul className={styles.stateList}>
           <li data-on={ring.states.cansado}>Cansado · Vigor {String(values.vigor_marcha ?? "?")} de {ring.derived.vigor_max}, Carga {ring.derived.carga_total}</li>
           <li data-on={ring.states.miseravel}>Miserável · Sombra {ring.derived.sombra_total}, Esperança {String(values.esperanca ?? "?")} de {ring.derived.esperanca_max}</li>
@@ -366,7 +382,7 @@ export function SystemRollPanel({ campaignId, canManage = false }: { campaignId?
         </ul>
         <p className={styles.poolLine}>TN: Corpo <b>{ring.derived.tn_corpo}</b> · Coração <b>{ring.derived.tn_coracao}</b> · Astúcia <b>{ring.derived.tn_astucia}</b> · Aparar <b>{ring.derived.aparar}</b></p>
         {ring.problems.length > 0 && <ul className={styles.problems}>{ring.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}
-        <h3>Teste de Sombra</h3>
+        <h3>Teste de Sombra</h3><ul aria-label="Lembretes de Sombra">{oneRingReminders(values,"shadow").map((note)=><li key={note.id}>{note.text} (p. {note.page})</li>)}</ul>
         <div className={styles.selectGrid}>
           <label>Origem<select value={shadowSource} onChange={(event) => setShadowSource(event.target.value as typeof shadowSource)}>{SHADOW_SOURCES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
           <label>Pontos em jogo<input type="number" min={1} max={10} value={shadowPoints} onChange={(event) => setShadowPoints(Number(event.target.value))} /></label>

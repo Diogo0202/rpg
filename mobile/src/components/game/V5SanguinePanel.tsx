@@ -8,7 +8,7 @@ import { Btn, Panel } from "@/components/nexus/ui";
 import { Check, Field, History, StatusLine, formatWhen, inputClass } from "./TableUi";
 import type { TableApi } from "./useTableApi";
 
-type Option = { id: string; name: string };
+type Option = { id: string; name: string; type?: "sheet" | "entity" };
 
 /**
  * V5 hunt, Blood Bond and actions against the Regnant (mobile), same routes as the web
@@ -32,6 +32,7 @@ export function V5SanguinePanel({ sheetId, sheetName, api, donors }: { sheetId: 
   const [slake, setSlake] = useState(1);
   const [killed, setKilled] = useState(false);
   const [donorId, setDonorId] = useState("");
+  const [donorType, setDonorType] = useState<"sheet" | "entity">("sheet");
   const [drinkNotes, setDrinkNotes] = useState("");
   const [bondId, setBondId] = useState("");
   const [actionText, setActionText] = useState("");
@@ -78,7 +79,7 @@ export function V5SanguinePanel({ sheetId, sheetName, api, donors }: { sheetId: 
 
   const drink = () => guard(async () => {
     if (!donorId) throw new Error("Escolha o doador.");
-    const body = { regnant_sheet_id: donorId, notes: drinkNotes.trim() ? drinkNotes.trim().slice(0, 300) : null };
+    const body = { regnant_sheet_id: donorType === "sheet" ? donorId : null, regnant_entity_id: donorType === "entity" ? donorId : null, notes: drinkNotes.trim() ? drinkNotes.trim().slice(0, 300) : null };
     const outcome = await api.adjust({ sheetId, label: `Ingestão do Vínculo (${sheetName})`, path: `/api/v1/v5/sheets/${sheetId}/blood-bonds/drinks`, body });
     setDrinkNotes("");
     if (outcome.status === "queued") setMessage({ text: "Ingestão na fila: será registrada ao reconectar.", tone: "queued" });
@@ -104,7 +105,7 @@ export function V5SanguinePanel({ sheetId, sheetName, api, donors }: { sheetId: 
   });
 
   const idp = `san-${sheetId}`;
-  const otherDonors = donors.filter((donor) => donor.id !== sheetId);
+  const otherDonors = donors.filter((donor) => donor.type === "entity" || donor.id !== sheetId);
   return (
     <div className="space-y-4">
       <Panel title="Caçada" actions={<Btn size="sm" variant="ghost" disabled={loading || offline || !request} onClick={() => void load()} aria-label="Recarregar caçadas e vínculos"><RefreshCw className="size-4" aria-hidden />{loading ? "Lendo…" : "Atualizar"}</Btn>}>
@@ -138,10 +139,14 @@ export function V5SanguinePanel({ sheetId, sheetName, api, donors }: { sheetId: 
           </li>)}
         </ul>}
         {api.narrator && <div className="mt-3 space-y-2">
-          <Field label="Doador (ficha da campanha)" htmlFor={`${idp}-donor`}>
-            <select id={`${idp}-donor`} className={inputClass} value={donorId} onChange={(event) => setDonorId(event.target.value)}>
+          <Field label="Doador (ficha ou NPC da campanha)" htmlFor={`${idp}-donor`}>
+            <select id={`${idp}-donor`} className={inputClass} value={donorId ? `${donorType}:${donorId}` : ""} onChange={(event) => {
+              const [type, ...parts] = event.target.value.split(":");
+              setDonorType(type === "entity" ? "entity" : "sheet");
+              setDonorId(parts.join(":"));
+            }}>
               <option value="">Escolha</option>
-              {otherDonors.map((donor) => <option key={donor.id} value={donor.id}>{donor.name}</option>)}
+              {otherDonors.map((donor) => <option key={`${donor.type}:${donor.id}`} value={`${donor.type}:${donor.id}`}>{donor.name}{donor.type === "entity" ? " (NPC)" : " (ficha)"}</option>)}
             </select>
           </Field>
           <Field label="Notas" htmlFor={`${idp}-dnotes`} hint="opcional"><input id={`${idp}-dnotes`} className={inputClass} value={drinkNotes} maxLength={300} onChange={(event) => setDrinkNotes(event.target.value)} /></Field>

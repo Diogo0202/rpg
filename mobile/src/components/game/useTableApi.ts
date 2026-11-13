@@ -1,9 +1,8 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { NexusContext } from "@/lib/nexus/context";
 import { accessTokenProvider, getSupabaseAuth } from "@/lib/nexus/auth";
-import { prefGet, prefSet } from "@/lib/nexus/prefs";
 import { createGameRequest, GameApiError, type GameRequest } from "@/lib/game/api";
-import { GameActionQueue, makeQueuedAction, memoryStorage, type QueuedAction, type QueueStorage } from "@/lib/game/action-queue";
+import { makeQueuedAction, type QueuedAction } from "@/lib/game/action-queue";
 import { canNarrate } from "@/lib/game/table-rules";
 
 export type AdjustOutcome = { status: "sent"; result: unknown } | { status: "queued" };
@@ -12,21 +11,7 @@ function newId(): string {
   return globalThis.crypto.randomUUID();
 }
 
-const queues = new Map<string, GameActionQueue>();
-function queueFor(accountId: string): GameActionQueue {
-  let queue = queues.get(accountId);
-  if (!queue) {
-    const key = `game-action-queue-v1:${accountId}`;
-    const fallback = memoryStorage();
-    const storage: QueueStorage = {
-      async read() { try { return await prefGet<unknown>(key); } catch { return fallback.read(); } },
-      async write(value) { try { await prefSet(key, value); } catch { await fallback.write(value); } },
-    };
-    queue = new GameActionQueue(storage);
-    queues.set(accountId, queue);
-  }
-  return queue;
-}
+import { tableQueueFor } from "@/lib/game/table-queue-storage";
 
 function readOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine !== false;
@@ -39,6 +24,7 @@ function readOnline(): boolean {
 export function useTableApi() {
   const nexus = useContext(NexusContext);
   const accountId = nexus?.mode === "connected" ? nexus.user?.id ?? null : null;
+  const campaignId = nexus?.mode === "connected" ? nexus.campaignId : null;
   const apiBase = (import.meta.env.VITE_NEXUS_API_URL as string | undefined)?.trim();
   const [online, setOnline] = useState(readOnline);
   const [queued, setQueued] = useState<QueuedAction[]>([]);
@@ -58,7 +44,7 @@ export function useTableApi() {
     }
   }, [nexus, accountId, apiBase]);
 
-  const queue = accountId ? queueFor(accountId) : null;
+  const queue = accountId && campaignId && nexus?.deviceId ? tableQueueFor(accountId, campaignId, nexus.deviceId) : null;
 
   const flush = useCallback(async () => {
     if (!queue || !request) return null;

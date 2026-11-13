@@ -41,14 +41,14 @@ export function formatInviteCode(code: string) {
   return code.match(/.{1,4}/g)?.join("-") ?? code;
 }
 
-/** Espelha as regras das RPCs: só o dono lida com mestres; ninguém altera o dono nem a si mesmo. */
+/** Dono e mestres administram outros membros; ninguém altera o dono nem a si mesmo. */
 export function canAdministerMember(viewer: { id: string; isOwner: boolean; canManage: boolean }, member: { userId: string; role: CampaignRole }) {
   if (!viewer.canManage || member.role === "owner" || member.userId === viewer.id) return false;
-  return viewer.isOwner || member.role !== "master";
+  return true;
 }
 
-export function assignableRoles(viewer: { isOwner: boolean }): InviteRole[] {
-  return viewer.isOwner ? inviteRoles : inviteRoles.filter((role) => role !== "master");
+export function assignableRoles(viewer: { canManage: boolean }): InviteRole[] {
+  return viewer.canManage ? inviteRoles : [];
 }
 
 export function deletionConfirmed(campaignName: string, typed: string) {

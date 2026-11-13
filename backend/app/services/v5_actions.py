@@ -76,7 +76,7 @@ class V5ActionRollRequest(BaseModel):
 
     @model_validator(mode="after")
     def reserve_server_damage_effect_ids(self) -> V5ActionRollRequest:
-        reserved = {"__damage_health_full", "__damage_willpower_full"}
+        reserved = {"__damage_health_full", "__damage_willpower_full", "__v5_excess_stains"}
         if any(effect.id in reserved for effect in self.effects):
             raise ValueError("ids de efeitos de dano são reservados pelo servidor")
         return self

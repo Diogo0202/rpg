@@ -545,8 +545,9 @@ export function DicePanel() {
                   />
                 </div>
                 <p className="text-xs text-ink-muted">
-                  Estimativa local sem condições da ficha. Vontade rerrola dados comuns que
-                  falharam; Dados de Fome ficam fora. Sucesso e crítico sujo podem ocorrer juntos.
+                  Estimativa local sem condições da ficha. Vontade compara escolhas de até três
+                  dados comuns para buscar sucesso e, em empate, reduzir crítico sujo. Dados de
+                  Fome ficam fora. Sucesso e crítico sujo podem ocorrer juntos.
                 </p>
               </>
             ) : (

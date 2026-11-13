@@ -96,6 +96,16 @@ export function attackOperationKey(rollId: string, targetId: string): string {
   return `${rollId}:${targetId}`;
 }
 
+/** Same attack/target receipt after reload or a changed track selection. */
+export async function attackDamageOperationId(rollId: string, targetId: string): Promise<string> {
+  const value = new TextEncoder().encode(`rpg-nexus/v5-attack-target/v1/${attackOperationKey(rollId, targetId)}`);
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", value)).slice(0, 16);
+  bytes[6] = (bytes[6] & 15) | 128;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function describeDamageResult(result: DamageResult, targetName?: string): string {
   if (result.replayed) return `${targetName ? `${targetName}: ` : ""}este dano já tinha sido aplicado; nada mudou.`;
   const parts = [`${targetName ? `${targetName} · ` : ""}Trilha: ${result.superficial ?? 0} superficial e ${result.aggravated ?? 0} agravado de ${result.maximum ?? 0}.`];

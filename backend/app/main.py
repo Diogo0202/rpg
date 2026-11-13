@@ -4,7 +4,7 @@ import os
 import secrets
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import (
@@ -16,6 +16,7 @@ from app.models import (
     TemplateDraft,
 )
 from app.services.dice import roll
+from app.services.session_roll_activity import record_field_roll
 from app.services.extraction import create_review_draft
 from app.services.sheet_calculations import calculate_sheet
 from app.services.templates import validate_template
@@ -39,7 +40,9 @@ from app.routes.campaign_invites import router as campaign_invites_router
 from app.routes.voice_sessions import router as voice_sessions_router
 from app.routes.experience import router as experience_router
 from app.routes.hunter import router as hunter_router
+from app.routes.one_ring_company import router as one_ring_company_router
 from app.routes.v5_sanguine import router as v5_sanguine_router
+from app.routes.spotify import router as spotify_router
 
 app = FastAPI(title="RPG-Atlas API", version="0.1.0")
 app.include_router(generation_router)
@@ -60,6 +63,8 @@ app.include_router(campaign_invites_router)
 app.include_router(voice_sessions_router)
 app.include_router(experience_router)
 app.include_router(hunter_router)
+app.include_router(one_ring_company_router)
+app.include_router(spotify_router)
 
 # Em produção a lista vem do ambiente. Não abrimos CORS para qualquer origem.
 origins = [
@@ -99,11 +104,15 @@ def health() -> dict[str, str]:
 
 
 @app.post("/api/v1/dice/roll", response_model=DiceResponse)
-def roll_dice(payload: DiceRequest) -> DiceResponse:
+async def roll_dice(payload: DiceRequest, response: Response, authorization: str | None = Header(default=None)) -> DiceResponse:
     try:
-        return roll(payload.expression, effects=payload.effects, context_tags=payload.context_tags)
+        result = roll(payload.expression, effects=payload.effects, context_tags=payload.context_tags)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
+    activity = await record_field_roll(authorization, payload.chronicle, payload.expression)
+    if activity is not None:
+        response.headers["X-Chronicle-Activity"] = activity.status
+    return result
 
 
 @app.post("/api/v1/templates/validate", response_model=TemplateDraft)

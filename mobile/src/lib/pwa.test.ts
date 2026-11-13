@@ -1,5 +1,4 @@
 // @vitest-environment node
-// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { PWA_WORKBOX_OPTIONS, pwaWorkerOptions, generatePwaWorker } from "../../pwa-build";
 import { createHash } from "node:crypto";
@@ -52,7 +51,8 @@ describe("offline SPA shell", () => {
       }
       await rm(directory, { recursive: true, force: true });
     }
-  }, 20000);
+  // This integration check builds and minifies two actual production workers.
+  }, 60000);
 
   it("uses TanStack's revisioned content-free shell, not an SSR route document", () => {
     expect(PWA_WORKBOX_OPTIONS.navigateFallback).toBe("/_shell.html");

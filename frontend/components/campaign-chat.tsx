@@ -4,7 +4,7 @@ import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useLayoutEffec
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import {
-  applyChatChange, authorLabel, canDeleteMessage, CHAT_COLUMNS, CHAT_MAX_LENGTH, CHAT_PAGE_SIZE, CHAT_ROLE_LABELS, chatErrorMessage, chatTopic,
+  applyChatChange, authorLabel, canDeleteMessage, canEditMessage, CHAT_COLUMNS, CHAT_MAX_LENGTH, CHAT_PAGE_SIZE, CHAT_ROLE_LABELS, chatErrorMessage, chatTopic,
   mergeMessages, messageVisibility, parseChatMessage, privateRecipients, removeMessage, resyncMessages, setMessageStatus, validateChatDraft,
   type ChatChange, type ChatMessage, type ChatParticipant, type ChatRole,
 } from "../lib/campaign-chat";
@@ -37,6 +37,9 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
   const [recipient, setRecipient] = useState("");
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const campaignRef = useRef(campaignId);
   campaignRef.current = campaignId;
   const syncRef = useRef<{ reconnectNow(): void } | null>(null);
@@ -179,6 +182,40 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     setNotice(moderating ? "Mensagem removida pela moderação." : "Mensagem apagada.");
   }
 
+  function startEdit(message: ChatMessage) {
+    setNotice(""); setEditingId(message.id); setEditDraft(message.body);
+  }
+
+  function cancelEdit() {
+    setEditingId(null); setEditDraft("");
+  }
+
+  async function saveEdit(message: ChatMessage) {
+    if (savingEdit || !canEditMessage(message, viewerId)) return;
+    const result = validateChatDraft(editDraft);
+    if (!result.ok) { setNotice(result.error); return; }
+    if (result.body === message.body) { cancelEdit(); return; }
+    const requestCampaign = campaignRef.current;
+    setSavingEdit(true); setNotice("");
+    try {
+      const { data, error } = await createClient().from("campaign_chat_messages")
+        .update({ body: result.body }).eq("id", message.id).select(CHAT_COLUMNS).single();
+      if (campaignRef.current !== requestCampaign) return;
+      if (error) { setNotice(chatErrorMessage(error)); return; }
+      const saved = parseChatMessage(data);
+      setMessages((rows) => saved ? mergeMessages(rows, [saved])
+        : rows.map((row) => row.id === message.id ? { ...row, body: result.body, edited_at: new Date().toISOString() } : row));
+      cancelEdit();
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  function onEditKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, message: ChatMessage) {
+    if (event.key === "Escape") { event.preventDefault(); cancelEdit(); }
+    else if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void saveEdit(message); }
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -217,11 +254,27 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
               {message.edited_at && <span className={styles.time}>(editada)</span>}
             </div>
             {/* Always rendered as text: React escapes it and no HTML is ever interpreted. */}
-            <p className={styles.body}>{message.body}</p>
+            {editingId === message.id ? <div>
+              <textarea
+                value={editDraft}
+                maxLength={CHAT_MAX_LENGTH}
+                rows={2}
+                autoFocus
+                aria-label="Editar mensagem"
+                onChange={(event) => setEditDraft(event.target.value)}
+                onKeyDown={(event) => onEditKeyDown(event, message)}
+              />
+              <div className={styles.rowActions}>
+                <span className={styles.counter} aria-live="off">{editDraft.length}/{CHAT_MAX_LENGTH}</span>
+                <button type="button" className={styles.linkButton} disabled={savingEdit || !validateChatDraft(editDraft).ok} onClick={() => void saveEdit(message)}>{savingEdit ? "Salvando…" : "Salvar"}</button>
+                <button type="button" className={styles.linkButton} disabled={savingEdit} onClick={cancelEdit}>Cancelar</button>
+              </div>
+            </div> : <p className={styles.body}>{message.body}</p>}
             <div className={styles.rowActions}>
               {message.status === "sending" && <span className={styles.time}>Enviando…</span>}
               {message.status === "failed" && <><span className={styles.errorText}>Não enviada.</span><button type="button" className={styles.linkButton} onClick={() => void retry(message)}>Tentar de novo</button></>}
-              {canDeleteMessage(message, viewerId, canManage) && <button type="button" className={styles.linkButton} onClick={() => void remove(message)} aria-label={`Apagar mensagem de ${authorLabel(message, viewerId)}`}>{message.status === "failed" ? "Descartar" : "Apagar"}</button>}
+              {editingId !== message.id && canEditMessage(message, viewerId) && <button type="button" className={styles.linkButton} onClick={() => startEdit(message)} aria-label="Editar sua mensagem">Editar</button>}
+              {canDeleteMessage(message, viewerId, canManage) &&<button type="button" className={styles.linkButton} onClick={() => void remove(message)} aria-label={`Apagar mensagem de ${authorLabel(message, viewerId)}`}>{message.status === "failed" ? "Descartar" : "Apagar"}</button>}
             </div>
           </li>;
         })}

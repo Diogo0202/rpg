@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(41);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -139,10 +139,26 @@ select is(public.purchase_advance('43500000-0000-0000-0000-000000000002', 'forca
   '53500000-0000-0000-0000-000000000006') -> 'advance' ->> 'status', 'pending', 'player purchase waits for approval');
 select is((select values ->> 'forca' from public.character_sheets where id = '43500000-0000-0000-0000-000000000002'),
   '3', 'pending purchase does not change the sheet');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000002', 'forca_vontade', 5) ->> 'xp_available')::integer,
+  18, 'pending purchase reserves its XP in the quote');
+select is(public.purchase_advance('43500000-0000-0000-0000-000000000002', 'forca_vontade', 5,
+  (select version from public.character_sheets where id = '43500000-0000-0000-0000-000000000002'),
+  '53500000-0000-0000-0000-000000000007') -> 'advance' ->> 'status', 'pending', 'another purchase can reserve only remaining XP');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000002', 'briga', 1) ->> 'xp_available')::integer,
+  14, 'all pending costs count against available XP');
+select is(public.review_advance((select id from public.character_advances where operation_id = '53500000-0000-0000-0000-000000000007'), false)
+  -> 'advance' ->> 'status', 'rejected', 'player cancellation releases the reservation');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000002', 'briga', 1) ->> 'xp_available')::integer,
+  18, 'rejected purchase no longer reserves XP');
 
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000002', true);
+select throws_ok($$select public.increment_xp('43500000-0000-0000-0000-000000000002', -20, 'adjustment cannot spend reserved XP')$$,
+  'XP001', null, 'generic XP adjustment cannot consume a pending reservation');
+select throws_ok($$update public.character_sheets set values = values || '{"experiencia":0}'::jsonb
+  where id = '43500000-0000-0000-0000-000000000002'$$,
+  'XP001', null, 'direct master write cannot consume a pending reservation');
 select is(public.review_advance((select id from public.character_advances where operation_id = '53500000-0000-0000-0000-000000000006'), true)
   -> 'advance' ->> 'status', 'applied', 'master approves the pending purchase');
 select is((select values ->> 'forca' || '/' || (values ->> 'experiencia') from public.character_sheets where id = '43500000-0000-0000-0000-000000000002'),
@@ -160,7 +176,7 @@ select is((select count(*)::integer from public.character_advances), 0, 'outside
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000001', true);
-select is((select count(*)::integer from public.character_advances), 3, 'owner reads the history of own sheets');
+select is((select count(*)::integer from public.character_advances), 4, 'owner reads the history of own sheets');
 
 select * from finish();
 rollback;

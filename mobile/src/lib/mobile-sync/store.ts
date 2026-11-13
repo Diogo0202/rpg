@@ -1,8 +1,9 @@
+import { syncPartitionKey } from "../../../../shared/sync/core.ts";
 import type { OutboxEntry, StoreUpdate, SyncPartition, SyncState, SyncStore } from "./types.ts";
 
 const DB_NAME = "rpg-nexus-mobile-v1";
 const STORE_NAME = "partitions";
-const partitionKey = (p: SyncPartition) => JSON.stringify([p.accountId, p.campaignId, p.deviceId]);
+const partitionKey = syncPartitionKey;
 const clone = <T>(value: T): T => structuredClone(value);
 
 function initialState(partition: SyncPartition): SyncState {

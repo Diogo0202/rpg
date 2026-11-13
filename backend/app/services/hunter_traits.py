@@ -123,7 +123,7 @@ def hunter_trait_problems(values: dict[str, Any]) -> list[str]:
         problems.append("Desesperação (campo antigo da ficha) vai de 0 a 5")
     if not isinstance(values.get("em_desespero", False), bool):
         problems.append("Em Desespero precisa ser marcado ou desmarcado")
-    problems.extend(hunter_edge_problems(values))
+    problems.extend(_edge_problems(values, HUNTER_LEGACY_EDGES))
     return problems
 
 
@@ -132,6 +132,22 @@ def hunter_trait_problems(values: dict[str, Any]) -> list[str]:
 # provisional and marked for review against the book (docs/CACADOR_CRIACAO_GUIADA.md, F4).
 # Same lists in frontend/lib/hunter-traits.ts.
 HUNTER_EDGES: dict[str, list[str]] = {
+    "Acesso Global": ["Grande Irmão Vigilante", "Passe Universal", "Hack Financeiro", "A Letra da Lei"],
+    "Equipamento Improvisado": ["Frugal", "Produção em Massa", "Especialização", "Criação Veloz"],
+    "Encantador de Feras": ["Incorruptível", "Zoológico", "Comandos Complexos", "Incógnito"],
+    "Jóquei de Drones": ["Autônomo", "Variantes", "Habilidade Especializada", "Armamentos", "Carga"],
+    "Arsenal": ["Requisição Coletiva", "Características Especiais", "Exóticas", "Irrastreável"],
+    "Artilharia": ["Cargas Múltiplas", "Munição Não Letal", "Exóticas", "Entrega Disfarçada"],
+    "Biblioteca": ["Onde Eles Se Escondem", "Quem Eles São", "Como Detê-los", "Como Ferí-los"],
+    "Frota": ["Armadura", "Desempenho", "Vigilância", "Irrastreável"],
+    "Artefato": ["Fortalecer", "Atração", "Detecção", "Escudo"],
+    "Frustrar o Sobrenatural": ["Especialização em Criatura", "Guardar", "Reconhecimento", "Mãos Livres"],
+    "Repelir o Sobrenatural": ["Guardar", "Ferir", "Especialização em Criatura", "Mãos Livres"],
+    "Sentir o Sobrenatural": ["Especialização em Criatura", "Alcance", "Precisão", "Mãos Livres"],
+}
+HUNTER_LEGACY_UNVERIFIED_EDGES = ("Vira-Casaca", "Purificar o Sobrenatural")
+HUNTER_LEGACY_EDGES = {
+    **HUNTER_EDGES,
     "Arsenal": ["Requisição de Equipe", "Especializado", "Excepcional", "Irrastreável"],
     "Frota": ["Blindagem", "Desempenho", "Vigilância", "Irrastreável"],
     "Artilharia": ["Cargas Múltiplas", "Entrega Não Convencional", "Entrega Disfarçada", "Preparo de Carga"],
@@ -140,16 +156,17 @@ HUNTER_EDGES: dict[str, list[str]] = {
     "Acesso Global": ["Porta dos Fundos", "Lista de Vigilância", "Catraca", "Acesso Total"],
     "Piloto de Drone": ["Drone Armado", "Drone Autônomo", "Vigilância", "Carga Útil"],
     "Encantador de Feras": ["Mensageiro", "Matilha", "Incorruptível", "Elo Telepático"],
-    "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
     "Sentir o Sobrenatural": ["Precisão", "Alcance", "Reconhecer", "Sentido Ampliado"],
     "Repelir o Sobrenatural": ["Barreira", "Dano", "Reação Rápida", "Recuo"],
     "Frustrar o Sobrenatural": ["Rastreio", "Resistência", "Proteção de Grupo", "Contrafeitiço"],
     "Artefato": ["Fortalecer", "Detecção", "Dano", "Escudo"],
+    "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
     "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
 }
 HUNTER_PERKS = [f"{edge}: {perk}" for edge, perks in HUNTER_EDGES.items() for perk in perks]
 # At creation: two Edges and one Perk, or one Edge and two Perks (marked for review).
-HUNTER_EDGE_STARTS: list[tuple[int, int]] = [(2, 1), (1, 2)]
+HUNTER_EDGE_STARTS: list[tuple[int, int]] = [(2, 0), (1, 2)]
+HUNTER_LEGACY_EDGE_STARTS: list[tuple[int, int]] = [(2, 1), (1, 2)]
 EDGE_FIELD, PERK_FIELD = "triunfos", "distincoes"
 
 
@@ -157,7 +174,7 @@ def _items(value: Any) -> list[str]:
     return [item.strip() for item in value if isinstance(item, str) and item.strip()] if isinstance(value, list) else []
 
 
-def hunter_edge_problems(values: dict[str, Any]) -> list[str]:
+def _edge_problems(values: dict[str, Any], catalog: dict[str, list[str]]) -> list[str]:
     """Every Edge is a catalog name; every Perk is "Triunfo: Distinção" of an Edge the sheet has."""
     problems: list[str] = []
     edges = _items(values.get(EDGE_FIELD))
@@ -165,24 +182,28 @@ def hunter_edge_problems(values: dict[str, Any]) -> list[str]:
     if len(set(edges)) != len(edges) or len(set(perks)) != len(perks):
         problems.append("Triunfos e Distinções não se repetem")
     for edge in edges:
-        if edge not in HUNTER_EDGES:
+        if edge not in catalog:
             problems.append(f"Triunfo {edge} fora do catálogo")
     for perk in perks:
         edge, _, name = perk.partition(":")
         edge, name = edge.strip(), name.strip()
-        if edge not in HUNTER_EDGES or name not in HUNTER_EDGES[edge]:
+        if edge not in catalog or name not in catalog[edge]:
             problems.append(f"Distinção {perk} fora do catálogo (formato Triunfo: Distinção)")
         elif edge not in edges:
             problems.append(f"Distinção {perk} pede o Triunfo {edge}")
     return problems
 
 
+def hunter_edge_problems(values: dict[str, Any]) -> list[str]:
+    return _edge_problems(values, HUNTER_EDGES)
+
+
 def hunter_creation_problems(values: dict[str, Any]) -> list[str]:
     """Trait problems plus the starting count of Edges and Perks."""
     problems = hunter_trait_problems(values)
     counts = (len(_items(values.get(EDGE_FIELD))), len(_items(values.get(PERK_FIELD))))
-    if counts not in HUNTER_EDGE_STARTS:
-        problems.append("Na criação: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções")
+    if counts not in HUNTER_LEGACY_EDGE_STARTS:
+        problems.append("Na criação v4: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções")
     return problems
 
 
@@ -191,13 +212,31 @@ def in_despair(values: dict[str, Any]) -> bool:
 
 
 def usable_edges(values: dict[str, Any]) -> list[str]:
-    """Edges blocked while the hunter is in Despair (conferir no livro)."""
-    return [] if in_despair(values) else _items(values.get(EDGE_FIELD))
+    """Perks do not require Desperation dice and remain available while afflicted (p. 90)."""
+    return _items(values.get(EDGE_FIELD))
 
 
 def template_creation_problems(system_key: str | None, version: int, field_ids: set[str], values: dict[str, Any]) -> list[str]:
-    """Hunter checks for sheets/create: v3+ structured traits; from v4 also the starting Edges and Perks."""
-    if system_key != "hunter" or "conviccao_1" not in field_ids:
+    """Versioned Hunter validation; v4 pair values stay valid and v5 records free-text Pillars."""
+    if system_key != "hunter":
+        return []
+    if version >= 5 and "pilares" in field_ids:
+        problems: list[str] = []
+        if values.get("credo") not in HUNTER_CREEDS:
+            problems.append("Escolha um Credo da lista")
+        if values.get("impulso") not in HUNTER_DRIVES:
+            problems.append("Escolha um Ímpeto da lista")
+        pillars = _items(values.get("pilares"))
+        if len(pillars) > 3:
+            problems.append("Escolha até 3 Pilares (pp. 56 e 282)")
+        if any(len(item) > 160 for item in pillars):
+            problems.append("Cada Pilar passa de 160 caracteres")
+        problems.extend(hunter_edge_problems(values))
+        counts = (len(_items(values.get(EDGE_FIELD))), len(_items(values.get(PERK_FIELD))))
+        if counts not in HUNTER_EDGE_STARTS:
+            problems.append("Na criação: 2 Triunfos, ou 1 Triunfo e 2 Distinções (p. 90)")
+        return problems
+    if "conviccao_1" not in field_ids:
         return []
     return hunter_creation_problems(values) if version >= 4 and EDGE_FIELD in field_ids else hunter_trait_problems(values)
 
@@ -217,7 +256,7 @@ def roll_outcome(normal: list[int], desperation: list[int], difficulty: int) -> 
 
 
 def desperation_choices(outcome: dict[str, Any]) -> list[str]:
-    """What the table may pick: Overreach only on a success (conferir no livro)."""
+    """Player chooses Forçar a Barra on success; any Desperation 1 can cause Aflição (pp. 127–128)."""
     if not outcome.get("desperation_ones"):
         return []
     return ["overreach", "despair"] if outcome.get("success") else ["despair"]

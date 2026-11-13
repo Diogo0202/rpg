@@ -103,12 +103,12 @@ const int = (values: Record<string, FieldValue>, id: string) => {
 export type OneRingDerived = Record<"tn_corpo" | "tn_coracao" | "tn_astucia" | "vigor_max" | "esperanca_max" | "aparar" | "carga_total" | "sombra_total", number>;
 export function oneRingDerived(values: Record<string, FieldValue>): OneRingDerived {
   return {
-    tn_corpo: ONE_RING_TN_BASE - int(values, "corpo"),
-    tn_coracao: ONE_RING_TN_BASE - int(values, "coracao"),
-    tn_astucia: ONE_RING_TN_BASE - int(values, "astucia"),
-    vigor_max: int(values, "corpo") + int(values, "base_vigor"),
-    esperanca_max: int(values, "coracao") + int(values, "base_esperanca"),
-    aparar: int(values, "astucia") + int(values, "base_aparar") + int(values, "bonus_escudo"),
+    tn_corpo: ONE_RING_TN_BASE - int(values, "corpo") - int(values, "desconto_tn_corpo"),
+    tn_coracao: ONE_RING_TN_BASE - int(values, "coracao") - int(values, "desconto_tn_coracao"),
+    tn_astucia: ONE_RING_TN_BASE - int(values, "astucia") - int(values, "desconto_tn_astucia"),
+    vigor_max: int(values, "corpo") + int(values, "base_vigor") + int(values, "bonus_vigor"),
+    esperanca_max: int(values, "coracao") + int(values, "base_esperanca") + int(values, "bonus_esperanca"),
+    aparar: int(values, "astucia") + int(values, "base_aparar") + int(values, "bonus_escudo") + int(values, "bonus_aparar"),
     carga_total: int(values, "carga") + int(values, "cansaco"),
     sombra_total: int(values, "sombra") + int(values, "cicatrizes"),
   };
@@ -131,7 +131,7 @@ export function oneRingProblems(values: Record<string, FieldValue>): string[] {
   const numbers = oneRingDerived(values);
   const found: string[] = [];
   const total = ONE_RING_ATTRIBUTES.reduce((sum, [id]) => sum + int(values, id), 0);
-  if (total !== ONE_RING_ATTRIBUTE_TOTAL) found.push(`Corpo, Coração e Astúcia somam ${total}; a criação pede ${ONE_RING_ATTRIBUTE_TOTAL}`);
+  if (total !== (values.anel_atributos && values.linhagem === "Patrulheiros do Norte" ? 15 : ONE_RING_ATTRIBUTE_TOTAL)) found.push(`Corpo, Coração e Astúcia somam ${total}; a criação pede ${ONE_RING_ATTRIBUTE_TOTAL}`);
   const culture = values.linhagem;
   if (typeof culture === "string" && ONE_RING_CULTURES[culture]) {
     BASE_FIELDS.forEach((id, index) => {
@@ -143,7 +143,7 @@ export function oneRingProblems(values: Record<string, FieldValue>): string[] {
   if (int(values, "esperanca") > numbers.esperanca_max) found.push(`Esperança atual passa do máximo ${numbers.esperanca_max}`);
   const favoured = values.pericias_favorecidas;
   if (Array.isArray(favoured)) {
-    if (favoured.length > ONE_RING_FAVOURED_SKILLS) found.push(`Até ${ONE_RING_FAVOURED_SKILLS} perícias favorecidas`);
+    if (!values.anel_atributos && favoured.length > ONE_RING_FAVOURED_SKILLS) found.push(`Até ${ONE_RING_FAVOURED_SKILLS} perícias favorecidas`);
     const labels = ONE_RING_SKILLS.map(([, label]) => label);
     const unknown = favoured.find((item) => !labels.includes(item));
     if (unknown !== undefined) found.push(`Perícia favorecida desconhecida: ${unknown}`);

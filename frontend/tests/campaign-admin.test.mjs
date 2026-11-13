@@ -28,15 +28,17 @@ test("invite codes accept dashes and lowercase but only 12 hex characters", () =
   assert.equal(formatInviteCode("ABCD1234EF56"), "ABCD-1234-EF56");
 });
 
-test("only the owner handles masters; nobody edits the owner or themselves", () => {
+test("owners and masters handle other masters; nobody edits the owner or themselves", () => {
   assert.ok(canAdministerMember(owner, { userId: "m", role: "master" }));
-  assert.ok(!canAdministerMember(master, { userId: "m2", role: "master" }));
+  assert.ok(canAdministerMember(master, { userId: "m2", role: "master" }));
   assert.ok(canAdministerMember(master, { userId: "p", role: "player" }));
   assert.ok(!canAdministerMember(master, { userId: "o", role: "owner" }));
+  assert.ok(!canAdministerMember(master, { userId: "m", role: "master" }));
   assert.ok(!canAdministerMember(master, { userId: "m", role: "guest" }));
   assert.ok(!canAdministerMember(player, { userId: "x", role: "guest" }));
   assert.deepEqual(assignableRoles(owner), ["master", "player", "guest"]);
-  assert.deepEqual(assignableRoles(master), ["player", "guest"]);
+  assert.deepEqual(assignableRoles(master), ["master", "player", "guest"]);
+  assert.deepEqual(assignableRoles(player), []);
   assert.ok(!isInviteRole("owner"));
 });
 

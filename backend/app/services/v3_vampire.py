@@ -6,7 +6,7 @@ supabase/migrations/20261029120000_vampire_v3_complete.sql:
 
 - Pool of d10 against a difficulty from 2 to 10; each die at or above it is a success.
 - Each 1 cancels one success. A botch is a roll with no success at all and at least one 1.
-- Specialization: a 10 counts as two successes (conferir: o Revisado rerrola o 10).
+- Specialization: each 10 earns a reroll, repeated while it rolls 10 (Revised core p.117).
 - Willpower adds one automatic success that 1s do not cancel, so the roll cannot botch.
 - Health levels: the n-th marked level gives its penalty to the pool (Escoriado 0 ... Aleijado -5);
   Incapacitado cannot act.
@@ -77,6 +77,7 @@ def path_virtues(values: dict[str, Any]) -> tuple[str, str]:
 
 class V3Outcome(BaseModel):
     dice: list[int]
+    specialty_dice: list[int] = Field(default_factory=list)
     difficulty: int
     raw_successes: int
     ones: int
@@ -88,14 +89,16 @@ class V3Outcome(BaseModel):
     verdict: str
 
 
-def v3_outcome(dice: list[int], difficulty: int, *, specialty: bool = False, willpower: bool = False) -> V3Outcome:
+def v3_outcome(dice: list[int], difficulty: int, *, specialty: bool = False, willpower: bool = False,
+               specialty_dice: list[int] | None = None) -> V3Outcome:
     """Reads a rolled V3 pool; pure so the dice rules can be enumerated in tests."""
-    raw = sum(2 if specialty and die == 10 else 1 for die in dice if die >= difficulty)
+    extra = list(specialty_dice or []) if specialty else []
+    raw = sum(die >= difficulty for die in dice) + sum(die >= difficulty for die in extra)
     ones = dice.count(1)
     botch = raw == 0 and ones > 0 and not willpower
     successes = max(0, raw - ones) + (1 if willpower else 0)
     verdict = "Falha crítica" if botch else "Sucesso" if successes else "Falha"
-    return V3Outcome(dice=dice, difficulty=difficulty, raw_successes=raw, ones=ones, willpower=willpower,
+    return V3Outcome(dice=dice, specialty_dice=extra, difficulty=difficulty, raw_successes=raw, ones=ones, willpower=willpower,
                      specialty=specialty, successes=successes, botch=botch, success=successes > 0, verdict=verdict)
 
 
@@ -130,7 +133,17 @@ def roll_v3(payload: V3RollRequest) -> V3RollResponse:
     if penalty is None:
         raise ValueError("Incapacitado não pode agir")
     rolled = max(0, payload.pool + penalty)
-    outcome = v3_outcome(roll_dice(rolled), payload.difficulty, specialty=payload.specialty, willpower=payload.use_willpower)
+    dice = roll_dice(rolled)
+    extra: list[int] = []
+    pending = dice.count(10) if payload.specialty else 0
+    while pending:
+        if len(extra) + pending > 3000:
+            raise ValueError("limite de rerrolagens de especialização atingido; confira o gerador de dados")
+        rerolled = roll_dice(pending)
+        extra.extend(rerolled)
+        pending = rerolled.count(10)
+    outcome = v3_outcome(dice, payload.difficulty, specialty=payload.specialty, willpower=payload.use_willpower,
+                         specialty_dice=extra)
     return V3RollResponse(**outcome.model_dump(), pool=payload.pool, penalty=penalty, rolled=rolled)
 
 

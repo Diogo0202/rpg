@@ -132,6 +132,26 @@ export function hunterTraitProblems(values: Record<string, FieldValue>): string[
  * provisional and marked for review against the book (docs/CACADOR_CRIACAO_GUIADA.md, F4).
  */
 export const HUNTER_EDGES: Record<string, string[]> = {
+  "Acesso Global": ["Grande Irmão Vigilante", "Passe Universal", "Hack Financeiro", "A Letra da Lei"],
+  "Equipamento Improvisado": ["Frugal", "Produção em Massa", "Especialização", "Criação Veloz"],
+  "Encantador de Feras": ["Incorruptível", "Zoológico", "Comandos Complexos", "Incógnito"],
+  "Jóquei de Drones": ["Autônomo", "Variantes", "Habilidade Especializada", "Armamentos", "Carga"],
+  Arsenal: ["Requisição Coletiva", "Características Especiais", "Exóticas", "Irrastreável"],
+  Artilharia: ["Cargas Múltiplas", "Munição Não Letal", "Exóticas", "Entrega Disfarçada"],
+  Biblioteca: ["Onde Eles Se Escondem", "Quem Eles São", "Como Detê-los", "Como Ferí-los"],
+  Frota: ["Armadura", "Desempenho", "Vigilância", "Irrastreável"],
+  Artefato: ["Fortalecer", "Atração", "Detecção", "Escudo"],
+  "Frustrar o Sobrenatural": ["Especialização em Criatura", "Guardar", "Reconhecimento", "Mãos Livres"],
+  "Repelir o Sobrenatural": ["Guardar", "Ferir", "Especialização em Criatura", "Mãos Livres"],
+  "Sentir o Sobrenatural": ["Especialização em Criatura", "Alcance", "Precisão", "Mãos Livres"],
+};
+export const HUNTER_EDGE_NAMES = Object.keys(HUNTER_EDGES);
+export const HUNTER_PERKS = Object.entries(HUNTER_EDGES).flatMap(([edge, perks]) => perks.map((perk) => `${edge}: ${perk}`));
+/** At creation: two Edges and one Perk, or one Edge and two Perks (marked for review). */
+export const HUNTER_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 0], [1, 2]];
+const HUNTER_LEGACY_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 1], [1, 2]];
+const HUNTER_LEGACY_EDGES: Record<string, string[]> = {
+  ...HUNTER_EDGES,
   Arsenal: ["Requisição de Equipe", "Especializado", "Excepcional", "Irrastreável"],
   Frota: ["Blindagem", "Desempenho", "Vigilância", "Irrastreável"],
   Artilharia: ["Cargas Múltiplas", "Entrega Não Convencional", "Entrega Disfarçada", "Preparo de Carga"],
@@ -140,17 +160,13 @@ export const HUNTER_EDGES: Record<string, string[]> = {
   "Acesso Global": ["Porta dos Fundos", "Lista de Vigilância", "Catraca", "Acesso Total"],
   "Piloto de Drone": ["Drone Armado", "Drone Autônomo", "Vigilância", "Carga Útil"],
   "Encantador de Feras": ["Mensageiro", "Matilha", "Incorruptível", "Elo Telepático"],
-  "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
   "Sentir o Sobrenatural": ["Precisão", "Alcance", "Reconhecer", "Sentido Ampliado"],
   "Repelir o Sobrenatural": ["Barreira", "Dano", "Reação Rápida", "Recuo"],
   "Frustrar o Sobrenatural": ["Rastreio", "Resistência", "Proteção de Grupo", "Contrafeitiço"],
   Artefato: ["Fortalecer", "Detecção", "Dano", "Escudo"],
+  "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
   "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
 };
-export const HUNTER_EDGE_NAMES = Object.keys(HUNTER_EDGES);
-export const HUNTER_PERKS = Object.entries(HUNTER_EDGES).flatMap(([edge, perks]) => perks.map((perk) => `${edge}: ${perk}`));
-/** At creation: two Edges and one Perk, or one Edge and two Perks (marked for review). */
-export const HUNTER_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 1], [1, 2]];
 
 function items(value: FieldValue | undefined): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim()) : [];
@@ -158,16 +174,20 @@ function items(value: FieldValue | undefined): string[] {
 
 /** Every Edge is a catalog name; every Perk is "Triunfo: Distinção" of an Edge the sheet has. */
 export function hunterEdgeProblems(values: Record<string, FieldValue>): string[] {
+  return edgeProblemsFor(values, HUNTER_EDGES);
+}
+
+function edgeProblemsFor(values: Record<string, FieldValue>, catalog: Record<string, string[]>): string[] {
   const problems: string[] = [];
   const edges = items(values.triunfos);
   const perks = items(values.distincoes);
   if (new Set(edges).size !== edges.length || new Set(perks).size !== perks.length) problems.push("Triunfos e Distinções não se repetem");
-  for (const edge of edges) if (!(edge in HUNTER_EDGES)) problems.push(`Triunfo ${edge} fora do catálogo`);
+  for (const edge of edges) if (!(edge in catalog)) problems.push(`Triunfo ${edge} fora do catálogo`);
   for (const perk of perks) {
     const at = perk.indexOf(":");
     const edge = (at < 0 ? perk : perk.slice(0, at)).trim();
     const name = at < 0 ? "" : perk.slice(at + 1).trim();
-    if (!(edge in HUNTER_EDGES) || !HUNTER_EDGES[edge].includes(name)) problems.push(`Distinção ${perk} fora do catálogo (formato Triunfo: Distinção)`);
+    if (!(edge in catalog) || !catalog[edge].includes(name)) problems.push(`Distinção ${perk} fora do catálogo (formato Triunfo: Distinção)`);
     else if (!edges.includes(edge)) problems.push(`Distinção ${perk} pede o Triunfo ${edge}`);
   }
   return problems;
@@ -175,9 +195,23 @@ export function hunterEdgeProblems(values: Record<string, FieldValue>): string[]
 
 /** Trait problems plus the starting count of Edges and Perks. */
 export function hunterCreationProblems(values: Record<string, FieldValue>): string[] {
-  const problems = hunterTraitProblems(values);
+  const problems = hunterTraitProblems(values).filter((problem) => !problem.includes("fora do catálogo"));
+  problems.push(...edgeProblemsFor(values, HUNTER_LEGACY_EDGES));
   const counts = [items(values.triunfos).length, items(values.distincoes).length];
-  if (!HUNTER_EDGE_STARTS.some(([edges, perks]) => edges === counts[0] && perks === counts[1])) problems.push("Na criação: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções");
+  if (!HUNTER_LEGACY_EDGE_STARTS.some(([edges, perks]) => edges === counts[0] && perks === counts[1])) problems.push("Na criação v4: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções");
+  return problems;
+}
+
+export function hunterV5CreationProblems(values: Record<string, FieldValue>): string[] {
+  const problems: string[] = [];
+  if (typeof values.credo !== "string" || !HUNTER_CREEDS.includes(values.credo)) problems.push("Escolha um Credo da lista");
+  if (typeof values.impulso !== "string" || !HUNTER_DRIVE_LIST.includes(values.impulso)) problems.push("Escolha um Ímpeto da lista");
+  const pillars = items(values.pilares);
+  if (pillars.length > 3) problems.push("Escolha até 3 Pilares (pp. 56 e 282)");
+  if (pillars.some((item) => item.length > 160)) problems.push("Cada Pilar passa de 160 caracteres");
+  problems.push(...hunterEdgeProblems(values));
+  const counts = [items(values.triunfos).length, items(values.distincoes).length];
+  if (!HUNTER_EDGE_STARTS.some(([edges, perks]) => edges === counts[0] && perks === counts[1])) problems.push("Na criação: 2 Triunfos, ou 1 Triunfo e 2 Distinções (p. 90)");
   return problems;
 }
 
@@ -185,7 +219,7 @@ export const inDespair = (values: Record<string, FieldValue>) => values.em_deses
 
 /** Edges are blocked while the hunter is in Despair (conferir no livro). */
 export function usableEdges(values: Record<string, FieldValue>): string[] {
-  return inDespair(values) ? [] : items(values.triunfos);
+  return items(values.triunfos);
 }
 
 export type HunterOutcome = {

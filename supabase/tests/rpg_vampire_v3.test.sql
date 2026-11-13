@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(40);
 
 -- Creation: Merits cost freebies, Flaws add them up to 7 (priority_points.freebie_items).
 create temporary table v3_rule as select '{"creation_rules":[{"type":"priority_points","id":"criacao_v3","freebies":15,"exact":true,
@@ -105,6 +105,8 @@ select throws_ok($$select public.v3_heal('43000000-0000-0000-0000-000000000031',
   '23514', null, 'healing spends blood within the limit per turn');
 select is((public.v3_heal('43000000-0000-0000-0000-000000000031', '53000000-0000-0000-0000-000000000023', 1, 'c1:r4') -> 'sheet' -> 'values') - array['ant_geracao','vontade_gasta','forca_vontade','dano_agravado','autocontrole','consciencia','coragem','humanidade','trilha','em_frenesi','em_rotschreck'],
   '{"pontos_sangue":5,"dano_contundente":0,"dano_letal":2}'::jsonb, 'one blood heals one bashing level first');
+select is((public.v3_apply_damage('43000000-0000-0000-0000-000000000031', '53000000-0000-0000-0000-000000000024', 'letal', 8) ->> 'unapplied')::integer,
+  3, 'damage beyond the seven health levels is reported to the narrator');
 select is((public.v3_spend_willpower('43000000-0000-0000-0000-000000000031', '53000000-0000-0000-0000-000000000030') -> 'sheet' -> 'values' ->> 'vontade_gasta')::integer,
   1, 'Willpower is spent atomically');
 select throws_ok($$select public.v3_spend_willpower('43000000-0000-0000-0000-000000000031', '53000000-0000-0000-0000-000000000031')$$,

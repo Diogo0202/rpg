@@ -13,6 +13,8 @@ type TemplateDraft = Record<string, unknown> & { name: string; version: number; 
 type PublishPayload = { template: TemplateDraft; description: string; tags: string[]; author_name: string; dependencies: string[]; rights_confirmed: true };
 type TemplatePreview = { template: TemplateDraft; digest: string };
 
+type SortOrder = "recent" | "popular";
+
 const API = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const emptyDraft = JSON.stringify({
   name: "Novo modelo",
@@ -45,6 +47,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
   const [items, setItems] = useState<MarketplaceCard[]>(initialItems);
   const [query, setQuery] = useState("");
   const [tags, setTags] = useState("");
+  const [sort, setSort] = useState<SortOrder>("recent");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(initialError ?? "");
@@ -71,7 +74,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
 
   const headers = useMemo(() => token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null, [token]);
 
-  const loadItems = useCallback(async (search: string, tagFilter: string) => {
+  const loadItems = useCallback(async (search: string, tagFilter: string, order: SortOrder) => {
     setLoading(true); setMessage("");
     try {
       if (!API) throw new Error("A API pública não está configurada nesta instalação.");
@@ -79,6 +82,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
       if (search.trim()) params.set("q", search.trim());
       const parsedTags = tagList(tagFilter);
       parsedTags.forEach((tag) => params.append("tags", tag));
+      params.set("sort", order);
       const response = await fetch(`${API}/api/v1/marketplace/systems${params.size ? `?${params}` : ""}`, { cache: "no-store" });
       setItems(asCards(await decode(response)));
     } catch (error) {
@@ -203,7 +207,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
         await authorizedPost("/api/v1/marketplace/systems", body);
       }
       setShowPublish(false); setSourceTemplateId(""); setSourcePreview(null); setDraftJson(emptyDraft); setDescription(""); setTagDraft(""); setDependencies(""); setRightsConfirmed(false);
-      await loadItems(query, tags);
+      await loadItems(query, tags, sort);
       setMessage("Modelo enviado para publicação.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível publicar o modelo."); }
     finally { setBusy(false); }
@@ -241,9 +245,15 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
       {!token && <p className={styles.hint}>Entre na conta para publicar.</p>}
     </form>}
 
-    <form className={styles.search} onSubmit={(event) => { event.preventDefault(); void loadItems(query, tags); }}>
+    <form className={styles.search} onSubmit={(event) => { event.preventDefault(); void loadItems(query, tags, sort); }}>
       <label>Buscar modelos<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nome ou descrição" /></label>
       <label>Filtrar por tags<input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="fantasia, horror" /></label>
+      <label>Ordenar
+        <select value={sort} onChange={(event) => { const next = event.target.value === "popular" ? "popular" : "recent"; setSort(next); void loadItems(query, tags, next); }}>
+          <option value="recent">Ordenar: Recentes</option>
+          <option value="popular">Ordenar: Populares</option>
+        </select>
+      </label>
       <button type="submit">Buscar</button>
     </form>
 

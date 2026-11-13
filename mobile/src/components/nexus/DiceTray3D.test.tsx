@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rollExpression, rollHunter, rollPool, rollSotdl } from "@/lib/dice";
-import { canShowTray, trayRequests } from "./DiceTray3D";
+import { canShowTray, trayRequests, trayResult } from "./DiceTray3D";
 
 describe("DiceTray3D", () => {
   it("maps a local Demon Lord roll to the d20 and the leftover boon or bane dice", () => {
@@ -13,8 +13,39 @@ describe("DiceTray3D", () => {
     expect(trayRequests(rollSotdl(10, 2, 2))).toHaveLength(1);
   });
 
+  it("throws free d6, d10 and d20 rolls and shows the modifier added to the total", () => {
+    const roll = rollExpression("2d6+1d20", 3);
+    const requests = trayRequests(roll)!;
+    expect(requests.map((die) => die.kind)).toEqual(["d6", "d6", "d20"]);
+    expect(requests.map((die) => die.value)).toEqual([...roll.terms[0]!.rolls, ...roll.terms[1]!.rolls]);
+    const result = trayResult(roll);
+    expect(result.total).toBe(roll.total);
+    expect(result.parts.map((part) => part.label)).toEqual(["2d6", "1d20", "Modificador"]);
+    expect(result.parts.at(-1)!.value).toBe(3);
+    expect(result.parts.reduce((sum, part) => sum + part.value, 0)).toBe(roll.total);
+  });
+
+  it("adds the attribute and the boon to the Demon Lord d20", () => {
+    const roll = rollSotdl(13, 2, 0, 12);
+    const result = trayResult(roll);
+    expect(result.parts.map((part) => part.label)).toEqual(["d20", "Atributo", "Dádiva"]);
+    expect(result.parts.map((part) => part.value)).toEqual([roll.terms[0]!.rolls[0], 3, Math.max(...roll.terms[2]!.rolls)]);
+    expect(result.total).toBe(roll.total);
+    expect(result.against).toEqual({ label: "Alvo", value: 12 });
+  });
+
+  it("counts pool successes with the pairs of tens for V5 and Hunter", () => {
+    for (const roll of [rollPool(10, 2), rollHunter(8, 3, true, 4)]) {
+      const result = trayResult(roll);
+      expect(result.total).toBe(roll.total);
+      expect(result.parts.reduce((sum, part) => sum + part.value, 0)).toBe(roll.total);
+    }
+  });
+
   it("has no 3D set for other rolls and falls back to the 2D stage without WebGL", () => {
-    expect(trayRequests(rollExpression("2d6"))).toBeNull();
+    expect(trayRequests(rollExpression("1d8"))).toBeNull();
+    expect(trayRequests(rollExpression("2d6-1d6"))).toBeNull();
+    expect(trayRequests(rollExpression("16d6"))).toBeNull();
     // jsdom has no WebGL context.
     expect(canShowTray(rollSotdl(10))).toBe(false);
     expect(canShowTray(null)).toBe(false);

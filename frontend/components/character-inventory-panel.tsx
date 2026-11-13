@@ -5,13 +5,13 @@ import { useCharacterSession } from "../lib/character-session";
 import { createClient } from "../lib/supabase/client";
 import type { SheetField, FieldValue } from "../lib/sheet-template";
 import { CharacterShoppingLists } from "./character-shopping-lists";
+import { DAMAGE_TYPE_LABELS, type DamageType } from "../lib/damage-types";
 import { ATLAS_EQUIPMENT,filterAtlasEquipment,type AtlasEquipmentCategory,type AtlasEra,type AtlasDamageKind } from "../lib/atlas-equipment";
 
 const categories = { weapon: "Arma", armor: "Armadura", equipment: "Equipamento", clothing: "Roupa", dwelling: "Moradia", vehicle: "Veículo", mount: "Montaria", animal: "Animal" };
 type Category = keyof typeof categories;
 type Item = { custom_values?:Record<string,FieldValue>;id:string;name:string;category:Category;quantity:number;resource_cost:number;damage_bonus:number;damage_type?:DamageType;protection:number;notes:string;acquired:boolean;equipped:boolean;sort_order:number;version:number };
-type DamageType = "superficial"|"aggravated";
-const damageTypes: Record<DamageType,string> = { superficial:"Superficial", aggravated:"Agravado" };
+const damageTypes = DAMAGE_TYPE_LABELS;
 type Draft = Omit<Item,"id"|"equipped"|"version">;
 const empty: Draft = { name:"",category:"equipment",quantity:1,resource_cost:0,damage_bonus:0,damage_type:"superficial",protection:0,notes:"",acquired:false,sort_order:0 };
 

@@ -51,6 +51,8 @@ def test_rouse_forwards_operation_and_level_and_derives_state(client, monkeypatc
     ("compulsion", {"compulsion": "Paranoia"}, "v5_set_compulsion", {"p_compulsion": "Paranoia"}),
     ("compulsion", {}, "v5_set_compulsion", {"p_compulsion": None}),
     ("torpor", {"in_torpor": True}, "v5_set_torpor", {"p_in_torpor": True}),
+    ("mend", {}, "v5_mend", {}),
+    ("surge", {"turn_key": "c1:r1", "base_pool": 5}, "v5_blood_surge", {"p_turn_key": "c1:r1", "p_base_pool": 5}),
 ])
 def test_blood_actions_call_their_rpc(client, monkeypatch, path, payload, rpc, expected):
     calls = []
@@ -73,6 +75,7 @@ def test_blood_actions_call_their_rpc(client, monkeypatch, path, payload, rpc, e
     ("frenzy", {"operation_id": OPERATION_ID, "difficulty": 2, "kind": "rage"}),
     ("compulsion", {"operation_id": OPERATION_ID, "compulsion": "Xyz"}),
     ("torpor", {"operation_id": OPERATION_ID}),
+    ("surge", {"operation_id": OPERATION_ID, "turn_key": "c1:r1"}),
 ])
 def test_blood_actions_validate_and_never_accept_client_dice(client, monkeypatch, path, payload):
     async def never(*args, **kwargs):

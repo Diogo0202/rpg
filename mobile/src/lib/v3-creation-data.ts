@@ -138,7 +138,7 @@ export const V3_FLAWS: Array<{ name: string; costs: number[] }> = [
   { name: "Sangue Fraco", costs: [4] }, { name: "Carne de Cadáver", costs: [5] }, { name: "Vício", costs: [3] },
   { name: "Sono Pesado", costs: [1] }, { name: "Pesadelos", costs: [1] }, { name: "Exclusão de Presa", costs: [1] },
   { name: "Tímido", costs: [1] }, { name: "Coração Mole", costs: [1] }, { name: "Problema de Fala", costs: [1] },
-  { name: "Amnésia", costs: [2] }, { name: "Lunático", costs: [2] }, { name: "Fobia", costs: [2] }, { name: "Pavio Curto", costs: [2] },
+  { name: "Amnésia", costs: [1] }, { name: "Lunático", costs: [2] }, { name: "Fobia", costs: [2] }, { name: "Pavio Curto", costs: [2] },
   { name: "Territorial", costs: [2] }, { name: "Vingativo", costs: [2] }, { name: "Objetivo Obsessivo", costs: [3] }, { name: "Ódio", costs: [3] },
   { name: "Intolerância", costs: [1] }, { name: "Excesso de Confiança", costs: [1] }, { name: "Baixa Autoestima", costs: [2] },
   { name: "Vontade Fraca", costs: [3] }, { name: "Segredo Sombrio", costs: [1] }, { name: "Senhor Infame", costs: [1] },

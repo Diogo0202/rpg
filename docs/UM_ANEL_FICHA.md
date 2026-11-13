@@ -1,4 +1,6 @@
-# O Um Anel 2ª edição: ficha v2 e rolador
+# O Um Anel 2ª edição: ficha legada v2 e rolador
+
+Este documento registra o perfil legado v2. Para a criação nova, consulte [O Um Anel v3: criação e Companhia](UM_ANEL_V3_ENTREGA.md). A soma e o limite de favorecidas descritos abaixo não governam o perfil v3.
 
 Revisão de 26/10/2026 (Frente J). O contrato guarda nomes curtos e números. Nenhum texto do livro foi copiado. **Todos os números abaixo precisam ser conferidos no Core Rules** antes de aprovar o modelo numa campanha.
 

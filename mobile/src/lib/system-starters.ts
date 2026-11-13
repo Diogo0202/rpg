@@ -1,6 +1,7 @@
+import { oneRingV3Fields, ONE_RING_INVENTORY_SCHEMA } from "./one-ring-creation.ts";
 import { HUNTER_ADVANTAGE_RULES, HUNTER_SKILLS, HUNTER_SKILL_DISTRIBUTIONS, HUNTER_DRIVES, HUNTER_SPECIALTY_RULE } from "./hunter-creation-data.ts";
-import { HUNTER_EDGE_NAMES, HUNTER_LIMITS, HUNTER_PERKS, HUNTER_TRAIT_FIELDS, HUNTER_TRAIT_IDS } from "./hunter-traits.ts";
-import { ONE_RING_CREATION_RULES, ONE_RING_META_CURRENCIES, ONE_RING_SEEDS, ONE_RING_STEPS } from "./one-ring-rules.ts";
+import { HUNTER_EDGE_NAMES, HUNTER_LIMITS, HUNTER_PERKS } from "./hunter-traits.ts";
+import { ONE_RING_META_CURRENCIES, ONE_RING_STEPS } from "./one-ring-rules.ts";
 import type { GrantCase, MetaCurrency, SheetField, SheetTemplate } from "./sheet-template.ts";
 import { V5_SHEET_EXTRA_IDS, v5SheetFields } from "./v5-sanguine.ts";
 import { CAITIFF_CHOICE_FIELDS, V5_ADVANTAGE_RULES, V5_CLAN_CASES, V5_CLAN_GENERATION_RULE, V5_DISCIPLINES, V5_POTENCY_BY_GENERATION, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES, v5SpecialtyRule } from "./v5-creation-data.ts";
@@ -150,6 +151,8 @@ const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", 
   // F1: Torpor is written by the v5_set_torpor RPC (Blood panel).
   field("torpor", "Em Torpor", "checkbox", false),
 ], [willpower]);
+// New V5 starter only; approved version 1 profiles remain unchanged.
+vampire.template.version = 2;
 
 const hunterCreeds = ["Empreendedor", "Devoto", "Inquisitivo", "Marcial", "Clandestino"];
 const hunterArchetypes = [
@@ -164,8 +167,8 @@ const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular",
   text("nome", "Nome", "", true), text("conceito", "Conceito"), { ...select("credo", "Credo", hunterCreeds), required: true },
   { ...select("impulso", "Ímpeto", HUNTER_DRIVES), required: true }, { ...text("celula", "Célula"), max_length: HUNTER_LIMITS.celula },
   text("ambicao", "Ambição"), text("desejo", "Desejo"),
-  // v3: Pilares became up to three Convicção/Pedra de Toque pairs (frontend/lib/hunter-traits.ts).
-  ...HUNTER_TRAIT_FIELDS.map((item) => ({ ...item, initial: "" })),
+  // v5 stores up to three free-text Pilares, matching the printed sheet.
+  { ...collection("pilares", "Pilares"), max_items: 3, max_length: 160 },
   // v4 (F4): Desesperação and Perigo live in the cell (hunter_cells); the sheet keeps only the Despair state.
   { ...text("redencao", "Redenção"), max_length: HUNTER_LIMITS.redencao }, field("em_desespero", "Em Desespero (Despair)", "checkbox", false),
   ...v5Attributes.map(([id, label]) => number(id, label, 1, true)),
@@ -182,8 +185,8 @@ const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular",
   collection("equipamento", "Equipamento"), text("notas", "Notas"),
 ], [willpower]);
 
-// New starter only: existing approved campaign templates are never rewritten automatically.
-hunter.template.version = 4;
+// v5 uses free-text Pilares. Saved v4 schemas remain unchanged in existing campaigns.
+hunter.template.version = 5;
 const hunterAttributeIds = new Set(v5Attributes.map(([id]) => id));
 const hunterSkillIds = new Set(HUNTER_SKILLS.map(([id]) => id));
 hunter.template.fields = hunter.template.fields.map((item) => hunterAttributeIds.has(item.id)
@@ -201,9 +204,11 @@ hunter.template.creation_rules = [
 
 // O Um Anel 2ª edição, ficha v2: Corpo/Coração/Astúcia with TN = 20 - attribute, culture bases for
 // Endurance, Hope and Parry, 18 skills, proficiencies, Valour/Wisdom and Shadow (frontend/lib/one-ring-rules.ts).
-const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel 2ª edição", ONE_RING_SEEDS, ONE_RING_META_CURRENCIES);
-oneRing.template.version = 2;
-oneRing.template.creation_rules = ONE_RING_CREATION_RULES;
+const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel 2ª edição v3", oneRingV3Fields(), ONE_RING_META_CURRENCIES);
+oneRing.template.version = 3;
+oneRing.template.rules_profile_version = 3;
+oneRing.template.creation_rules = [];
+oneRing.template.inventory_schema = ONE_RING_INVENTORY_SCHEMA;
 
 // V5 creation arithmetic: numbers only, no rules text. Attributes 4/3/3/3/2/2/2/2/1;
 // skills follow one of three distributions (the rest stay at 0).
@@ -275,7 +280,7 @@ const vampireV3 = makeStarter("vampire-v3", "Vampiro V3", "Vampiro V3 essencial"
 ]);
 
 // New starter only: approved campaign templates are never rewritten automatically.
-vampireV3.template.version = 2;
+vampireV3.template.version = 3;
 const v3Limits: Record<string, [number, number]> = {
   ...Object.fromEntries(v3Attributes.map(([id]) => [id, [1, 5] as [number, number]])),
   ...Object.fromEntries([...v3Abilities, ...V3_DISCIPLINES, ...V3_BACKGROUNDS].map(([id]) => [id, [0, 5] as [number, number]])),
@@ -395,7 +400,7 @@ const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
     skills: HUNTER_SKILLS.map(([id]) => id),
     traits: ["vantagens", "especialidades", "defeitos", "triunfos", "distincoes", "equipamento"],
     resources: ["saude_max", "vontade_max", "em_desespero", "recursos", "saude_superficial", "saude_agravada", "vontade_superficial", "vontade_agravada", "experiencia"],
-    story: ["ambicao", "desejo", ...HUNTER_TRAIT_IDS, "redencao", "notas"],
+    story: ["ambicao", "desejo", "pilares", "redencao", "notas"],
     identities: { credo: "creed" },
   },
   "one-ring": { ...ONE_RING_STEPS, identities: { linhagem: "lineage" } },

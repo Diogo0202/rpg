@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(57);
 
 -- 1 dono, 2 mestre, 3 jogador, 4 dono de outra campanha, 5 convidado por e-mail, 6 convidado por código.
 insert into auth.users (id, aud, role, email)
@@ -50,20 +50,31 @@ reset role;
 select set_config('test.code', (select code from public.campaign_invites where email is null), true);
 select set_config('test.mail_invite', (select id::text from public.campaign_invites where email is not null), true);
 
--- Mestre: administra jogadores, mas não mestres nem a campanha.
+-- Mestre: administra participantes, inclusive outros mestres, mas não a campanha.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000002', true);
 select lives_ok($$select public.create_campaign_invite('2a000000-0000-0000-0000-000000000001', 'guest')$$, 'master invites a guest');
-select throws_ok($$select public.create_campaign_invite('2a000000-0000-0000-0000-000000000001', 'master')$$,
-  '42501', null, 'master cannot invite another master');
-select is((select count(*)::integer from public.campaign_invites), 3, 'master reads campaign invites');
+select lives_ok($$select public.create_campaign_invite('2a000000-0000-0000-0000-000000000001', 'master')$$,
+  'master invites another master');
+select is((select count(*)::integer from public.campaign_invites), 4, 'master reads campaign invites');
 select lives_ok($$select public.set_campaign_member_role('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000003', 'guest')$$,
   'master changes a player to guest');
-select throws_ok($$select public.set_campaign_member_role('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000003', 'master')$$,
-  '42501', null, 'master cannot promote to master');
-select throws_ok($$update public.campaign_members set role = 'master'
+select lives_ok($$select public.set_campaign_member_role('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000003', 'master')$$,
+  'master promotes a player to master');
+select lives_ok($$select public.set_campaign_member_role('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000003', 'player')$$,
+  'master demotes another master');
+select lives_ok($$update public.campaign_members set role = 'master'
   where campaign_id = '2a000000-0000-0000-0000-000000000001' and user_id = '1a000000-0000-0000-0000-000000000003'$$,
-  '42501', null, 'RLS also blocks direct promotion by a master');
+  'RLS permits direct promotion by a master');
+select throws_ok($$update public.campaign_members set role = 'guest'
+  where campaign_id = '2a000000-0000-0000-0000-000000000001' and user_id = '1a000000-0000-0000-0000-000000000002'$$,
+  '42501', null, 'direct update cannot change own role');
+select throws_ok($$update public.campaign_members set user_id = '1a000000-0000-0000-0000-000000000004'
+  where campaign_id = '2a000000-0000-0000-0000-000000000001' and user_id = '1a000000-0000-0000-0000-000000000003'$$,
+  '42501', null, 'direct update cannot transfer a membership identity');
+select throws_ok($$update public.campaign_members set role = 'owner'
+  where campaign_id = '2a000000-0000-0000-0000-000000000001' and user_id = '1a000000-0000-0000-0000-000000000003'$$,
+  '42501', null, 'direct update cannot give the owner role');
 select throws_ok($$select public.update_campaign_details('2a000000-0000-0000-0000-000000000001', 'Mesa do Mestre', '')$$,
   '42501', null, 'master cannot edit campaign details');
 select throws_ok($$select public.delete_campaign('2a000000-0000-0000-0000-000000000001', 'Mesa Renomeada')$$,
@@ -120,12 +131,12 @@ select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000006
 select lives_ok($$select public.accept_campaign_invite(lower(current_setting('test.code')))$$, 'code invite is accepted case-insensitively');
 select is((select role::text from public.campaign_members where user_id = '1a000000-0000-0000-0000-000000000006'), 'player', 'code invitee is a player');
 
--- Mestre remove jogador, mas não outro mestre.
+-- Mestre remove jogadores e outros mestres.
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000002', true);
-select throws_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000005')$$,
-  '42501', null, 'master cannot remove another master');
+select lives_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000005')$$,
+  'master removes another master');
 select lives_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000006')$$,
   'master removes a player');
 
@@ -140,7 +151,12 @@ select lives_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '1a000000-0000-0000-0000-000000000001', true);
-select lives_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000005')$$,
+select throws_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001')$$,
+  '42501', null, 'owner cannot be removed');
+select throws_ok($$insert into public.campaign_members (campaign_id, user_id, role)
+  values ('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001', 'player')$$,
+  '42501', null, 'owner cannot be added as an editable member');
+select lives_ok($$select public.remove_campaign_member('2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000002')$$,
   'owner removes a master');
 select lives_ok($$select public.revoke_campaign_invite((select id from public.campaign_invites where role = 'guest'))$$, 'owner revokes a pending invite');
 select is((select status from public.campaign_invites where role = 'guest'), 'revoked', 'revoked invite is marked');

@@ -1,5 +1,5 @@
 begin;
-select plan(18);
+select plan(19);
 
 insert into auth.users(id, aud, role, email) values
   ('71000000-0000-4000-8000-000000000001', 'authenticated', 'authenticated', 'publisher@example.test'),
@@ -43,11 +43,12 @@ insert into public.marketplace_admins(user_id) values ('71000000-0000-4000-8000-
 select set_config('test.report_id', (select id::text from public.marketplace_reports limit 1), false);
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000002', false);
 set local role authenticated;
-select throws_ok($$select * from public.marketplace_list_reports(1,20)$$, '42501', null, 'non-admin cannot read the moderation queue');
+select throws_ok($$select * from public.marketplace_moderation_queue(1,20)$$, '42501', null, 'non-admin cannot read the moderation queue');
 reset role;
 select set_config('request.jwt.claim.sub', '71000000-0000-4000-8000-000000000003', false);
 set local role authenticated;
-select is((select count(*) from public.marketplace_list_reports(1,20)), 1::bigint, 'admin queue returns private report details');
+select is((select count(*) from public.marketplace_moderation_queue(1,20)), 1::bigint, 'admin queue returns the open report');
+select hasnt_function('public', 'marketplace_list_reports', 'leaky reporter-id RPC was dropped');
 select public.marketplace_resolve_report(current_setting('test.report_id')::uuid, 'restore', 'Reviewed by moderator');
 select is((select status from public.marketplace_systems where id = '73000000-0000-4000-8000-000000000001'), 'published', 'admin resolution restores a report-approved system');
 reset role;

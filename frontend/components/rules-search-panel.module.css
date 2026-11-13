@@ -1,0 +1,450 @@
+/* Follows the workbench: theme tokens from globals.css, square corners, 1px lines, ink primary. */
+.panel {
+  min-width: 0;
+  margin-top: 30px;
+  color: var(--ink);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.subline {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.searchForm {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+  margin-top: 20px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.inputRow {
+  display: flex;
+  gap: 10px;
+}
+
+.input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.input::placeholder {
+  color: var(--muted);
+}
+
+.input:disabled {
+  background: var(--paper);
+  cursor: not-allowed;
+}
+
+textarea.input {
+  resize: vertical;
+}
+
+.status {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+
+.status:empty {
+  display: none;
+}
+
+/* 5fr + 22px + 7fr: the reader is the larger block, the page is the screen's answer. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 22px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.blockTitle {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.results {
+  min-width: 0;
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  list-style: none;
+}
+
+.result {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.result + .result {
+  border-top: 1px solid var(--line);
+}
+
+.resultOpen {
+  background: var(--paper);
+}
+
+.resultHeader,
+.readerHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sourceTitle {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pageNumber {
+  flex: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.excerpt {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.excerpt mark,
+.pageText mark {
+  background: var(--line);
+  color: inherit;
+}
+
+.reader {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.readerHeader {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.readerHeader h3,
+.readerEmpty h3 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.pageText {
+  display: grid;
+  gap: 10px;
+  max-height: 560px;
+  margin-top: 16px;
+  overflow: auto;
+  font-family: Georgia, serif;
+  font-size: 17px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.readerEmpty {
+  display: grid;
+  gap: 8px;
+  max-width: 48ch;
+}
+
+.readerEmpty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.primaryButton,
+.secondaryButton,
+.textButton {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.primaryButton {
+  min-height: 44px;
+  background: var(--ink);
+  color: #fff;
+}
+
+.secondaryButton {
+  justify-self: start;
+  background: transparent;
+  color: var(--ink);
+}
+
+.secondaryButton[aria-pressed="true"] {
+  background: var(--ink);
+  color: #fff;
+}
+
+.textButton {
+  padding-inline: 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.primaryButton:hover:not(:disabled),
+.secondaryButton:hover:not(:disabled) {
+  border-color: var(--moss);
+  background: var(--moss);
+  color: #fff;
+}
+
+.primaryButton:active:not(:disabled),
+.secondaryButton:active:not(:disabled),
+.textButton:active {
+  transform: translateY(1px);
+}
+
+.primaryButton:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.input:focus-visible,
+.primaryButton:focus-visible,
+.secondaryButton:focus-visible,
+.textButton:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.emptyBox,
+.errorBox {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.errorBox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  border-style: solid;
+  border-left: 3px solid var(--accent);
+  color: var(--ink);
+}
+
+.errorBox p {
+  margin: 0;
+}
+
+.skeletonTitle,
+.skeletonLine {
+  display: block;
+  height: 15px;
+  background: var(--line);
+  opacity: 0.55;
+}
+
+.skeletonTitle {
+  width: 45%;
+}
+
+.assistant {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: 22px;
+  margin-top: 22px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.assistantMain {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.assistantHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.assistantHeader h3 {
+  margin: 0;
+  font-family: Georgia, serif;
+  font-size: 20px;
+}
+
+.statePill {
+  flex: none;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.assistantText {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.composer {
+  display: grid;
+  gap: 8px;
+}
+
+.help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.steps {
+  display: grid;
+  align-content: start;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.step + .step {
+  border-top: 1px solid var(--line);
+}
+
+.step > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.stepDetail {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.stepState {
+  flex: none;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.stepPartial {
+  color: var(--moss);
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .layout,
+  .assistant {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .inputRow {
+    flex-direction: column;
+  }
+
+  .primaryButton {
+    width: 100%;
+  }
+
+  .secondaryButton {
+    min-height: 44px;
+  }
+
+  .reader,
+  .assistant {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryButton,
+  .secondaryButton,
+  .textButton {
+    transition: none;
+  }
+
+  .primaryButton:active:not(:disabled),
+  .secondaryButton:active:not(:disabled),
+  .textButton:active {
+    transform: none;
+  }
+}

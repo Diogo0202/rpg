@@ -73,6 +73,11 @@ test("blood state derives from the sheet", () => {
   assert.deepEqual(state.frenzyPool, { fury: 4, hunger: 6, terror: 6 });
   assert.equal(state.compulsionDetail.name, "Rebeldia");
   assert.equal(state.inTorpor, false);
+  assert.equal(state.excessStains, 0);
+  const excess = bloodState({ humanidade: 7, manchas: 4 });
+  assert.equal(excess.excessStains, 1);
+  assert.equal(excess.impaired, true);
+  assert.equal(excess.stainWillpowerAggravated, 1);
 });
 
 test("every V5 power has mechanical metadata marked for review", () => {

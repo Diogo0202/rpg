@@ -117,6 +117,16 @@ def validate_publication(payload: PublishRequest) -> dict[str, Any]:
     }
 
 
+def validate_import_schema(value: Any) -> dict[str, Any]:
+    """Recheck an imported model before a manager approves it for sheet creation."""
+    try:
+        schema = normalize_template_document(value)
+        draft = validate_template(TemplateDraft.model_validate(schema))
+    except (ValueError, ValidationError) as error:
+        raise HTTPException(status_code=422, detail="modelo importado precisa de correção antes da aprovação") from error
+    return draft.model_dump(mode="json")
+
+
 def _config() -> tuple[str, str]:
     base = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_PUBLISHABLE_KEY")

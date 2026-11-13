@@ -1,7 +1,7 @@
 {
  "template": {
   "name": "Vampiro V5 essencial",
-  "version": 1,
+  "version": 2,
   "fields": [
    {
     "id": "sistema",

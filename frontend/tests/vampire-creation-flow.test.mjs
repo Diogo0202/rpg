@@ -5,6 +5,21 @@ import { applyGrants, collectionPointRules, collectionPointStatus, grantedNumber
 import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../lib/priority-points.ts";
 import { characterNameField, creationGroups, identityFields, reconcileDependentValues, validateFields } from "../lib/sheet-creation.ts";
 import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { catalogProblem } from "../lib/creation-checks.ts";
+
+test("V3 Amnésia follows Revised p.299 while approved legacy catalog costs remain valid", () => {
+  const template = SYSTEM_STARTERS.find((starter) => starter.id === "vampire-v3").template;
+  const field = template.fields.find((item) => item.id === "defeitos");
+  const rule = template.creation_rules.find((item) => item.type === "collection_points" && item.collection === "defeitos");
+  assert.deepEqual(rule.catalog.find((entry) => entry.name === "Amnésia").costs, [1]);
+  assert.deepEqual(validateFields([field], { defeitos: ["Amnésia (1)"] }, template), {});
+  assert.match(catalogProblem(rule, ["Amnésia (2)"]), /aceita 1 ponto/);
+  const legacy = structuredClone(template);
+  legacy.version = 2;
+  legacy.creation_rules.find((item) => item.type === "collection_points" && item.collection === "defeitos")
+    .catalog.find((entry) => entry.name === "Amnésia").costs = [2];
+  assert.equal(catalogProblem(legacy.creation_rules.find((item) => item.type === "collection_points" && item.collection === "defeitos"), ["Amnésia (2)"]), null);
+});
 
 /**
  * Walks the creation wizard step by step the way components/sheet-creation-wizard.tsx does:
@@ -135,7 +150,8 @@ test("V3: the Path opens its virtues and moves the starting rating; no predator 
 test("V3 play rules mirror the API: 1s cancel, botch, specialty, Willpower, health and blood", async () => {
   const { isV3Sheet, v3Derived, v3HealthPenalty, v3Outcome } = await import("../lib/v3-rules.ts");
   assert.deepEqual([v3Outcome([1, 6, 7], 6).successes, v3Outcome([1, 2], 6).botch, v3Outcome([1, 6], 6).botch], [1, true, false]);
-  assert.equal(v3Outcome([10, 3], 6, true).successes, 2);
+  assert.equal(v3Outcome([10, 3], 6, true, false, [7]).successes, 2);
+  assert.equal(v3Outcome([10, 3], 6, true, false, [2]).successes, 1);
   assert.deepEqual([v3Outcome([1, 1], 6, false, true).successes, v3Outcome([1, 1], 6, false, true).botch], [1, false]);
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7].map(v3HealthPenalty), [0, 0, -1, -1, -2, -2, -5, null]);
   const starter = SYSTEM_STARTERS.find((item) => item.id === "vampire-v3");

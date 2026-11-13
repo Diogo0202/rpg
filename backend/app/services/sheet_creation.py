@@ -8,6 +8,7 @@ from app.models import FieldKind, TemplateDraft
 from app.services.creation_rules import Violation, evaluate_creation_rules
 from app.services.sheet_calculations import calculate_sheet
 from app.services.sheet_values import validate_sheet_values
+from app.services.one_ring_creation import is_one_ring_v3, prepare_creation, evaluate_creation
 from app.services.sotdl_progression import validate_sotdl_creation
 
 
@@ -36,6 +37,9 @@ def creation_report(template: dict[str, Any], values: dict[str, Any]) -> tuple[l
             validate_sotdl_creation(values)
         except ValueError as error:
             errors.append(str(error))
+    if is_one_ring_v3(template):
+        report = evaluate_creation(values)
+        errors.extend(problem["message"] for problem in report["errors"])
     for field_id, value in values.items():
         field = fields.get(field_id)
         if field is None:
@@ -57,7 +61,7 @@ def prepare_sheet_creation(
     """Normalize the sheet name, validate inputs, and calculate derived fields."""
     draft = approved_template_draft(template)
 
-    if draft.rules_profile_version is not None:
+    if draft.rules_profile_version is not None and not is_one_ring_v3(template):
         raise ValueError(
             f"perfil de regras {draft.system_key or 'sem sistema'} v{draft.rules_profile_version} "
             "não tem uma fonte oficial suportada; remova o perfil para usar validação genérica"
@@ -81,6 +85,8 @@ def prepare_sheet_creation(
         normalized_values[name_field.id] = normalized_name
 
     fields = {field.id: field.model_dump(mode="json") for field in draft.fields}
+    if is_one_ring_v3(template):
+        normalized_values = prepare_creation(normalized_values, normalized_name, list(fields.values()))
     validate_sheet_values(normalized_values, fields)
     calculation_inputs = {
         field_id: value
