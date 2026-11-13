@@ -164,7 +164,7 @@ function validateDependency(value: unknown, label: string): SelectDependency {
     const equals = boundedString(item.equals, `${caseLabel}: valor`, 160, 1);
     if (seen.has(equals)) throw new Error(`${label}: há casos repetidos para o mesmo valor.`);
     seen.add(equals);
-    const options = stringArray(item.options, `${caseLabel}: opções`, 100, 160);
+    const options = stringArray(item.options, `${caseLabel}: opções`, 128, 160);
     if (!options.length || options.length !== new Set(options).size) throw new Error(`${caseLabel}: informe opções únicas.`);
     return { equals, options };
   });

@@ -37,12 +37,12 @@ function brujah(on = template, start = base()) {
     .map((id, index) => [id, [4, 3, 3, 3, 2, 2, 2, 2, 1][index]])));
   Object.assign(values, Object.fromEntries(["atletismo", "briga", "conducao", "furtividade", "ladroagem", "oficios", "sobrevivencia", "armas_brancas", "armas_de_fogo", "etiqueta"]
     .map((id, index) => [id, [4, 3, 3, 3, 2, 2, 2, 1, 1, 1][index]])));
-  values = pick(values, { cla: "Brujah" }, on);
+  values = pick(values, { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" }, on);
   values = pick(values, { predador: "Sanguessuga" }, on);
   values = pick(values, { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" }, on);
   // 7 points of own advantages and 2 of own flaws besides the predator's, from the catalogs;
   // free specialties: one in Ofícios (it has dots) plus one more, besides the predator's.
-  return pick(values, { disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"],
+  return pick(values, { disciplinas: ["Potência: Corpo Letal", "Potência: Proeza", "Presença: Fascínio", "Rapidez: Graça Felina"],
     vantagens: ["Aliados •••", "Refúgio ••", "Contatos ••"], defeitos: [...values.defeitos, "Vício Irremediável ••"],
     especialidades: [...values.especialidades, "Ofícios (Marcenaria)", "Atletismo (Corrida)"] }, on);
 }
@@ -52,36 +52,36 @@ test("the mobile V5 starter carries the same grant and power rules as the web st
   for (const id of ids) {
     assert.deepEqual(template.creation_rules.find((rule) => rule.id === id), fixture.template.creation_rules.find((rule) => rule.id === id), `rule ${id} drifted from the web starter`);
   }
-  for (const field of ["caitiff_disciplina_1", "predador_disciplina", "predador_especialidade", "disc_rapidez", "rituais"]) {
+  for (const field of ["disciplina_inicial", "predador_disciplina", "predador_especialidade", "disc_rapidez", "rituais"]) {
     const mine = template.fields.find((item) => item.id === field);
     const web = fixture.template.fields.find((item) => item.id === field);
     assert.deepEqual({ ...mine, min: undefined, max: undefined }, { ...web, min: undefined, max: undefined }, `field ${field} drifted from the web starter`);
   }
 });
 
-test("choosing a clan puts one dot in each clan discipline and swapping clears the old ones", () => {
-  const brujahValues = pick(base(), { cla: "Brujah" });
-  assert.deepEqual([brujahValues.disc_potencia, brujahValues.disc_presenca, brujahValues.disc_rapidez], [1, 1, 1]);
-  const gangrel = pick(brujahValues, { cla: "Gangrel" });
+test("V2 grants the chosen 2+1 pair and swapping clears the old clan", () => {
+  const brujahValues = pick(base(), { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" });
+  assert.deepEqual([brujahValues.disc_potencia, brujahValues.disc_presenca, brujahValues.disc_rapidez], [2, 1, 0]);
+  const gangrel = pick(brujahValues, { cla: "Gangrel", disciplina_inicial: "Animalismo 2, Fortitude 1" });
   assert.deepEqual([gangrel.disc_potencia, gangrel.disc_presenca, gangrel.disc_rapidez], [0, 0, 0]);
-  assert.deepEqual([gangrel.disc_animalismo, gangrel.disc_fortitude, gangrel.disc_metamorfose], [1, 1, 1]);
+  assert.deepEqual([gangrel.disc_animalismo, gangrel.disc_fortitude, gangrel.disc_metamorfose], [2, 1, 0]);
 });
 
 test("a predator applies humanity, potency and items, and its discipline pick stacks on the clan", () => {
-  let values = pick(base(), { cla: "Brujah", potencia_sangue: 1 });
+  let values = pick(base(), { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1", potencia_sangue: 1 });
   values = pick(values, { predador: "Sanguessuga" });
   assert.equal(values.humanidade, 6);
   assert.equal(values.potencia_sangue, 2);
   assert.ok(values.defeitos.includes("Exclusão de Presa: mortais ••"));
   assert.deepEqual(activeGrants(template, values).find((item) => item.rule.id === "predador_bonus").missing.map((choice) => choice.field), ["predador_disciplina", "predador_especialidade"]);
   values = pick(values, { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" });
-  assert.equal(values.disc_rapidez, 2);
+  assert.equal(values.disc_rapidez, 1);
   assert.ok(values.especialidades.includes("Briga (Membros)"));
   values = pick(values, { predador: "Consensualista" });
   assert.equal(values.predador_disciplina, undefined, "the old predator's pick is cleared with its dependent select");
   assert.equal(values.humanidade, 8);
   assert.equal(values.potencia_sangue, 1);
-  assert.equal(values.disc_rapidez, 1);
+  assert.equal(values.disc_rapidez, 0);
   assert.equal(values.defeitos.includes("Exclusão de Presa: mortais ••"), false);
   assert.equal(values.especialidades.includes("Briga (Membros)"), false);
 });
@@ -96,15 +96,15 @@ test("clan-only predator disciplines need the right clan, and changing clan drop
   const values = pick(base(), { cla: "Brujah", predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue" });
   assert.equal(values.disc_feiticaria, 0, "a Brujah cannot take Blood Sorcery from Bagger");
   assert.equal(values.predador_disciplina, undefined);
-  const tremere = pick(base(), { cla: "Tremere", predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue" });
+  const tremere = pick(base(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1", predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue" });
   assert.equal(tremere.disc_feiticaria, 2);
-  const moved = pick(tremere, { cla: "Brujah" });
+  const moved = pick(tremere, { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" });
   assert.equal(moved.predador_disciplina, undefined);
   assert.equal(moved.disc_feiticaria, 0);
 });
 
 test("powers: one per dot, level up to the dots, amalgams need the other discipline", () => {
-  const values = pick(pick(base(), { cla: "Nosferatu" }), { predador: "Homem-Areia", predador_disciplina: "Ofuscação" });
+  const values = pick(pick(base(), { cla: "Nosferatu", disciplina_inicial: "Animalismo 2, Ofuscação 1" }), { predador: "Homem-Areia", predador_disciplina: "Ofuscação" });
   const rule = powerRules(template).find((item) => item.id === "poderes");
   const obfuscate = powerStatus(rule, values).find((status) => status.source.label === "Ofuscação");
   assert.deepEqual([obfuscate.dots, obfuscate.allowed, obfuscate.maxLevel], [2, 2, 2]);
@@ -116,20 +116,20 @@ test("powers: one per dot, level up to the dots, amalgams need the other discipl
 });
 
 test("losing dots drops powers that are no longer allowed", () => {
-  const values = pick(pick(base(), { cla: "Brujah", disciplinas: ["Potência: Corpo Letal", "Rapidez: Graça Felina"] }), { cla: "Gangrel" });
+  const values = pick(pick(base(), { cla: "Brujah", disciplinas: ["Potência: Corpo Letal", "Rapidez: Graça Felina"] }), { cla: "Gangrel", disciplina_inicial: "Animalismo 2, Fortitude 1" });
   assert.deepEqual(values.disciplinas, []);
 });
 
 test("the sorcerer gets exactly one level-1 ritual", () => {
-  const rituals = powerStatus(powerRules(template).find((item) => item.id === "rituais_iniciais"), pick(base(), { cla: "Tremere" }))[0];
+  const rituals = powerStatus(powerRules(template).find((item) => item.id === "rituais_iniciais"), pick(base(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1" }))[0];
   assert.deepEqual([rituals.allowed, rituals.maxLevel], [1, 1]);
   assert.ok(rituals.available.every((ritual) => ritual.level === 1));
 });
 
-test("Caitiff pick three disciplines and the choice fields leave the grid", () => {
-  const values = pick(base(), { cla: "Caitiff", caitiff_disciplina_1: "Fortitude", caitiff_disciplina_2: "Auspícios", caitiff_disciplina_3: "Rapidez" });
-  assert.deepEqual([values.disc_fortitude, values.disc_auspicios, values.disc_rapidez], [1, 1, 1]);
-  assert.ok(grantChoiceFieldIds(template).has("caitiff_disciplina_1"));
+test("Caitiff pick a distinct 2+1 pair and the choice fields leave the grid", () => {
+  const values = pick(base(), { cla: "Caitiff", disciplina_inicial: "Fortitude 2, Auspícios 1" });
+  assert.deepEqual([values.disc_fortitude, values.disc_auspicios, values.disc_rapidez], [2, 1, 0]);
+  assert.ok(grantChoiceFieldIds(template).has("disciplina_inicial"));
   assert.ok(grantChoiceFieldIds(template).has("predador_disciplina"));
 });
 
@@ -164,7 +164,7 @@ test("tampered values break the same rules the database names", () => {
     [{ especialidades: ["Briga (Membros)", "Atletismo (Corrida)"] }, ["especializacoes"]],
     [{ especialidades: ["Briga (Membros)", "Ofícios (Marcenaria)", "Medicina (Cirurgia)"] }, ["especializacoes"]],
     [{ geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
-    [{ cla: "Sangue-Ralo", disc_potencia: 0, disc_presenca: 0, disc_rapidez: 1, disc_alquimia: 1, disciplinas: ["Alquimia do Sangue-Ralo: Longo Alcance", "Rapidez: Graça Felina"], geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
+    [{ cla: "Sangue-Ralo", disc_potencia: 0, disc_presenca: 0, disc_rapidez: 1, disc_alquimia: 0, disciplina_inicial: undefined, disciplinas: ["Rapidez: Graça Felina"], geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
   ];
   for (const [change, expected] of cases) {
     const values = { ...brujah(), ...change };
@@ -174,8 +174,8 @@ test("tampered values break the same rules the database names", () => {
 });
 
 test("a Tremere needs one level-1 ritual and a clan-gated pick on the wrong clan is refused", () => {
-  let values = pick(brujah(), { cla: "Tremere" });
-  values = pick(values, { predador_disciplina: "Rapidez", disciplinas: ["Auspícios: Sentidos Aguçados", "Dominação: Compelir", "Feitiçaria do Sangue: Vitae Corrosiva", "Rapidez: Graça Felina"] });
+  let values = pick(brujah(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1" });
+  values = pick(values, { predador_disciplina: "Rapidez", disciplinas: ["Auspícios: Sentidos Aguçados", "Auspícios: Premonição", "Feitiçaria do Sangue: Vitae Corrosiva", "Rapidez: Graça Felina"] });
   assert.equal(values.disc_rapidez, 1);
   assert.deepEqual(violations(fixture.template, values), ["rituais_iniciais"]);
   values = pick(values, { rituais: ["Feitiçaria do Sangue: Caminhada de Sangue"] });

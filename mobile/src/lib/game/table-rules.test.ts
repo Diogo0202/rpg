@@ -55,18 +55,18 @@ describe("V3", () => {
 });
 
 describe("Caçador", () => {
-  it("drops Desperation dice and Edges in Despair", () => {
+  it("blocks Desperation dice but keeps Edges available in Despair", () => {
     expect(hunterRollBody({ basePool: 4, difficulty: 3, useDesperation: true, edge: "Arsenal", despair: false }))
       .toEqual({ base_pool: 4, difficulty: 3, use_desperation: true, edge: "Arsenal" });
     expect(hunterRollBody({ basePool: 4, difficulty: 3, useDesperation: true, edge: "Arsenal", despair: true }))
-      .toEqual({ base_pool: 4, difficulty: 3, use_desperation: false });
+      .toEqual({ base_pool: 4, difficulty: 3, use_desperation: false, edge: "Arsenal" });
   });
 
   it("describes a roll waiting for the table's choice", () => {
     const roll: HunterRoll = { roll_id: OP, normal_dice: [6, 3], desperation_dice: [1], desperation_ones: 1, successes: 1, difficulty: 1, success: true,
       critical_pairs: 0, critical: false, desperation_consequence: "table_choice", resolution: null, choices: ["overreach", "despair"], can_reroll: true, verdict: "Êxito" };
-    expect(describeHunterRoll(roll)).toContain("escolha Despair ou Overreach");
-    expect(describeHunterRoll({ ...roll, resolution: "overreach", choices: [] })).toContain("mesa: Overreach");
+    expect(describeHunterRoll(roll)).toContain("o jogador decide em caso de sucesso");
+    expect(describeHunterRoll({ ...roll, resolution: "overreach", choices: [] })).toContain("jogador: Forçar a Barra");
   });
 
   it("requires a non-zero cell step", () => {

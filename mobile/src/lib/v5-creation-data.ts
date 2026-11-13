@@ -36,6 +36,17 @@ const CLAN_DISCIPLINES: Record<string, string[]> = {
   "Sangue-Ralo": ["Alquimia do Sangue-Ralo"],
 };
 
+/** V2 starts with a distinct clan pair: two dots in one and one in the other. */
+const pairOptions = (labels: string[]) => labels.flatMap((twoDot, i) => labels
+  .filter((_, j) => i !== j)
+  .map((oneDot) => ({ label: `${twoDot} 2, ${oneDot} 1`, add: { [id(twoDot)]: 2, [id(oneDot)]: 1 } })));
+const caitiffOptions = V5_DISCIPLINES.filter(([, label]) => label !== "Alquimia do Sangue-Ralo").map(([, label]) => label);
+export const V5_INITIAL_DISCIPLINE_CASES: GrantCase[] = [
+  ...Object.entries(CLAN_DISCIPLINES).filter(([clan]) => clan !== "Sangue-Ralo")
+    .map(([clan, labels]) => ({ equals: clan, choices: [{ field: "disciplina_inicial", label: "Par inicial de Disciplinas", options: pairOptions(labels) }] })),
+  { equals: "Caitiff", choices: [{ field: "disciplina_inicial", label: "Par inicial de Disciplinas", options: pairOptions(caitiffOptions) }] },
+];
+
 const anyDiscipline = (field: string, label: string): GrantChoice => ({
   field, label,
   options: V5_DISCIPLINES.filter(([, name]) => name !== "Alquimia do Sangue-Ralo").map(([fieldId, name]) => ({ label: name, add: { [fieldId]: 1 } })),

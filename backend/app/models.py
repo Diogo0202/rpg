@@ -28,7 +28,7 @@ class DependentOptionCase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     equals: Annotated[str, Field(min_length=1, max_length=160)]
-    options: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=100)
+    options: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(min_length=1, max_length=128)
 
     @model_validator(mode="after")
     def unique_options(self) -> "DependentOptionCase":

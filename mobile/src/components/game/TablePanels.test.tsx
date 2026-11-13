@@ -70,8 +70,8 @@ describe("V3 table panel", () => {
 });
 
 describe("Hunter table panel", () => {
-  const roll = { roll_id: ROLL, normal_dice: [2, 3, 4, 5], desperation_dice: [1], desperation_ones: 1, successes: 0, difficulty: 2, success: false,
-    critical_pairs: 0, critical: false, desperation_consequence: "despair", resolution: null, choices: ["despair"], can_reroll: true, verdict: "Falha" };
+  const roll = { roll_id: ROLL, normal_dice: [2, 3, 4, 5], desperation_dice: [1, 6, 7, 8], desperation_ones: 1, successes: 3, difficulty: 3, success: true,
+    critical_pairs: 0, critical: false, desperation_consequence: "table_choice", resolution: null, choices: ["overreach", "despair"], can_reroll: true, verdict: "Êxito" };
 
   it("rolls, limits the Willpower reroll to three dice and resolves Despair", async () => {
     const request = vi.fn(async (method: string, path: string) => {
@@ -91,17 +91,17 @@ describe("Hunter table panel", () => {
     expect(screen.getAllByRole("button", { pressed: true })).toHaveLength(3);
     fireEvent.click(screen.getByRole("button", { name: /Rerrolar 3 dado/ }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("POST", `/api/v1/hunter/rolls/${ROLL}/reroll`, { indices: [0, 1, 2] }));
-    fireEvent.click(await screen.findByRole("button", { name: /Despair: o teste falha/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Falhar e entrar em Aflição" }));
     await waitFor(() => expect(request).toHaveBeenCalledWith("POST", `/api/v1/hunter/rolls/${ROLL}/resolve`, { choice: "despair" }));
   });
 
-  it("blocks Desperation dice and Edges in Despair and shows the narrator's cell controls", async () => {
+  it("blocks Desperation dice, keeps Edges in Despair and shows the narrator's cell controls", async () => {
     const request = vi.fn(async () => ({ cell: { id: SHEET, name: "Alfa", danger: 0, desperation: 3 }, in_despair: true, edges_blocked: true, pending_redemption: null }));
     const api = fakeApi(request as unknown as GameRequest, { narrator: true });
     render(<HunterTablePanel sheet={{ id: SHEET, name: "Ana", values: { forca: 3, triunfos: ["Arsenal"], em_desespero: true } }} api={api} />);
     await screen.findByText("Alfa");
     await waitFor(() => expect(screen.getByLabelText(/Somar 3 dado/)).toBeDisabled());
-    expect(screen.getByLabelText(/Triunfo usado/)).toBeDisabled();
+    expect(screen.getByLabelText(/Triunfo usado/)).toBeEnabled();
     expect(screen.getByRole("button", { name: "Perigo −1" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Desesperação +1" }));
     await waitFor(() => expect(api.adjust).toHaveBeenCalledWith(expect.objectContaining({ path: `/api/v1/hunter/cells/${SHEET}/adjust`, body: { danger_delta: 0, desperation_delta: 1 } })));

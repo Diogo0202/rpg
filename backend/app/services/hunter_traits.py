@@ -147,7 +147,6 @@ HUNTER_EDGES: dict[str, list[str]] = {
 }
 HUNTER_LEGACY_UNVERIFIED_EDGES = ("Vira-Casaca", "Purificar o Sobrenatural")
 HUNTER_LEGACY_EDGES = {
-    **HUNTER_EDGES,
     "Arsenal": ["Requisição de Equipe", "Especializado", "Excepcional", "Irrastreável"],
     "Frota": ["Blindagem", "Desempenho", "Vigilância", "Irrastreável"],
     "Artilharia": ["Cargas Múltiplas", "Entrega Não Convencional", "Entrega Disfarçada", "Preparo de Carga"],
@@ -156,11 +155,11 @@ HUNTER_LEGACY_EDGES = {
     "Acesso Global": ["Porta dos Fundos", "Lista de Vigilância", "Catraca", "Acesso Total"],
     "Piloto de Drone": ["Drone Armado", "Drone Autônomo", "Vigilância", "Carga Útil"],
     "Encantador de Feras": ["Mensageiro", "Matilha", "Incorruptível", "Elo Telepático"],
+    "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
     "Sentir o Sobrenatural": ["Precisão", "Alcance", "Reconhecer", "Sentido Ampliado"],
     "Repelir o Sobrenatural": ["Barreira", "Dano", "Reação Rápida", "Recuo"],
     "Frustrar o Sobrenatural": ["Rastreio", "Resistência", "Proteção de Grupo", "Contrafeitiço"],
     "Artefato": ["Fortalecer", "Detecção", "Dano", "Escudo"],
-    "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
     "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
 }
 HUNTER_PERKS = [f"{edge}: {perk}" for edge, perks in HUNTER_EDGES.items() for perk in perks]

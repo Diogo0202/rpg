@@ -16,7 +16,7 @@ Conferência visual do livro básico *Caçador: A Revanche*, PDF local `hunter.p
 ## Ainda pendente
 
 - A nova ficha v5 representa até três pessoas em Pilares livres. Perfis v4 guardam os campos Convicção/Pedra de Toque e não são migrados automaticamente.
-- Foi criada uma migração SQL para resolver falha com 1 automaticamente, atribuir a escolha de sucesso ao autor da rolagem e somar Perigo por cada 1. Ela ainda precisa ser aplicada e verificada com um teste transacional local.
+- A migration SQL resolve falha com 1 automaticamente, atribui a escolha de sucesso ao autor da rolagem e soma Perigo por cada 1. Foi verificada no banco descartável pela suíte completa de 13/11/2026, com 79 migrations e 1.296 asserções. A aplicação e a validação no Supabase hospedado permanecem pendentes.
 - Vantagens, Defeitos, custos e regra de especializações não foram conferidos nesta auditoria.
 - Não foi encontrada fonte de suplemento oficial que valide `Vira-Casaca` ou `Purificar o Sobrenatural`; o suplemento de Aliados Animais não cobre essas opções.
 

@@ -82,12 +82,13 @@ set search_path = pg_catalog, public, private
 as $$
 declare
   template_schema jsonb;
-  current_catalog jsonb;
+  hunter_catalog jsonb;
   edges jsonb := coalesce(new.values -> 'triunfos', '[]'::jsonb);
   perks jsonb := coalesce(new.values -> 'distincoes', '[]'::jsonb);
   edge_count integer;
   distinct_edges integer;
   perk_count integer;
+  distinct_perks integer;
   is_v5 boolean;
   edge_name text;
   perk_name text;
@@ -105,26 +106,31 @@ begin
   end if;
   select count(*), count(distinct value) into edge_count, distinct_edges from jsonb_array_elements_text(edges);
   if edge_count <> distinct_edges then raise exception 'Triunfos cannot repeat' using errcode = '22023'; end if;
-  select count(*) into perk_count from jsonb_array_elements_text(perks);
+  select count(*), count(distinct value) into perk_count, distinct_perks from jsonb_array_elements_text(perks);
+  if perk_count <> distinct_perks then raise exception 'Distinções cannot repeat' using errcode = '22023'; end if;
   if is_v5 then
+    if jsonb_typeof(new.values -> 'pilares') = 'array'
+       and jsonb_array_length(new.values -> 'pilares') > 3 then
+      raise exception 'Hunter v5 allows up to 3 Pilares' using errcode = '22023';
+    end if;
     if not ((edge_count = 2 and perk_count = 0) or (edge_count = 1 and perk_count = 2)) then
       raise exception 'Hunter v5 creation requires 2 Triunfos or 1 Triunfo and 2 Distinções' using errcode = '22023';
     end if;
-    current_catalog := '{"Acesso Global":["Grande Irmão Vigilante","Passe Universal","Hack Financeiro","A Letra da Lei"],"Equipamento Improvisado":["Frugal","Produção em Massa","Especialização","Criação Veloz"],"Encantador de Feras":["Incorruptível","Zoológico","Comandos Complexos","Incógnito"],"Jóquei de Drones":["Autônomo","Variantes","Habilidade Especializada","Armamentos","Carga"],"Arsenal":["Requisição Coletiva","Características Especiais","Exóticas","Irrastreável"],"Artilharia":["Cargas Múltiplas","Munição Não Letal","Exóticas","Entrega Disfarçada"],"Biblioteca":["Onde Eles Se Escondem","Quem Eles São","Como Detê-los","Como Ferí-los"],"Frota":["Armadura","Desempenho","Vigilância","Irrastreável"],"Artefato":["Fortalecer","Atração","Detecção","Escudo"],"Frustrar o Sobrenatural":["Especialização em Criatura","Guardar","Reconhecimento","Mãos Livres"],"Repelir o Sobrenatural":["Guardar","Ferir","Especialização em Criatura","Mãos Livres"],"Sentir o Sobrenatural":["Especialização em Criatura","Alcance","Precisão","Mãos Livres"]}'::jsonb;
+    hunter_catalog := '{"Acesso Global":["Grande Irmão Vigilante","Passe Universal","Hack Financeiro","A Letra da Lei"],"Equipamento Improvisado":["Frugal","Produção em Massa","Especialização","Criação Veloz"],"Encantador de Feras":["Incorruptível","Zoológico","Comandos Complexos","Incógnito"],"Jóquei de Drones":["Autônomo","Variantes","Habilidade Especializada","Armamentos","Carga"],"Arsenal":["Requisição Coletiva","Características Especiais","Exóticas","Irrastreável"],"Artilharia":["Cargas Múltiplas","Munição Não Letal","Exóticas","Entrega Disfarçada"],"Biblioteca":["Onde Eles Se Escondem","Quem Eles São","Como Detê-los","Como Ferí-los"],"Frota":["Armadura","Desempenho","Vigilância","Irrastreável"],"Artefato":["Fortalecer","Atração","Detecção","Escudo"],"Frustrar o Sobrenatural":["Especialização em Criatura","Guardar","Reconhecimento","Mãos Livres"],"Repelir o Sobrenatural":["Guardar","Ferir","Especialização em Criatura","Mãos Livres"],"Sentir o Sobrenatural":["Especialização em Criatura","Alcance","Precisão","Mãos Livres"]}'::jsonb;
   else
     if not ((edge_count = 2 and perk_count = 1) or (edge_count = 1 and perk_count = 2)) then
       raise exception 'Hunter v4 creation requires 2 Triunfos and 1 Distinção, or 1 Triunfo and 2 Distinções' using errcode = '22023';
     end if;
-    current_catalog := '{"Arsenal":["Requisição de Equipe","Especializado","Excepcional","Irrastreável"],"Frota":["Blindagem","Desempenho","Vigilância","Irrastreável"],"Artilharia":["Cargas Múltiplas","Entrega Não Convencional","Entrega Disfarçada","Preparo de Carga"],"Biblioteca":["Onde se Escondem","Onde São Fracos","Quem São","Pesquisa Rápida"],"Equipamento Improvisado":["Frugal","Fabricação Rápida","Produção em Massa","Especializado"],"Acesso Global":["Porta dos Fundos","Lista de Vigilância","Catraca","Acesso Total"],"Piloto de Drone":["Drone Armado","Drone Autônomo","Vigilância","Carga Útil"],"Encantador de Feras":["Mensageiro","Matilha","Incorruptível","Elo Telepático"],"Vira-Casaca":["Agente Duplo","Lábia","Conhecimento Interno","Disfarce Persistente"],"Sentir o Sobrenatural":["Precisão","Alcance","Reconhecer","Sentido Ampliado"],"Repelir o Sobrenatural":["Barreira","Dano","Reação Rápida","Recuo"],"Frustrar o Sobrenatural":["Rastreio","Resistência","Proteção de Grupo","Contrafeitiço"],"Artefato":["Fortalecer","Detecção","Dano","Escudo"],"Purificar o Sobrenatural":["Purificação em Grupo","Ritual","Expulsão","Santuário"]}'::jsonb;
+    hunter_catalog := '{"Arsenal":["Requisição de Equipe","Especializado","Excepcional","Irrastreável"],"Frota":["Blindagem","Desempenho","Vigilância","Irrastreável"],"Artilharia":["Cargas Múltiplas","Entrega Não Convencional","Entrega Disfarçada","Preparo de Carga"],"Biblioteca":["Onde se Escondem","Onde São Fracos","Quem São","Pesquisa Rápida"],"Equipamento Improvisado":["Frugal","Fabricação Rápida","Produção em Massa","Especializado"],"Acesso Global":["Porta dos Fundos","Lista de Vigilância","Catraca","Acesso Total"],"Piloto de Drone":["Drone Armado","Drone Autônomo","Vigilância","Carga Útil"],"Encantador de Feras":["Mensageiro","Matilha","Incorruptível","Elo Telepático"],"Vira-Casaca":["Agente Duplo","Lábia","Conhecimento Interno","Disfarce Persistente"],"Sentir o Sobrenatural":["Precisão","Alcance","Reconhecer","Sentido Ampliado"],"Repelir o Sobrenatural":["Barreira","Dano","Reação Rápida","Recuo"],"Frustrar o Sobrenatural":["Rastreio","Resistência","Proteção de Grupo","Contrafeitiço"],"Artefato":["Fortalecer","Detecção","Dano","Escudo"],"Purificar o Sobrenatural":["Purificação em Grupo","Ritual","Expulsão","Santuário"]}'::jsonb;
   end if;
   for edge_name in select value from jsonb_array_elements_text(edges) loop
-    if not current_catalog ? edge_name then raise exception 'Hunter Edge % is not in this template catalog', edge_name using errcode = '22023'; end if;
+    if not hunter_catalog ? edge_name then raise exception 'Hunter Edge % is not in this template catalog', edge_name using errcode = '22023'; end if;
   end loop;
   for perk_name in select value from jsonb_array_elements_text(perks) loop
     edge_name := btrim(split_part(perk_name, ':', 1));
     if array_length(string_to_array(perk_name, ':'), 1) <> 2
        or not edges ? edge_name
-       or not coalesce(current_catalog -> edge_name, '[]'::jsonb) ? btrim(split_part(perk_name, ':', 2)) then
+       or not coalesce(hunter_catalog -> edge_name, '[]'::jsonb) ? btrim(split_part(perk_name, ':', 2)) then
       raise exception 'Hunter Distinção % must belong to a selected Triunfo', perk_name using errcode = '22023';
     end if;
   end loop;

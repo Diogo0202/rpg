@@ -1,7 +1,6 @@
-"""Clan and predator grants and locked power lists, on the real V5 starter.
+"""Approved V1 grant contracts remain valid after the V2 starting-pair correction.
 
-tests/fixtures/v5_starter.json is the frontend starter (frontend/lib/system-starters.ts);
-frontend/tests/creation-grants.test.mjs fails when the two drift apart.
+The current V2 wizard and API use v5_starter.json in test_vampire_creation_flow.
 """
 
 import json
@@ -15,7 +14,20 @@ from app.models import TemplateDraft
 from app.services.creation_rules import evaluate_creation_rules
 from app.services.sheet_creation import prepare_sheet_creation
 
-FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "v5_starter.json").read_text(encoding="utf-8"))
+FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "v5_starter_v1.json").read_text(encoding="utf-8"))
+
+
+def test_current_v2_accepts_all_caitiff_pairs_and_keeps_a_bounded_catalog() -> None:
+    schema = json.loads((Path(__file__).parent / "fixtures" / "v5_starter.json").read_text(encoding="utf-8"))["template"]
+    parsed = TemplateDraft.model_validate(schema)
+    assert parsed.version == 2
+    case = next(case for rule in parsed.creation_rules if rule.id == "cla_disciplinas" for case in rule.cases if case.equals == "Caitiff")
+    assert len(case.choices[0].options) == 110
+    dependent = next(field for field in schema["fields"] if field["id"] == "disciplina_inicial")
+    caitiff = next(case for case in dependent["depends_on"]["cases"] if case["equals"] == "Caitiff")
+    caitiff["options"] = [f"choice{i}" for i in range(129)]
+    with pytest.raises(ValidationError, match="at most 128"):
+        TemplateDraft.model_validate(schema)
 
 
 def stored() -> dict[str, Any]:

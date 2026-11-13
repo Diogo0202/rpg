@@ -6,6 +6,7 @@ import { SYSTEM_STARTERS as WEB_STARTERS } from "../../frontend/lib/system-start
 import { creationRuleViolations } from "../src/lib/creation-grants.ts";
 import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../src/lib/priority-points.ts";
 import { masterGrantedFieldIds, validateFields } from "../src/lib/sheet-creation.ts";
+import { hunterCreationProblems, hunterV5CreationProblems } from "../src/lib/hunter-traits.ts";
 import { SyncEngine } from "../src/lib/mobile-sync/engine.ts";
 import { MemorySyncStore } from "../src/lib/mobile-sync/store.ts";
 import { applyChanges } from "../src/lib/mobile-sync/merge.ts";
@@ -95,11 +96,21 @@ test("V3: trocar a Trilha bloqueia as virtudes de outra Trilha e reajusta os val
   for (const id of after) if (id in patch) assert.equal(typeof patch[id], "number");
 });
 
-test("Caçador v4: Triunfos e Distinções em lista fechada, equipamento e sem desespero, igual ao servidor", async () => {
-  const web = await read("hunter_starter");
+test("Caçador v4 preserva o catálogo aprovado enquanto v5 exige o catálogo atual", async () => {
+  const legacy = await read("hunter_starter");
+  assert.equal(legacy.version, 4);
+  assert.ok(legacy.fields.find((field) => field.id === "distincoes").item_options.includes("Arsenal: Especializado"));
+  const values = { credo: "Marcial", impulso: "Juramento", conviccao_1: "Proteger a família", pedra_toque_1: "Clara",
+    triunfos: ["Arsenal", "Biblioteca"], distincoes: ["Arsenal: Especializado"] };
+  assert.deepEqual(hunterCreationProblems(values), []);
+  assert.ok(hunterV5CreationProblems({ ...values, pilares: ["Clara"] }).some((problem) => problem.includes("fora do catálogo")));
+});
+
+test("Caçador v5: Triunfos e Distinções em lista fechada, equipamento e sem desespero, igual ao servidor", async () => {
+  const web = await read("hunter_starter_v5");
   const mine = starter("hunter");
   assert.deepEqual(plain(mine.template), web);
-  assert.equal(mine.template.version, 4);
+  assert.equal(mine.template.version, 5);
   assert.equal(mine.template.fields.some((item) => item.id === "desespero"), false);
   for (const id of ["triunfos", "distincoes"]) assert.ok(mine.template.fields.find((item) => item.id === id).item_options.length > 0, id);
   assert.ok(mine.template.fields.some((item) => item.id === "equipamento"));

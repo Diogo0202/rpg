@@ -164,8 +164,8 @@ test("V3 play rules mirror the API: 1s cancel, botch, specialty, Willpower, heal
 
 test("V5: the predator chain applies and undoes its grants and Blood Potency follows generation", () => {
   const flow = wizard("vampire-v5");
-  flow.fill("identity", { conceito: "Mensageira", cla: "Brujah", predador: "Sanguessuga" });
-  assert.deepEqual([flow.values.humanidade, flow.values.potencia_sangue, flow.values.disc_potencia], [6, 2, 1]);
+  flow.fill("identity", { conceito: "Mensageira", cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1", predador: "Sanguessuga" });
+  assert.deepEqual([flow.values.humanidade, flow.values.potencia_sangue, flow.values.disc_potencia], [6, 2, 2]);
   const identity = flow.steps.find((step) => step.step === "identity");
   assert.ok(flow.problems(identity).some((problem) => problem.includes("escolha disciplina bônus")));
   flow.fill("identity", { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)", perdicao: "Fúria Latente" });
@@ -175,7 +175,7 @@ test("V5: the predator chain applies and undoes its grants and Blood Potency fol
   assert.ok(flow.fill("story", { conviccao_1: "Nunca abandonar os meus" }).length > 0, "a lone conviction is refused");
   assert.deepEqual(flow.fill("story", { pedra_toque_1: "Irmã caçula", principios_cronica: ["Não matar inocentes"] }), []);
   assert.deepEqual(flow.problems(story), []);
-  assert.deepEqual([flow.values.disc_rapidez, flow.values.especialidades], [2, ["Briga (Membros)"]]);
+  assert.deepEqual([flow.values.disc_rapidez, flow.values.disc_potencia, flow.values.especialidades], [1, 2, ["Briga (Membros)"]]);
   // Generation moves the base: the 11th generation starts one dot higher, outside the bands is refused.
   flow.fill("resources", { geracao: 11 });
   assert.equal(flow.values.potencia_sangue, 3);
@@ -208,12 +208,12 @@ test("V5: the predator chain applies and undoes its grants and Blood Potency fol
   flow.fill("traits", { especialidades: [...flow.values.especialidades, "Ofícios (Marcenaria)", "Medicina (Primeiros socorros)"] });
   assert.ok(flow.problems(traits).some((problem) => problem.includes("pede ao menos 1 ponto em Medicina")));
   flow.fill("traits", { especialidades: [...flow.values.especialidades.filter((item) => !item.startsWith("Medicina")), "Atletismo (Corrida)"] });
-  flow.fill("traits", { disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] });
+  flow.fill("traits", { disciplinas: ["Potência: Corpo Letal", "Potência: Proeza", "Presença: Fascínio", "Rapidez: Graça Felina"] });
   for (const step of flow.steps) assert.deepEqual(flow.problems(step), [], `step ${step.step} is clear`);
   const finished = flow.values;
   // Swapping the predator undoes Humanity, Potency, the discipline dot, the specialty and the granted flaws.
   flow.change("predador", "Consensualista");
-  assert.deepEqual([flow.values.humanidade, flow.values.potencia_sangue, flow.values.disc_rapidez], [8, 1, 1]);
+  assert.deepEqual([flow.values.humanidade, flow.values.potencia_sangue, flow.values.disc_rapidez], [8, 1, 0]);
   assert.equal(flow.values.especialidades.includes("Briga (Membros)"), false);
   assert.equal(flow.values.defeitos.includes("Exclusão de Presa: mortais ••"), false);
   assert.ok(flow.values.defeitos.includes("Exclusão de Presa: quem não consente •"));

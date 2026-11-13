@@ -4,12 +4,30 @@ import {
   BOND_DEGREE_LABELS, V5_CLAN_BANES, V5_INTENSITIES, V5_RESONANCES, V5_RESONANCE_DISCIPLINES, baneSeverity, bondDegree,
   hungerAfterHunt, resonanceEffectPreview, v5TraitProblems,
 } from "../lib/v5-sanguine.ts";
-import { V5_DISCIPLINES } from "../lib/v5-creation-data.ts";
+import { V5_DISCIPLINES, V5_INITIAL_DISCIPLINE_CASES } from "../lib/v5-creation-data.ts";
 import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
 import { validateFields } from "../lib/sheet-creation.ts";
 
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const field = (id) => v5.template.fields.find((item) => item.id === id);
+
+test("V5 v2 grants the source-required distinct starting discipline pair", () => {
+  assert.equal(v5.template.version, 2);
+  assert.ok(field("disciplina_inicial"));
+  assert.equal(field("caitiff_disciplina_1"), undefined);
+  const rules = v5.template.creation_rules;
+  const clanRule = rules.find((rule) => rule.id === "cla_disciplinas");
+  const byClan = Object.fromEntries(clanRule.cases.map((item) => [item.equals, item]));
+  assert.deepEqual(byClan.Brujah.choices[0].options.map((option) => option.label), [
+    "Potência 2, Presença 1", "Potência 2, Rapidez 1", "Presença 2, Potência 1",
+    "Presença 2, Rapidez 1", "Rapidez 2, Potência 1", "Rapidez 2, Presença 1",
+  ]);
+  assert.equal(byClan.Brujah.add, undefined, "clan grants the pair only, not all three disciplines");
+  assert.equal(byClan["Sangue-Ralo"], undefined, "thin-bloods have no intrinsic discipline pair");
+  assert.ok(byClan.Caitiff.choices[0].options.some((option) => option.add.disc_auspicios === 2 && option.add.disc_fortitude === 1));
+  assert.ok(!byClan.Caitiff.choices[0].options.some((option) => option.label.includes("Alquimia")));
+  assert.equal(V5_INITIAL_DISCIPLINE_CASES.length, 15);
+});
 
 test("Bane Severity follows Blood Potency", () => {
   assert.deepEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(baneSeverity), [0, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);

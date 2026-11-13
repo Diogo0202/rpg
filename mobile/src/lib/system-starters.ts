@@ -4,7 +4,7 @@ import { HUNTER_EDGE_NAMES, HUNTER_LIMITS, HUNTER_PERKS } from "./hunter-traits.
 import { ONE_RING_META_CURRENCIES, ONE_RING_STEPS } from "./one-ring-rules.ts";
 import type { GrantCase, MetaCurrency, SheetField, SheetTemplate } from "./sheet-template.ts";
 import { V5_SHEET_EXTRA_IDS, v5SheetFields } from "./v5-sanguine.ts";
-import { CAITIFF_CHOICE_FIELDS, V5_ADVANTAGE_RULES, V5_CLAN_CASES, V5_CLAN_GENERATION_RULE, V5_DISCIPLINES, V5_POTENCY_BY_GENERATION, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES, v5SpecialtyRule } from "./v5-creation-data.ts";
+import { V5_ADVANTAGE_RULES, V5_CLAN_CASES, V5_CLAN_GENERATION_RULE, V5_DISCIPLINES, V5_INITIAL_DISCIPLINE_CASES, V5_POTENCY_BY_GENERATION, V5_POWER_SOURCES, V5_PREDATOR_CASES, V5_PREDATOR_NAMES, V5_RITUAL_SOURCES, v5SpecialtyRule } from "./v5-creation-data.ts";
 import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BACKGROUNDS, V3_CLAN_WEAKNESSES, V3_CLANS, V3_DISCIPLINES, V3_MERIT_FLAW_RULES, V3_PATH_NAMES, V3_PATH_VIRTUES, V3_PRIORITY_RULE, V3_SECTS, V3_SPECIALTY_RULE } from "./v3-creation-data.ts";
 import { SOTDL_AFFLICTIONS, SOTDL_ANCESTRIES, SOTDL_ANCESTRY_BASE, SOTDL_ANCESTRY_CASES, SOTDL_ANCESTRY_CHOICE_FIELD, SOTDL_ANCESTRY_FIELDS, SOTDL_ATTRIBUTES, SOTDL_FAITHS } from "./sotdl-creation-data.ts";
 import { DEMON_ABILITY_GROUPS, DEMON_ATTRIBUTE_GROUPS, DEMON_BACKGROUNDS, DEMON_HOUSES, DEMON_LORES, DEMON_PRIMARY_LORE_CASES, DEMON_PRIORITY_RULE, DEMON_TORMENT_CASES, DEMON_VIRTUES } from "./demon-fallen-creation-data.ts";
@@ -127,7 +127,7 @@ function grantChoiceField(fieldId: string, label: string, controller: string, ca
 const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", [
   text("nome", "Nome", "", true), text("conceito", "Conceito"), text("cronica", "Crônica"),
   select("cla", "Clã", v5Clans), select("predador", "Tipo de predador", v5Predators),
-  ...CAITIFF_CHOICE_FIELDS.map((id, index) => grantChoiceField(id, `Disciplina Caitiff ${index + 1}`, "cla", V5_CLAN_CASES)),
+  { ...field("disciplina_inicial", "Par inicial de Disciplinas", "select"), depends_on: { field_id: "cla", cases: V5_INITIAL_DISCIPLINE_CASES.map((item) => ({ equals: item.equals, options: item.choices?.[0].options.map((option) => option.label) ?? [] })) } },
   grantChoiceField("predador_disciplina", "Disciplina bônus do predador", "predador", V5_PREDATOR_CASES),
   grantChoiceField("predador_especialidade", "Especialização do predador", "predador", V5_PREDATOR_CASES),
   ...v5Attributes.map(([id, label]) => number(id, label, 1, true)),
@@ -151,7 +151,7 @@ const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", 
   // F1: Torpor is written by the v5_set_torpor RPC (Blood panel).
   field("torpor", "Em Torpor", "checkbox", false),
 ], [willpower]);
-// New V5 starter only; approved version 1 profiles remain unchanged.
+// Version 2 uses the source-checked two-discipline starting pair. Existing v1 profiles remain unchanged.
 vampire.template.version = 2;
 
 const hunterCreeds = ["Empreendedor", "Devoto", "Inquisitivo", "Marcial", "Clandestino"];
@@ -185,8 +185,12 @@ const hunter = makeStarter("hunter", "Caçador: A Revanche", "Caçador modular",
   collection("equipamento", "Equipamento"), text("notas", "Notas"),
 ], [willpower]);
 
-// v5 uses free-text Pilares. Saved v4 schemas remain unchanged in existing campaigns.
+// v5 uses the book's free Pilares field. Saved v4 schemas remain intact in existing campaigns.
 hunter.template.version = 5;
+const pillarsField = hunter.template.fields.find((item) => item.id === "pilares");
+if (!pillarsField) hunter.template.fields.push({ ...collection("pilares", "Pilares"), max_items: 3, max_length: 160 });
+else { pillarsField.max_items = 3; pillarsField.max_length = 160; }
+hunter.template.fields = hunter.template.fields.filter((item) => !/^conviccao_[1-3]$|^pedra_toque_[1-3]$/.test(item.id));
 const hunterAttributeIds = new Set(v5Attributes.map(([id]) => id));
 const hunterSkillIds = new Set(HUNTER_SKILLS.map(([id]) => id));
 hunter.template.fields = hunter.template.fields.map((item) => hunterAttributeIds.has(item.id)
@@ -230,8 +234,8 @@ vampire.template.creation_rules = [
   ] },
   // Disciplines are fully decided by the clan and the predator pick, so they are enforced exactly;
   // Humanity starts at 7 and Blood Potency follows the generation, and both move only with the predator.
-  { type: "select_grants", id: "cla_disciplinas", label: "Disciplinas do clã", field: "cla",
-    fields: V5_DISCIPLINES.map(([id]) => id), cases: V5_CLAN_CASES },
+  { type: "select_grants", id: "cla_disciplinas", label: "Disciplinas iniciais", field: "cla",
+    fields: V5_DISCIPLINES.map(([id]) => id), cases: V5_INITIAL_DISCIPLINE_CASES },
   { type: "select_grants", id: "predador_bonus", label: "Bônus do predador", field: "predador",
     fields: ["humanidade", "potencia_sangue", ...V5_DISCIPLINES.map(([id]) => id)], base: { humanidade: 7 },
     base_by: V5_POTENCY_BY_GENERATION, cases: V5_PREDATOR_CASES },
@@ -375,7 +379,7 @@ type StarterMetadata = {
 
 const starterMetadata: Record<SystemStarter["id"], StarterMetadata> = {
   "vampire-v5": {
-    identity: ["nome", "conceito", "cronica", "cla", "perdicao", "predador", ...CAITIFF_CHOICE_FIELDS, "predador_disciplina", "predador_especialidade"],
+    identity: ["nome", "conceito", "cronica", "cla", "perdicao", "predador", "disciplina_inicial", "predador_disciplina", "predador_especialidade"],
     attributes: ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"],
     skills: ["atletismo", "briga", "conducao", "furtividade", "ladroagem", "oficios", "sobrevivencia", "armas_brancas", "armas_de_fogo", "etiqueta", "empatia", "intimidacao", "lideranca", "manha", "performance", "persuasao", "subterfugio", "trato_com_animais", "academicos", "ciencia", "consciencia", "financas", "investigacao", "medicina", "ocultismo", "percepcao", "tecnologia"],
     traits: [...V5_DISCIPLINES.map(([id]) => id), "disciplinas", "rituais", "especialidades", "vantagens", "defeitos"],

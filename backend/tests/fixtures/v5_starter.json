@@ -101,8 +101,8 @@
     "identity_kind": "predator"
    },
    {
-    "id": "caitiff_disciplina_1",
-    "label": "Disciplina Caitiff 1",
+    "id": "disciplina_inicial",
+    "label": "Par inicial de Disciplinas",
     "kind": "select",
     "options": [],
     "expression": null,
@@ -111,79 +111,272 @@
      "field_id": "cla",
      "cases": [
       {
-       "equals": "Caitiff",
+       "equals": "Banu Haqim",
        "options": [
-        "Animalismo",
-        "Auspícios",
-        "Dominação",
-        "Fortitude",
-        "Ofuscação",
-        "Potência",
-        "Presença",
-        "Metamorfose",
-        "Rapidez",
-        "Feitiçaria do Sangue",
-        "Oblívio"
+        "Feitiçaria do Sangue 2, Ofuscação 1",
+        "Feitiçaria do Sangue 2, Rapidez 1",
+        "Ofuscação 2, Feitiçaria do Sangue 1",
+        "Ofuscação 2, Rapidez 1",
+        "Rapidez 2, Feitiçaria do Sangue 1",
+        "Rapidez 2, Ofuscação 1"
        ]
-      }
-     ]
-    },
-    "creation_step": "identity"
-   },
-   {
-    "id": "caitiff_disciplina_2",
-    "label": "Disciplina Caitiff 2",
-    "kind": "select",
-    "options": [],
-    "expression": null,
-    "required": false,
-    "depends_on": {
-     "field_id": "cla",
-     "cases": [
+      },
       {
-       "equals": "Caitiff",
+       "equals": "Brujah",
        "options": [
-        "Animalismo",
-        "Auspícios",
-        "Dominação",
-        "Fortitude",
-        "Ofuscação",
-        "Potência",
-        "Presença",
-        "Metamorfose",
-        "Rapidez",
-        "Feitiçaria do Sangue",
-        "Oblívio"
+        "Potência 2, Presença 1",
+        "Potência 2, Rapidez 1",
+        "Presença 2, Potência 1",
+        "Presença 2, Rapidez 1",
+        "Rapidez 2, Potência 1",
+        "Rapidez 2, Presença 1"
        ]
-      }
-     ]
-    },
-    "creation_step": "identity"
-   },
-   {
-    "id": "caitiff_disciplina_3",
-    "label": "Disciplina Caitiff 3",
-    "kind": "select",
-    "options": [],
-    "expression": null,
-    "required": false,
-    "depends_on": {
-     "field_id": "cla",
-     "cases": [
+      },
+      {
+       "equals": "Gangrel",
+       "options": [
+        "Animalismo 2, Fortitude 1",
+        "Animalismo 2, Metamorfose 1",
+        "Fortitude 2, Animalismo 1",
+        "Fortitude 2, Metamorfose 1",
+        "Metamorfose 2, Animalismo 1",
+        "Metamorfose 2, Fortitude 1"
+       ]
+      },
+      {
+       "equals": "Hecata",
+       "options": [
+        "Auspícios 2, Fortitude 1",
+        "Auspícios 2, Oblívio 1",
+        "Fortitude 2, Auspícios 1",
+        "Fortitude 2, Oblívio 1",
+        "Oblívio 2, Auspícios 1",
+        "Oblívio 2, Fortitude 1"
+       ]
+      },
+      {
+       "equals": "Lasombra",
+       "options": [
+        "Dominação 2, Oblívio 1",
+        "Dominação 2, Potência 1",
+        "Oblívio 2, Dominação 1",
+        "Oblívio 2, Potência 1",
+        "Potência 2, Dominação 1",
+        "Potência 2, Oblívio 1"
+       ]
+      },
+      {
+       "equals": "Malkaviano",
+       "options": [
+        "Auspícios 2, Dominação 1",
+        "Auspícios 2, Ofuscação 1",
+        "Dominação 2, Auspícios 1",
+        "Dominação 2, Ofuscação 1",
+        "Ofuscação 2, Auspícios 1",
+        "Ofuscação 2, Dominação 1"
+       ]
+      },
+      {
+       "equals": "Ministério",
+       "options": [
+        "Metamorfose 2, Ofuscação 1",
+        "Metamorfose 2, Presença 1",
+        "Ofuscação 2, Metamorfose 1",
+        "Ofuscação 2, Presença 1",
+        "Presença 2, Metamorfose 1",
+        "Presença 2, Ofuscação 1"
+       ]
+      },
+      {
+       "equals": "Nosferatu",
+       "options": [
+        "Animalismo 2, Ofuscação 1",
+        "Animalismo 2, Potência 1",
+        "Ofuscação 2, Animalismo 1",
+        "Ofuscação 2, Potência 1",
+        "Potência 2, Animalismo 1",
+        "Potência 2, Ofuscação 1"
+       ]
+      },
+      {
+       "equals": "Ravnos",
+       "options": [
+        "Animalismo 2, Ofuscação 1",
+        "Animalismo 2, Presença 1",
+        "Ofuscação 2, Animalismo 1",
+        "Ofuscação 2, Presença 1",
+        "Presença 2, Animalismo 1",
+        "Presença 2, Ofuscação 1"
+       ]
+      },
+      {
+       "equals": "Salubri",
+       "options": [
+        "Auspícios 2, Dominação 1",
+        "Auspícios 2, Fortitude 1",
+        "Dominação 2, Auspícios 1",
+        "Dominação 2, Fortitude 1",
+        "Fortitude 2, Auspícios 1",
+        "Fortitude 2, Dominação 1"
+       ]
+      },
+      {
+       "equals": "Toreador",
+       "options": [
+        "Auspícios 2, Presença 1",
+        "Auspícios 2, Rapidez 1",
+        "Presença 2, Auspícios 1",
+        "Presença 2, Rapidez 1",
+        "Rapidez 2, Auspícios 1",
+        "Rapidez 2, Presença 1"
+       ]
+      },
+      {
+       "equals": "Tremere",
+       "options": [
+        "Auspícios 2, Dominação 1",
+        "Auspícios 2, Feitiçaria do Sangue 1",
+        "Dominação 2, Auspícios 1",
+        "Dominação 2, Feitiçaria do Sangue 1",
+        "Feitiçaria do Sangue 2, Auspícios 1",
+        "Feitiçaria do Sangue 2, Dominação 1"
+       ]
+      },
+      {
+       "equals": "Tzimisce",
+       "options": [
+        "Animalismo 2, Dominação 1",
+        "Animalismo 2, Metamorfose 1",
+        "Dominação 2, Animalismo 1",
+        "Dominação 2, Metamorfose 1",
+        "Metamorfose 2, Animalismo 1",
+        "Metamorfose 2, Dominação 1"
+       ]
+      },
+      {
+       "equals": "Ventrue",
+       "options": [
+        "Dominação 2, Fortitude 1",
+        "Dominação 2, Presença 1",
+        "Fortitude 2, Dominação 1",
+        "Fortitude 2, Presença 1",
+        "Presença 2, Dominação 1",
+        "Presença 2, Fortitude 1"
+       ]
+      },
       {
        "equals": "Caitiff",
        "options": [
-        "Animalismo",
-        "Auspícios",
-        "Dominação",
-        "Fortitude",
-        "Ofuscação",
-        "Potência",
-        "Presença",
-        "Metamorfose",
-        "Rapidez",
-        "Feitiçaria do Sangue",
-        "Oblívio"
+        "Animalismo 2, Auspícios 1",
+        "Animalismo 2, Dominação 1",
+        "Animalismo 2, Fortitude 1",
+        "Animalismo 2, Ofuscação 1",
+        "Animalismo 2, Potência 1",
+        "Animalismo 2, Presença 1",
+        "Animalismo 2, Metamorfose 1",
+        "Animalismo 2, Rapidez 1",
+        "Animalismo 2, Feitiçaria do Sangue 1",
+        "Animalismo 2, Oblívio 1",
+        "Auspícios 2, Animalismo 1",
+        "Auspícios 2, Dominação 1",
+        "Auspícios 2, Fortitude 1",
+        "Auspícios 2, Ofuscação 1",
+        "Auspícios 2, Potência 1",
+        "Auspícios 2, Presença 1",
+        "Auspícios 2, Metamorfose 1",
+        "Auspícios 2, Rapidez 1",
+        "Auspícios 2, Feitiçaria do Sangue 1",
+        "Auspícios 2, Oblívio 1",
+        "Dominação 2, Animalismo 1",
+        "Dominação 2, Auspícios 1",
+        "Dominação 2, Fortitude 1",
+        "Dominação 2, Ofuscação 1",
+        "Dominação 2, Potência 1",
+        "Dominação 2, Presença 1",
+        "Dominação 2, Metamorfose 1",
+        "Dominação 2, Rapidez 1",
+        "Dominação 2, Feitiçaria do Sangue 1",
+        "Dominação 2, Oblívio 1",
+        "Fortitude 2, Animalismo 1",
+        "Fortitude 2, Auspícios 1",
+        "Fortitude 2, Dominação 1",
+        "Fortitude 2, Ofuscação 1",
+        "Fortitude 2, Potência 1",
+        "Fortitude 2, Presença 1",
+        "Fortitude 2, Metamorfose 1",
+        "Fortitude 2, Rapidez 1",
+        "Fortitude 2, Feitiçaria do Sangue 1",
+        "Fortitude 2, Oblívio 1",
+        "Ofuscação 2, Animalismo 1",
+        "Ofuscação 2, Auspícios 1",
+        "Ofuscação 2, Dominação 1",
+        "Ofuscação 2, Fortitude 1",
+        "Ofuscação 2, Potência 1",
+        "Ofuscação 2, Presença 1",
+        "Ofuscação 2, Metamorfose 1",
+        "Ofuscação 2, Rapidez 1",
+        "Ofuscação 2, Feitiçaria do Sangue 1",
+        "Ofuscação 2, Oblívio 1",
+        "Potência 2, Animalismo 1",
+        "Potência 2, Auspícios 1",
+        "Potência 2, Dominação 1",
+        "Potência 2, Fortitude 1",
+        "Potência 2, Ofuscação 1",
+        "Potência 2, Presença 1",
+        "Potência 2, Metamorfose 1",
+        "Potência 2, Rapidez 1",
+        "Potência 2, Feitiçaria do Sangue 1",
+        "Potência 2, Oblívio 1",
+        "Presença 2, Animalismo 1",
+        "Presença 2, Auspícios 1",
+        "Presença 2, Dominação 1",
+        "Presença 2, Fortitude 1",
+        "Presença 2, Ofuscação 1",
+        "Presença 2, Potência 1",
+        "Presença 2, Metamorfose 1",
+        "Presença 2, Rapidez 1",
+        "Presença 2, Feitiçaria do Sangue 1",
+        "Presença 2, Oblívio 1",
+        "Metamorfose 2, Animalismo 1",
+        "Metamorfose 2, Auspícios 1",
+        "Metamorfose 2, Dominação 1",
+        "Metamorfose 2, Fortitude 1",
+        "Metamorfose 2, Ofuscação 1",
+        "Metamorfose 2, Potência 1",
+        "Metamorfose 2, Presença 1",
+        "Metamorfose 2, Rapidez 1",
+        "Metamorfose 2, Feitiçaria do Sangue 1",
+        "Metamorfose 2, Oblívio 1",
+        "Rapidez 2, Animalismo 1",
+        "Rapidez 2, Auspícios 1",
+        "Rapidez 2, Dominação 1",
+        "Rapidez 2, Fortitude 1",
+        "Rapidez 2, Ofuscação 1",
+        "Rapidez 2, Potência 1",
+        "Rapidez 2, Presença 1",
+        "Rapidez 2, Metamorfose 1",
+        "Rapidez 2, Feitiçaria do Sangue 1",
+        "Rapidez 2, Oblívio 1",
+        "Feitiçaria do Sangue 2, Animalismo 1",
+        "Feitiçaria do Sangue 2, Auspícios 1",
+        "Feitiçaria do Sangue 2, Dominação 1",
+        "Feitiçaria do Sangue 2, Fortitude 1",
+        "Feitiçaria do Sangue 2, Ofuscação 1",
+        "Feitiçaria do Sangue 2, Potência 1",
+        "Feitiçaria do Sangue 2, Presença 1",
+        "Feitiçaria do Sangue 2, Metamorfose 1",
+        "Feitiçaria do Sangue 2, Rapidez 1",
+        "Feitiçaria do Sangue 2, Oblívio 1",
+        "Oblívio 2, Animalismo 1",
+        "Oblívio 2, Auspícios 1",
+        "Oblívio 2, Dominação 1",
+        "Oblívio 2, Fortitude 1",
+        "Oblívio 2, Ofuscação 1",
+        "Oblívio 2, Potência 1",
+        "Oblívio 2, Presença 1",
+        "Oblívio 2, Metamorfose 1",
+        "Oblívio 2, Rapidez 1",
+        "Oblívio 2, Feitiçaria do Sangue 1"
        ]
       }
      ]
@@ -1505,7 +1698,7 @@
    {
     "type": "select_grants",
     "id": "cla_disciplinas",
-    "label": "Disciplinas do clã",
+    "label": "Disciplinas iniciais",
     "field": "cla",
     "fields": [
      "disc_animalismo",
@@ -1524,337 +1717,1521 @@
     "cases": [
      {
       "equals": "Banu Haqim",
-      "add": {
-       "disc_feiticaria": 1,
-       "disc_ofuscacao": 1,
-       "disc_rapidez": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Feitiçaria do Sangue 2, Ofuscação 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Rapidez 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Rapidez 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Ofuscação 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_ofuscacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Brujah",
-      "add": {
-       "disc_potencia": 1,
-       "disc_presenca": 1,
-       "disc_rapidez": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Potência 2, Presença 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Potência 2, Rapidez 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Presença 2, Potência 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Presença 2, Rapidez 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Potência 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Presença 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_presenca": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Gangrel",
-      "add": {
-       "disc_animalismo": 1,
-       "disc_fortitude": 1,
-       "disc_metamorfose": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Animalismo 2, Fortitude 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Animalismo 2, Metamorfose 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Animalismo 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Metamorfose 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Animalismo 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Fortitude 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_fortitude": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Hecata",
-      "add": {
-       "disc_auspicios": 1,
-       "disc_fortitude": 1,
-       "disc_oblivio": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Auspícios 2, Fortitude 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Auspícios 2, Oblívio 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Auspícios 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Oblívio 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Auspícios 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Fortitude 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_fortitude": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Lasombra",
-      "add": {
-       "disc_dominacao": 1,
-       "disc_oblivio": 1,
-       "disc_potencia": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Dominação 2, Oblívio 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Potência 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Dominação 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Potência 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Potência 2, Dominação 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Potência 2, Oblívio 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_oblivio": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Malkaviano",
-      "add": {
-       "disc_auspicios": 1,
-       "disc_dominacao": 1,
-       "disc_ofuscacao": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Auspícios 2, Dominação 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Auspícios 2, Ofuscação 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Auspícios 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Ofuscação 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Auspícios 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Dominação 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_dominacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Ministério",
-      "add": {
-       "disc_metamorfose": 1,
-       "disc_ofuscacao": 1,
-       "disc_presenca": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Metamorfose 2, Ofuscação 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Presença 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Metamorfose 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Presença 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Presença 2, Metamorfose 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Presença 2, Ofuscação 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_ofuscacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Nosferatu",
-      "add": {
-       "disc_animalismo": 1,
-       "disc_ofuscacao": 1,
-       "disc_potencia": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Animalismo 2, Ofuscação 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Animalismo 2, Potência 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Animalismo 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Potência 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Potência 2, Animalismo 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Potência 2, Ofuscação 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_ofuscacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Ravnos",
-      "add": {
-       "disc_animalismo": 1,
-       "disc_ofuscacao": 1,
-       "disc_presenca": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Animalismo 2, Ofuscação 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Animalismo 2, Presença 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Animalismo 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Presença 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Presença 2, Animalismo 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Presença 2, Ofuscação 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_ofuscacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Salubri",
-      "add": {
-       "disc_auspicios": 1,
-       "disc_dominacao": 1,
-       "disc_fortitude": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Auspícios 2, Dominação 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Auspícios 2, Fortitude 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Auspícios 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Fortitude 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Auspícios 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Dominação 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_dominacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Toreador",
-      "add": {
-       "disc_auspicios": 1,
-       "disc_presenca": 1,
-       "disc_rapidez": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Auspícios 2, Presença 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Auspícios 2, Rapidez 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Presença 2, Auspícios 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Presença 2, Rapidez 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Auspícios 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Presença 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_presenca": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Tremere",
-      "add": {
-       "disc_auspicios": 1,
-       "disc_dominacao": 1,
-       "disc_feiticaria": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Auspícios 2, Dominação 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Auspícios 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_auspicios": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Auspícios 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Auspícios 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Dominação 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_dominacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Tzimisce",
-      "add": {
-       "disc_animalismo": 1,
-       "disc_dominacao": 1,
-       "disc_metamorfose": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Animalismo 2, Dominação 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Animalismo 2, Metamorfose 1",
+          "add": {
+           "disc_animalismo": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Animalismo 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Metamorfose 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Animalismo 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Dominação 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_dominacao": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Ventrue",
-      "add": {
-       "disc_dominacao": 1,
-       "disc_fortitude": 1,
-       "disc_presenca": 1
-      }
-     },
-     {
-      "equals": "Sangue-Ralo",
-      "add": {
-       "disc_alquimia": 1
-      }
+      "choices": [
+       {
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
+        "options": [
+         {
+          "label": "Dominação 2, Fortitude 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Dominação 2, Presença 1",
+          "add": {
+           "disc_dominacao": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Dominação 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Presença 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Presença 2, Dominação 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Presença 2, Fortitude 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_fortitude": 1
+          }
+         }
+        ]
+       }
+      ]
      },
      {
       "equals": "Caitiff",
       "choices": [
        {
-        "field": "caitiff_disciplina_1",
-        "label": "Disciplina 1",
+        "field": "disciplina_inicial",
+        "label": "Par inicial de Disciplinas",
         "options": [
          {
-          "label": "Animalismo",
+          "label": "Animalismo 2, Auspícios 1",
           "add": {
-           "disc_animalismo": 1
-          }
-         },
-         {
-          "label": "Auspícios",
-          "add": {
+           "disc_animalismo": 2,
            "disc_auspicios": 1
           }
          },
          {
-          "label": "Dominação",
+          "label": "Animalismo 2, Dominação 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_dominacao": 1
           }
          },
          {
-          "label": "Fortitude",
+          "label": "Animalismo 2, Fortitude 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_fortitude": 1
           }
          },
          {
-          "label": "Ofuscação",
+          "label": "Animalismo 2, Ofuscação 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_ofuscacao": 1
           }
          },
          {
-          "label": "Potência",
+          "label": "Animalismo 2, Potência 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_potencia": 1
           }
          },
          {
-          "label": "Presença",
+          "label": "Animalismo 2, Presença 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_presenca": 1
           }
          },
          {
-          "label": "Metamorfose",
+          "label": "Animalismo 2, Metamorfose 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_metamorfose": 1
           }
          },
          {
-          "label": "Rapidez",
+          "label": "Animalismo 2, Rapidez 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_rapidez": 1
           }
          },
          {
-          "label": "Feitiçaria do Sangue",
+          "label": "Animalismo 2, Feitiçaria do Sangue 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_feiticaria": 1
           }
          },
          {
-          "label": "Oblívio",
+          "label": "Animalismo 2, Oblívio 1",
           "add": {
+           "disc_animalismo": 2,
            "disc_oblivio": 1
           }
-         }
-        ]
-       },
-       {
-        "field": "caitiff_disciplina_2",
-        "label": "Disciplina 2",
-        "options": [
+         },
          {
-          "label": "Animalismo",
+          "label": "Auspícios 2, Animalismo 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_animalismo": 1
           }
          },
          {
-          "label": "Auspícios",
+          "label": "Auspícios 2, Dominação 1",
           "add": {
-           "disc_auspicios": 1
-          }
-         },
-         {
-          "label": "Dominação",
-          "add": {
+           "disc_auspicios": 2,
            "disc_dominacao": 1
           }
          },
          {
-          "label": "Fortitude",
+          "label": "Auspícios 2, Fortitude 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_fortitude": 1
           }
          },
          {
-          "label": "Ofuscação",
+          "label": "Auspícios 2, Ofuscação 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_ofuscacao": 1
           }
          },
          {
-          "label": "Potência",
+          "label": "Auspícios 2, Potência 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_potencia": 1
           }
          },
          {
-          "label": "Presença",
+          "label": "Auspícios 2, Presença 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_presenca": 1
           }
          },
          {
-          "label": "Metamorfose",
+          "label": "Auspícios 2, Metamorfose 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_metamorfose": 1
           }
          },
          {
-          "label": "Rapidez",
+          "label": "Auspícios 2, Rapidez 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_rapidez": 1
           }
          },
          {
-          "label": "Feitiçaria do Sangue",
+          "label": "Auspícios 2, Feitiçaria do Sangue 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_feiticaria": 1
           }
          },
          {
-          "label": "Oblívio",
+          "label": "Auspícios 2, Oblívio 1",
           "add": {
+           "disc_auspicios": 2,
            "disc_oblivio": 1
           }
-         }
-        ]
-       },
-       {
-        "field": "caitiff_disciplina_3",
-        "label": "Disciplina 3",
-        "options": [
+         },
          {
-          "label": "Animalismo",
+          "label": "Dominação 2, Animalismo 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_animalismo": 1
           }
          },
          {
-          "label": "Auspícios",
+          "label": "Dominação 2, Auspícios 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_auspicios": 1
           }
          },
          {
-          "label": "Dominação",
+          "label": "Dominação 2, Fortitude 1",
           "add": {
-           "disc_dominacao": 1
-          }
-         },
-         {
-          "label": "Fortitude",
-          "add": {
+           "disc_dominacao": 2,
            "disc_fortitude": 1
           }
          },
          {
-          "label": "Ofuscação",
+          "label": "Dominação 2, Ofuscação 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_ofuscacao": 1
           }
          },
          {
-          "label": "Potência",
+          "label": "Dominação 2, Potência 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_potencia": 1
           }
          },
          {
-          "label": "Presença",
+          "label": "Dominação 2, Presença 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_presenca": 1
           }
          },
          {
-          "label": "Metamorfose",
+          "label": "Dominação 2, Metamorfose 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_metamorfose": 1
           }
          },
          {
-          "label": "Rapidez",
+          "label": "Dominação 2, Rapidez 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_rapidez": 1
           }
          },
          {
-          "label": "Feitiçaria do Sangue",
+          "label": "Dominação 2, Feitiçaria do Sangue 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_feiticaria": 1
           }
          },
          {
-          "label": "Oblívio",
+          "label": "Dominação 2, Oblívio 1",
           "add": {
+           "disc_dominacao": 2,
            "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Animalismo 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Auspícios 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Dominação 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Ofuscação 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Potência 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Presença 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Metamorfose 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Rapidez 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Fortitude 2, Oblívio 1",
+          "add": {
+           "disc_fortitude": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Animalismo 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Auspícios 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Dominação 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Fortitude 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Potência 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Presença 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Metamorfose 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Rapidez 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Ofuscação 2, Oblívio 1",
+          "add": {
+           "disc_ofuscacao": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Potência 2, Animalismo 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Potência 2, Auspícios 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Potência 2, Dominação 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Potência 2, Fortitude 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Potência 2, Ofuscação 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Potência 2, Presença 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Potência 2, Metamorfose 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Potência 2, Rapidez 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Potência 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Potência 2, Oblívio 1",
+          "add": {
+           "disc_potencia": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Presença 2, Animalismo 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Presença 2, Auspícios 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Presença 2, Dominação 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Presença 2, Fortitude 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Presença 2, Ofuscação 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Presença 2, Potência 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Presença 2, Metamorfose 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Presença 2, Rapidez 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Presença 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Presença 2, Oblívio 1",
+          "add": {
+           "disc_presenca": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Animalismo 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Auspícios 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Dominação 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Fortitude 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Ofuscação 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Potência 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Presença 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Rapidez 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Metamorfose 2, Oblívio 1",
+          "add": {
+           "disc_metamorfose": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Animalismo 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Auspícios 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Dominação 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Fortitude 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Ofuscação 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Potência 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Presença 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Metamorfose 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_feiticaria": 1
+          }
+         },
+         {
+          "label": "Rapidez 2, Oblívio 1",
+          "add": {
+           "disc_rapidez": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Animalismo 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Auspícios 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Dominação 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Fortitude 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Ofuscação 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Potência 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Presença 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Metamorfose 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Rapidez 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Feitiçaria do Sangue 2, Oblívio 1",
+          "add": {
+           "disc_feiticaria": 2,
+           "disc_oblivio": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Animalismo 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_animalismo": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Auspícios 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_auspicios": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Dominação 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_dominacao": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Fortitude 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_fortitude": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Ofuscação 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_ofuscacao": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Potência 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_potencia": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Presença 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_presenca": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Metamorfose 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_metamorfose": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Rapidez 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_rapidez": 1
+          }
+         },
+         {
+          "label": "Oblívio 2, Feitiçaria do Sangue 1",
+          "add": {
+           "disc_oblivio": 2,
+           "disc_feiticaria": 1
           }
          }
         ]

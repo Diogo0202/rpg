@@ -95,7 +95,12 @@ def test_hunter_v4_has_no_sheet_desperation_and_lists_edges():
     assert TEMPLATE.version == 4
     assert "desespero" not in fields
     assert fields["em_desespero"].kind.value == "checkbox"
-    assert fields["triunfos"].item_options == list(HUNTER_EDGES)
+    assert set(fields["triunfos"].item_options) == {
+        "Arsenal", "Frota", "Artilharia", "Biblioteca", "Equipamento Improvisado",
+        "Acesso Global", "Piloto de Drone", "Encantador de Feras", "Vira-Casaca",
+        "Sentir o Sobrenatural", "Repelir o Sobrenatural", "Frustrar o Sobrenatural",
+        "Artefato", "Purificar o Sobrenatural",
+    }
     assert "Arsenal: Especializado" in fields["distincoes"].item_options
     assert fields["equipamento"].kind.value == "collection"
 
@@ -126,3 +131,17 @@ def test_older_hunter_templates_skip_the_edge_count():
     values = {"credo": "Marcial", "impulso": "Juramento", "conviccao_1": "a", "pedra_toque_1": "b"}
     assert template_creation_problems("hunter", 3, {"conviccao_1", "triunfos"}, values) == []
     assert template_creation_problems("vampire-v5", 4, {"nome"}, {}) == []
+
+
+@pytest.mark.parametrize("mode", [0, 1, 2])
+def test_current_hunter_starter_creates_each_skill_mode_with_free_text_pillars(mode):
+    schema = json.loads((Path(__file__).parent / "fixtures/hunter_starter_v5.json").read_text(encoding="utf-8"))
+    values = {key: value for key, value in values_for_mode(mode).items()
+              if not key.startswith(("conviccao_", "pedra_toque_"))}
+    values.update(pilares=["Irmã Clara", "Marta", "João"], triunfos=["Arsenal", "Biblioteca"], distincoes=[])
+    record = {"name": schema["name"], "version": schema["version"], "schema": schema}
+    _, _, prepared = prepare_sheet_creation(record, "Mara", values)
+    assert prepared["pilares"] == values["pilares"]
+    assert prepared["triunfos"] == ["Arsenal", "Biblioteca"]
+    with pytest.raises(ValueError):
+        prepare_sheet_creation(record, "Mara", {**values, "pilares": values["pilares"] + ["Quarta pessoa"]})

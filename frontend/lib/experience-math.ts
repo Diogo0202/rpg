@@ -118,7 +118,12 @@ function clanDisciplines(template: TemplateLike, clan: string): string[] {
     const entry = raw as Record<string, unknown>;
     if (entry.type === "select_grants" && entry.field === "cla" && Array.isArray(entry.cases)) {
       for (const item of entry.cases as Array<Record<string, unknown>>) {
-        if (item?.equals === clan && item.add && typeof item.add === "object") out.push(...Object.keys(item.add as object));
+        if (item?.equals !== clan) continue;
+        if (item.add && typeof item.add === "object") out.push(...Object.keys(item.add as object));
+        if (Array.isArray(item.choices)) for (const choice of item.choices) {
+          if (!choice || !Array.isArray(choice.options)) continue;
+          for (const option of choice.options) if (option?.add && typeof option.add === "object") out.push(...Object.keys(option.add));
+        }
       }
     }
     if (entry.type === "priority_points" && Array.isArray(entry.pools)) {

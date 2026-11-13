@@ -141,7 +141,7 @@ class GrantChoice(BaseModel):
 
     field: Annotated[str, Field(min_length=2, max_length=64)]
     label: Annotated[str, Field(min_length=1, max_length=80)]
-    options: list[GrantChoiceOption] = Field(min_length=1, max_length=100)
+    options: list[GrantChoiceOption] = Field(min_length=1, max_length=128)
 
 
 class GrantCase(BaseModel):

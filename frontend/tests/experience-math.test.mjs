@@ -72,6 +72,7 @@ test("Hunter costs", () => {
 test("disciplines resolve by clan from the real starters", () => {
   const v5 = starter("vampire-v5");
   assert.equal(resolveAdvanceCategory(v5, { cla: "Brujah" }, "disc_potencia"), "clan_discipline");
+  assert.equal(resolveAdvanceCategory(v5, { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" }, "disc_rapidez"), "clan_discipline");
   assert.equal(resolveAdvanceCategory(v5, { cla: "Brujah" }, "disc_auspicios"), "out_of_clan_discipline");
   assert.equal(resolveAdvanceCategory(v5, { cla: "Caitiff" }, "disc_auspicios"), "caitiff_discipline");
   const v3 = starter("vampire-v3");

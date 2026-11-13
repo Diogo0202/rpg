@@ -5,6 +5,16 @@ import { buildChronicleContext, chronicleActivityLabel, newRollKey, parseChronic
 const SHEET = "11111111-2222-4333-8444-555555555555";
 const CAMPAIGN = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 
+test("roll field context carries its approved field without claiming numeric traits", () => {
+  const context = buildChronicleContext({ sheetId: SHEET, campaignId: CAMPAIGN, rollKey: "field:1", rollFieldId: "teste" });
+  assert.equal(context.roll_field_id, "teste");
+  assert.deepEqual(context.trait_ids, []);
+  assert.equal(withChronicle({ expression: "2d6+3" }, context).chronicle, context);
+  for (const rollFieldId of ["x", "Bad", "with space", "x".repeat(65)]) {
+    assert.equal(buildChronicleContext({ sheetId: SHEET, rollKey: "field:1", rollFieldId }).roll_field_id, undefined);
+  }
+});
+
 test("without a valid sheet no chronicle context is sent", () => {
   assert.equal(buildChronicleContext({ sheetId: null, rollKey: "k" }), undefined);
   assert.equal(buildChronicleContext({ sheetId: "local-draft", rollKey: "k" }), undefined);

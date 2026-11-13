@@ -14,7 +14,22 @@ from app.services.chronicle_gaps import (
     Supporter,
     Touchstone,
     TraitCategory,
+    analyze_chronicle_gaps,
 )
+
+
+def test_roll_activity_without_trait_ids_does_not_credit_any_stat() -> None:
+    character = ChronicleCharacter(id="c1", name="Lia", traits=[
+        SheetTrait(id="forca", name="Força", category=TraitCategory.skill),
+    ])
+    activity = [ActivityRecord(id=f"r{i}", occurred_on=date(2026, 10, 1), character_id="c1", used_trait_ids=[])
+                for i in range(5)]
+    report = analyze_chronicle_gaps(ChronicleGapRequest(characters=[character], activity=activity, as_of=date(2026, 10, 2)))
+    assert report.activity_record_count == 5
+    assert len(report.underused_traits) == 1
+    assert report.underused_traits[0].observed_uses == 0
+    assert report.underused_traits[0].total_trait_mentions == 0
+    assert report.underused_traits[0].evidence == []
 
 
 @pytest.mark.parametrize(

@@ -26,7 +26,7 @@ export const HUNTER_STEP_HELP: Record<string, string> = {
   identity: "Escolha o credo e o ímpeto do caçador. O arquétipo continua disponível nesta etapa (p. 57). A célula é vinculada pelo narrador no painel de células.",
   attributes: "Distribua os valores finais entre os nove atributos: 4/3/3/3/2/2/2/2/1. Não some esses pontos ao valor inicial (pp. 54 e 57).",
   skills: "Escolha um modo e distribua os pontos nas 27 habilidades. As demais ficam em zero. Você escolhe quais habilidades recebem cada valor (p. 61).",
-  traits: "Confira especializações e pontos de Vantagens/Defeitos. Na criação, escolha 2 Triunfos ou 1 Triunfo e 2 Distinções (p. 90). Registre o equipamento.",
+  traits: "Especializações no formato Habilidade (especialização): confira a regra da p. 117. Vantagens: 7 pontos (Recursos conta); Defeitos: 2 pontos, do catálogo. Na criação, escolha 2 Triunfos ou 1 Triunfo e 2 Distinções (p. 90). Registre o equipamento.",
   story: "Complete Ambição, Desejo e até 3 Pilares, pessoas com vínculos significativos (pp. 56 e 282). Redenção liga o fim da Aflição ao Ímpeto.",
 };
 
@@ -65,11 +65,11 @@ export const HUNTER_ADVANTAGE_RULES: CollectionPointsRule[] = [
 
 /** Rules the table should confirm against the book (F4). */
 export const HUNTER_REVIEW_RULES = [
-  "Catálogo dos Triunfos e Distinções conferido no livro básico, pp. 89–100; opções antigas Vira-Casaca e Purificar o Sobrenatural ficam fora das escolhas novas.",
+  "Os catálogos de Triunfos e Distinções foram conferidos no livro básico, pp. 89–100; Vira-Casaca e Purificar o Sobrenatural seguem apenas em fichas legadas até surgir fonte de suplemento.",
   "Criação: 2 Triunfos, ou 1 Triunfo e 2 Distinções (p. 90).",
   "Catálogo de Vantagens e Defeitos e seus pontos (7 e 2).",
-  "Desesperação: em sucesso, o jogador escolhe Forçar a Barra e eleva Perigo por cada 1, ou falha e entra em Aflição. Em falha com 1 há Aflição (pp. 127–128).",
-  "Em Aflição não se rolam dados de Desesperação; Distinções continuam disponíveis (p. 90).",
+  "Desesperação: em sucesso, o jogador escolhe Forçar a Barra e eleva Perigo por cada 1, ou falha e entra em Aflição. Em falha, qualquer 1 causa Aflição (pp. 127–128).",
+  "Em Aflição não se rolam dados de Desesperação; Distinções não dependem desses dados e continuam disponíveis (p. 90).",
   "Rerrolagem de Vontade: até 3 dados comuns, uma vez por teste, gastando 1 de Vontade.",
   "Redenção: cumprir o Ímpeto encerra o Despair, com decisão do narrador.",
 ];

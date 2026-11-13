@@ -152,10 +152,10 @@
    "disc_dominacao": 0,
    "disc_fortitude": 0,
    "disc_ofuscacao": 0,
-   "disc_potencia": 1,
+   "disc_potencia": 2,
    "disc_presenca": 1,
    "disc_metamorfose": 0,
-   "disc_rapidez": 2,
+   "disc_rapidez": 1,
    "disc_feiticaria": 0,
    "disc_oblivio": 0,
    "disc_alquimia": 0,
@@ -171,9 +171,9 @@
    "vontade_agravada": 0,
    "disciplinas": [
     "Potência: Corpo Letal",
+    "Potência: Proeza",
     "Presença: Fascínio",
-    "Rapidez: Graça Felina",
-    "Rapidez: Ligeireza"
+    "Rapidez: Graça Felina"
    ],
    "rituais": [],
    "especialidades": [
@@ -201,6 +201,7 @@
    "compulsao_atual": "Nenhuma",
    "torpor": false,
    "experiencia": 0,
+   "disciplina_inicial": "Potência 2, Presença 1",
    "predador_disciplina": "Rapidez",
    "predador_especialidade": "Briga (Membros)",
    "perdicao": "Fúria Latente"

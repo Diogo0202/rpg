@@ -114,9 +114,9 @@ const v5Template = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5").temp
 const v5Rule = (id) => v5Template.creation_rules.find((rule) => rule.id === id);
 const assign = (ids, numbers) => Object.fromEntries(ids.map((id, index) => [id, numbers[index] ?? 0]));
 
-test("Caçador v3 inclui os nove atributos e as 27 habilidades sem duplicar IDs", () => {
+test("Caçador v5 inclui os nove atributos e as 27 habilidades sem duplicar IDs", () => {
   const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter");
-  assert.equal(hunter.template.version, 4);
+  assert.equal(hunter.template.version, 5);
   const rules = Object.fromEntries(hunter.template.creation_rules.map((rule) => [rule.id, rule]));
   assert.equal(rules.atributos.fields.length, 9);
   assert.equal(rules.habilidades.fields.length, 27);
@@ -127,11 +127,12 @@ test("Caçador v3 inclui os nove atributos e as 27 habilidades sem duplicar IDs"
   assert.equal(hunter.template.fields.find((field) => field.id === "credo").required, true);
   assert.equal(hunter.template.fields.find((field) => field.id === "impulso").options.length, 7);
   assert.ok(hunter.template.fields.some((field) => field.id === "triunfos"));
-  assert.ok(hunter.template.fields.some((field) => field.id === "conviccao_1" && field.paired_with === "pedra_toque_1"));
+  assert.ok(hunter.template.fields.some((field) => field.id === "pilares" && field.kind === "collection" && field.max_items === 3));
+  assert.equal(hunter.template.fields.some((field) => field.id === "conviccao_1"), false);
 });
 
 test("fixture de Caçador validada pelo backend corresponde ao modelo publicado pelo frontend", () => {
-  const fixture = JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/hunter_starter.json", import.meta.url), "utf8"));
+  const fixture = JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/hunter_starter_v5.json", import.meta.url), "utf8"));
   const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter");
   assert.deepEqual(fixture, hunter.template);
   const mobile = MOBILE_STARTERS.find((item) => item.id === "hunter");

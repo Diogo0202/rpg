@@ -122,7 +122,7 @@ export function hunterTraitProblems(values: Record<string, FieldValue>): string[
   const desperation = values.desespero ?? 0;
   if (typeof desperation !== "number" || !Number.isInteger(desperation) || desperation < 0 || desperation > 5) problems.push("Desesperação (campo antigo da ficha) vai de 0 a 5");
   if (typeof (values.em_desespero ?? false) !== "boolean") problems.push("Em Desespero precisa ser marcado ou desmarcado");
-  problems.push(...hunterEdgeProblems(values));
+  problems.push(...legacyHunterEdgeProblems(values));
   return problems;
 }
 
@@ -145,13 +145,12 @@ export const HUNTER_EDGES: Record<string, string[]> = {
   "Repelir o Sobrenatural": ["Guardar", "Ferir", "Especialização em Criatura", "Mãos Livres"],
   "Sentir o Sobrenatural": ["Especialização em Criatura", "Alcance", "Precisão", "Mãos Livres"],
 };
-export const HUNTER_EDGE_NAMES = Object.keys(HUNTER_EDGES);
-export const HUNTER_PERKS = Object.entries(HUNTER_EDGES).flatMap(([edge, perks]) => perks.map((perk) => `${edge}: ${perk}`));
-/** At creation: two Edges and one Perk, or one Edge and two Perks (marked for review). */
-export const HUNTER_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 0], [1, 2]];
-const HUNTER_LEGACY_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 1], [1, 2]];
-const HUNTER_LEGACY_EDGES: Record<string, string[]> = {
+/** Source-verified basic book catalog, pp. 89–100. Unsupported legacy values remain on saved sheets. */
+export const HUNTER_LEGACY_UNVERIFIED_EDGES = ["Vira-Casaca", "Purificar o Sobrenatural"] as const;
+const HUNTER_LEGACY_EDGE_CATALOG: Record<string, string[]> = {
   ...HUNTER_EDGES,
+  "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
+  "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
   Arsenal: ["Requisição de Equipe", "Especializado", "Excepcional", "Irrastreável"],
   Frota: ["Blindagem", "Desempenho", "Vigilância", "Irrastreável"],
   Artilharia: ["Cargas Múltiplas", "Entrega Não Convencional", "Entrega Disfarçada", "Preparo de Carga"],
@@ -164,20 +163,19 @@ const HUNTER_LEGACY_EDGES: Record<string, string[]> = {
   "Repelir o Sobrenatural": ["Barreira", "Dano", "Reação Rápida", "Recuo"],
   "Frustrar o Sobrenatural": ["Rastreio", "Resistência", "Proteção de Grupo", "Contrafeitiço"],
   Artefato: ["Fortalecer", "Detecção", "Dano", "Escudo"],
-  "Vira-Casaca": ["Agente Duplo", "Lábia", "Conhecimento Interno", "Disfarce Persistente"],
-  "Purificar o Sobrenatural": ["Purificação em Grupo", "Ritual", "Expulsão", "Santuário"],
 };
+const HUNTER_LEGACY_EDGE_STARTS: Array<[number, number]> = [[2, 1], [1, 2]];
+export const HUNTER_EDGE_NAMES = Object.keys(HUNTER_EDGES);
+export const HUNTER_PERKS = Object.entries(HUNTER_EDGES).flatMap(([edge, perks]) => perks.map((perk) => `${edge}: ${perk}`));
+/** At creation: two Edges and one Perk, or one Edge and two Perks (marked for review). */
+export const HUNTER_EDGE_STARTS: Array<[edges: number, perks: number]> = [[2, 0], [1, 2]];
 
 function items(value: FieldValue | undefined): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim()) : [];
 }
 
 /** Every Edge is a catalog name; every Perk is "Triunfo: Distinção" of an Edge the sheet has. */
-export function hunterEdgeProblems(values: Record<string, FieldValue>): string[] {
-  return edgeProblemsFor(values, HUNTER_EDGES);
-}
-
-function edgeProblemsFor(values: Record<string, FieldValue>, catalog: Record<string, string[]>): string[] {
+function catalogEdgeProblems(values: Record<string, FieldValue>, catalog: Record<string, string[]>): string[] {
   const problems: string[] = [];
   const edges = items(values.triunfos);
   const perks = items(values.distincoes);
@@ -193,15 +191,23 @@ function edgeProblemsFor(values: Record<string, FieldValue>, catalog: Record<str
   return problems;
 }
 
+export function hunterEdgeProblems(values: Record<string, FieldValue>): string[] {
+  return catalogEdgeProblems(values, HUNTER_EDGES);
+}
+
+function legacyHunterEdgeProblems(values: Record<string, FieldValue>): string[] {
+  return catalogEdgeProblems(values, HUNTER_LEGACY_EDGE_CATALOG);
+}
+
 /** Trait problems plus the starting count of Edges and Perks. */
 export function hunterCreationProblems(values: Record<string, FieldValue>): string[] {
-  const problems = hunterTraitProblems(values).filter((problem) => !problem.includes("fora do catálogo"));
-  problems.push(...edgeProblemsFor(values, HUNTER_LEGACY_EDGES));
+  const problems = hunterTraitProblems(values);
   const counts = [items(values.triunfos).length, items(values.distincoes).length];
   if (!HUNTER_LEGACY_EDGE_STARTS.some(([edges, perks]) => edges === counts[0] && perks === counts[1])) problems.push("Na criação v4: 2 Triunfos e 1 Distinção, ou 1 Triunfo e 2 Distinções");
   return problems;
 }
 
+/** v5 sheet creation: free-text Pillars and the source-verified starting Edge/Perk counts. */
 export function hunterV5CreationProblems(values: Record<string, FieldValue>): string[] {
   const problems: string[] = [];
   if (typeof values.credo !== "string" || !HUNTER_CREEDS.includes(values.credo)) problems.push("Escolha um Credo da lista");
@@ -217,7 +223,7 @@ export function hunterV5CreationProblems(values: Record<string, FieldValue>): st
 
 export const inDespair = (values: Record<string, FieldValue>) => values.em_desespero === true;
 
-/** Edges are blocked while the hunter is in Despair (conferir no livro). */
+/** Distinções/Perks não exigem dados de Desesperação e continuam disponíveis em Aflição (p. 90). */
 export function usableEdges(values: Record<string, FieldValue>): string[] {
   return items(values.triunfos);
 }
@@ -227,7 +233,7 @@ export type HunterOutcome = {
   desperation_ones: number; desperation_consequence: "table_choice" | "despair" | null;
 };
 
-/** Mirror of private.hunter_roll_outcome: 6+ succeed, each pair of 10s adds 2, a Desperation 1 asks the table. */
+/** Mirror of private.hunter_roll_outcome: a success with Desperation 1s lets the player choose (p. 128). */
 export function hunterRollOutcome(normal: number[], desperation: number[], difficulty: number): HunterOutcome {
   const faces = [...normal, ...desperation];
   const pairs = Math.floor(faces.filter((face) => face === 10).length / 2);
@@ -238,7 +244,7 @@ export function hunterRollOutcome(normal: number[], desperation: number[], diffi
     desperation_consequence: !ones ? null : success ? "table_choice" : "despair" };
 }
 
-/** What the table may pick: Overreach only on a success (conferir no livro). */
+/** The player chooses: Forçar a Barra on success; Aflição on any 1 (pp. 127–128). */
 export function desperationChoices(outcome: Pick<HunterOutcome, "success" | "desperation_ones">): Array<"overreach" | "despair"> {
   return !outcome.desperation_ones ? [] : outcome.success ? ["overreach", "despair"] : ["despair"];
 }

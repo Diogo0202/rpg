@@ -1,5 +1,5 @@
 begin;
-select plan(41);
+select plan(54);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -177,6 +177,63 @@ reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000001', true);
 select is((select count(*)::integer from public.character_advances), 4, 'owner reads the history of own sheets');
+
+-- V2 pair grants: XP considers all clan options, not just the selected pair.
+reset role;
+select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000002', true);
+insert into public.system_templates(id,campaign_id,owner_id,name,status,schema)
+select '33500000-0000-0000-0000-000000000004',campaign_id,owner_id,'V5 XP pair version','approved',jsonb_set(
+  jsonb_set(schema, '{fields}', (schema->'fields') || '[{"id":"disciplina_inicial","kind":"select","options":["Potence 2 Presence 1","Celerity 2 Potence 1","Auspex 2 Presence 1"]},{"id":"disc_presenca","kind":"number","min":0,"max":5},{"id":"disc_rapidez","kind":"number","min":0,"max":5}]'::jsonb),
+  '{creation_rules}', '[{"type":"select_grants","id":"cla_disciplinas","label":"Initial pair","field":"cla",
+    "fields":["disc_potencia","disc_presenca","disc_rapidez","disc_auspicios"],
+    "cases":[{"equals":"Brujah","choices":[{"field":"disciplina_inicial","label":"Pair","options":[
+      {"label":"Potence 2 Presence 1","add":{"disc_potencia":2,"disc_presenca":1}},
+      {"label":"Celerity 2 Potence 1","add":{"disc_rapidez":2,"disc_potencia":1}}
+    ]}]},{"equals":"Toreador","choices":[{"field":"disciplina_inicial","label":"Pair","options":[
+      {"label":"Auspex 2 Presence 1","add":{"disc_auspicios":2,"disc_presenca":1}}
+    ]}]}]}]'::jsonb)
+from public.system_templates where id = '33500000-0000-0000-0000-000000000001';
+-- Saved initial choice is deliberately the pair without Celerity.
+alter table public.character_sheets disable trigger character_sheets_validate_rules;
+insert into public.character_sheets(id,campaign_id,template_id,owner_id,name,values)
+select '43500000-0000-0000-0000-000000000004',campaign_id,'33500000-0000-0000-0000-000000000004',owner_id,'Brujah V2',values || '{"disciplina_inicial":"Potence 2 Presence 1","disc_potencia":2,"disc_presenca":1,"disc_rapidez":0}'::jsonb
+from public.character_sheets where id = '43500000-0000-0000-0000-000000000001';
+alter table public.character_sheets enable trigger character_sheets_validate_rules;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000001', true);
+select is(public.quote_advance('43500000-0000-0000-0000-000000000004','disc_rapidez',1)->>'category',
+  'clan_discipline','unselected third clan Discipline retains clan category');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000004','disc_rapidez',1)->>'cost')::integer,
+  5,'unselected third clan Discipline costs new level times five');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000004','disc_potencia',3)->>'cost')::integer,
+  15,'selected starting Discipline still uses clan cost');
+select is(public.quote_advance('43500000-0000-0000-0000-000000000004','disc_auspicios',1)->>'category',
+  'out_of_clan_discipline','another clan option does not grant Brujah clan pricing');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000004','disc_auspicios',1)->>'cost')::integer,
+  7,'external Discipline retains seven XP cost');
+select is((private.quote_advance_for(
+  (select schema from public.system_templates where id='33500000-0000-0000-0000-000000000004'),
+  '{"cla":"Caitiff","disc_rapidez":0}'::jsonb,'disc_rapidez',1,null)->>'cost')::integer,
+  6,'Caitiff retain six XP cost despite pair options');
+select is((public.purchase_advance('43500000-0000-0000-0000-000000000004','disc_rapidez',1,
+  (select version from public.character_sheets where id='43500000-0000-0000-0000-000000000004'),
+  '53500000-0000-0000-0000-000000000010')->'advance'->>'cost')::integer,
+  5,'pending request reserves the recalculated clan price');
+select is((select status::text from public.character_advances where operation_id='53500000-0000-0000-0000-000000000010'),
+  'pending','pair-based advance still requires narrator approval');
+select is((select values->>'disc_rapidez' from public.character_sheets where id='43500000-0000-0000-0000-000000000004'),
+  '0','pending pair-based request leaves trait unchanged');
+select is((public.quote_advance('43500000-0000-0000-0000-000000000004','disc_auspicios',1)->>'xp_available')::integer,
+  14,'pending request reserves five of nineteen available XP');
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '13500000-0000-0000-0000-000000000002', true);
+select is((public.review_advance((select id from public.character_advances where operation_id='53500000-0000-0000-0000-000000000010'),true)->'advance'->>'cost')::integer,
+  5,'approval recalculates the same clan price');
+select is((select values->>'disc_rapidez' from public.character_sheets where id='43500000-0000-0000-0000-000000000004'),
+  '1','approved request applies the third clan Discipline');
+select is((select values->>'experiencia' from public.character_sheets where id='43500000-0000-0000-0000-000000000004'),
+  '14','approval debits five XP once');
 
 select * from finish();
 rollback;

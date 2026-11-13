@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(49);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -23,9 +23,9 @@ values ('3a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-0000000
 insert into public.system_templates (id, campaign_id, owner_id, name, status, schema)
 values
   ('3a000000-0000-0000-0000-000000000002', '2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001',
-   'Hunter v4 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"conviccao_1"},{"id":"distincoes"},{"id":"triunfos"}]}'::jsonb),
+   'Hunter v4 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"conviccao_1","kind":"text"},{"id":"distincoes","kind":"collection"},{"id":"triunfos","kind":"collection"}]}'::jsonb),
   ('3a000000-0000-0000-0000-000000000003', '2a000000-0000-0000-0000-000000000001', '1a000000-0000-0000-0000-000000000001',
-   'Hunter v5 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"pilares"},{"id":"distincoes"},{"id":"triunfos"}]}'::jsonb);
+   'Hunter v5 contract', 'approved', '{"system_key":"hunter","fields":[{"id":"pilares","kind":"collection","max_items":3,"max_length":160},{"id":"distincoes","kind":"collection"},{"id":"triunfos","kind":"collection"}]}'::jsonb);
 select lives_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
   ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000002','1a000000-0000-0000-0000-000000000002','v4 preserved',
    '{"triunfos":["Arsenal","Frota"],"distincoes":["Arsenal: Excepcional"]}')$$,
@@ -42,6 +42,18 @@ select throws_ok($$insert into public.character_sheets (campaign_id,template_id,
   ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 wrong parent',
    '{"pilares":["Irmã Clara"],"triunfos":["Arsenal"],"distincoes":["Arsenal: Irrastreável","Frota: Armadura"]}')$$,
   '22023', null, 'v5 requires each Perk to match a selected Edge');
+select lives_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 three pillars',
+   '{"pilares":["Pessoa A","Pessoa B","Pessoa C"],"triunfos":["Arsenal","Frota"],"distincoes":[]}')$$,
+  'v5 accepts up to three free-text Pilares');
+select throws_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000003','1a000000-0000-0000-0000-000000000002','v5 four pillars',
+   '{"pilares":["Pessoa A","Pessoa B","Pessoa C","Pessoa D"],"triunfos":["Arsenal","Frota"],"distincoes":[]}')$$,
+  '23514', null, 'v5 rejects more than three free-text Pilares');
+select throws_ok($$insert into public.character_sheets (campaign_id,template_id,owner_id,name,values) values
+  ('2a000000-0000-0000-0000-000000000001','3a000000-0000-0000-0000-000000000002','1a000000-0000-0000-0000-000000000002','v5 repeated Perk',
+   '{"conviccao_1":"Nunca recuar","triunfos":["Arsenal"],"distincoes":["Arsenal: Excepcional","Arsenal: Excepcional"]}')$$,
+  '22023', null, 'repeated Distinções cannot satisfy the creation count');
 insert into public.character_sheets (id, campaign_id, template_id, owner_id, name, values)
 values
   ('4a000000-0000-0000-0000-000000000001', '2a000000-0000-0000-0000-000000000001', '3a000000-0000-0000-0000-000000000001',
