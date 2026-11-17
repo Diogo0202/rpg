@@ -5,11 +5,10 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createClient } from "../lib/supabase/client";
 import { downloadText } from "../lib/download";
 import { createEmptyDocument, parseMapDocument } from "../lib/map-document";
-import { kitForSystem } from "../lib/map-kits";
+import { webMapRpc } from "../lib/map-interactions-rpc";
 import { MAX_IMPORT_BYTES, prepareMapImport } from "../lib/map-transfer";
-import { MapCanvas } from "./map-editor/map-canvas";
+import { MapInteractionsPanel } from "./map-interactions-panel";
 import { MapEditor, type EditableMap } from "./map-editor/map-editor";
-import editorStyles from "./map-editor/map-editor.module.css";
 import styles from "./saved-maps-panel.module.css";
 
 const MAP_COLUMNS = "id, campaign_id, name, document, version, system_key, shared_with_players, updated_at";
@@ -20,17 +19,6 @@ const SYSTEM_OPTIONS = [
   { id: "hunter", label: "Caçador · cidade moderna" },
   { id: "shadow-demon-lord", label: "Shadow of the Demon Lord · medieval" },
 ];
-
-function ReadOnlyMap({ map }: { map: EditableMap }) {
-  const parsed = parseMapDocument(map.document, map.system_key);
-  if (!parsed.document) return <p className={styles.error} role="alert">{parsed.error}</p>;
-  return <div className={styles.readOnly}>
-    <p className={styles.intro}>O criador de mapas táticos é exclusivo da versão para computador. Aqui você consulta o mapa; para editar, abra a campanha numa tela maior.</p>
-    <div className={editorStyles.stage}>
-      <MapCanvas document={parsed.document} kit={kitForSystem(parsed.document.system_key)} portraitUrls={{}} mode="editor" label={`Mapa ${map.name}, visto de cima`} />
-    </div>
-  </div>;
-}
 
 function mapFilePart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "mapa";
@@ -49,15 +37,6 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
   const [newName, setNewName] = useState("");
   const [newSystem, setNewSystem] = useState("vampire-v5");
   const [revision, setRevision] = useState(0);
-  // The tactical map creator is desktop-only; phones get a read-only view.
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 767px)");
-    const apply = () => setNarrow(query.matches);
-    apply();
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -186,11 +165,15 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
         </select></label>
         <button type="submit" className={styles.primaryButton} disabled={busy || !newName.trim()}>Criar mapa</button>
       </form>
-      {selected && narrow ? <ReadOnlyMap map={selected} />
-        : selected ? <MapEditor key={selected.id} campaignId={campaignId} viewerId={viewerId} map={selected}
+      {selected ? <MapEditor key={selected.id} campaignId={campaignId} viewerId={viewerId} map={selected}
         onSaved={(saved) => setMaps((items) => items.map((item) => item.id === saved.id ? saved : item))}
         onDelete={() => void deleteMap(selected)} />
         : <p className={styles.empty}>Nenhum mapa ainda. Crie um acima ou use o gerador procedural na aba Geração.</p>}
+      {selected && (() => {
+        const parsed = parseMapDocument(selected.document, selected.system_key);
+        return parsed.document ? <MapInteractionsPanel key={`${campaignId}/${viewerId}/${selected.id}`} mapId={selected.id} campaignId={campaignId}
+          viewerId={viewerId} canManage document={parsed.document} rpc={webMapRpc} sheets={[]} /> : null;
+      })()}
     </>}
   </section>;
 }

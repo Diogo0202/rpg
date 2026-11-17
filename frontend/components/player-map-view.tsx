@@ -9,6 +9,8 @@ import { kitForSystem } from "../lib/map-kits";
 import { redactForViewer, viewerMasks } from "../lib/map-visibility";
 import { MapCanvas, PIN_RADIUS, type CanvasPointer } from "./map-editor/map-canvas";
 import { usePortraitUrls } from "./portrait-picker";
+import { MapInteractionsPanel } from "./map-interactions-panel";
+import { webMapRpc } from "../lib/map-interactions-rpc";
 import styles from "./saved-maps-panel.module.css";
 import editorStyles from "./map-editor/map-editor.module.css";
 
@@ -124,5 +126,9 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
         <MapCanvas document={view.document} kit={kitForSystem(loaded.system_key ?? loaded.document.system_key)} portraitUrls={portraitUrls}
           mode="player" movablePinIds={movable} label={`Mapa ${loaded.name}, visto de cima`} onPointer={onPointer} vision={view.vision} />
       </div> : <p className={styles.empty}>Carregando mapa…</p>}
+    {loaded && view && <MapInteractionsPanel key={`${campaignId}/${viewerId}/${loaded.id}`} mapId={loaded.id} campaignId={campaignId}
+      viewerId={viewerId} canManage={false} document={view.document} rpc={webMapRpc}
+      sheets={loaded.document.pins.filter((pin) => pin.kind === "character" && pin.sheet_id && ownSheetIds.has(pin.sheet_id)).map((pin) => ({ id: pin.sheet_id!, name: pin.label }))}
+      onChanged={() => setRevision((value) => value + 1)} />}
   </section>;
 }

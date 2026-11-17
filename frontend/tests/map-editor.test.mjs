@@ -7,6 +7,7 @@ import { kitForSystem, themeForSystem, MEDIEVAL_KIT, MODERN_KIT } from "../lib/m
 import {
   createEmptyDocument, houseStructures, parseMapDocument, redactForPlayers, removeElement, validateMapDocument,
 } from "../lib/map-document.ts";
+import { connectRooms, duplicateSelection, editRoomVertex, findRoom, moveSelection } from "../lib/map-editing.ts";
 
 test("geometry snaps angles, grid and nearby endpoints", () => {
   assert.deepEqual(snapAngle([0, 0], [1000, 40]), [1001, 0], "angle locks to horizontal and keeps the drawn length");
@@ -38,6 +39,43 @@ test("a dragged rectangle becomes a house with floor and closed walls", () => {
   assert.deepEqual(closedOutline(wall.points), wall.points, "already closed outlines stay unchanged");
   assert.ok(pointInPolygon([2000, 2000], rectangle));
   assert.ok(!pointInPolygon([5000, 2000], rectangle));
+});
+
+test("room edits keep its floor, closed wall and doors coherent", () => {
+  const document = createEmptyDocument("one-ring");
+  const [area, wall] = houseStructures(rectanglePoints([1000, 1000], [3000, 3000]), "stone", "wood_planks", 70);
+  document.structures.push(area, wall, { id: "d1", type: "door", wall_id: wall.id, at: .25, width: 300, style: "wooden", state: "closed" });
+  const room = findRoom(document, area.id);
+  assert.ok(room);
+  const edited = editRoomVertex(document, room, 0, [800, 900]);
+  assert.deepEqual(edited.structures.find((item) => item.id === area.id).points[0], [800, 900]);
+  assert.deepEqual(edited.structures.find((item) => item.id === wall.id).points[0], [800, 900]);
+  assert.equal(edited.structures.find((item) => item.id === "d1").wall_id, wall.id);
+});
+
+test("multi-room move and duplicate preserve linked doors with fresh IDs", () => {
+  const document = createEmptyDocument("one-ring");
+  const [area, wall] = houseStructures(rectanglePoints([1000, 1000], [3000, 3000]), "stone", "wood_planks", 70);
+  document.structures.push(area, wall, { id: "d1", type: "door", wall_id: wall.id, at: .25, width: 300, style: "wooden", state: "closed" });
+  const moved = moveSelection(document, new Set([area.id]), 500, 250);
+  assert.deepEqual(moved.structures.find((item) => item.id === wall.id).points[0], [1500, 1250]);
+  const copy = duplicateSelection(document, new Set([area.id]), 300, 300);
+  const copiedDoor = copy.document.structures.find((item) => item.type === "door" && item.id !== "d1");
+  assert.ok(copiedDoor);
+  assert.notEqual(copiedDoor.id, "d1");
+  assert.ok(copy.document.structures.some((item) => item.id === copiedDoor.wall_id));
+  assert.equal(validateMapDocument(copy.document), "");
+});
+
+test("corridor creates floor and passable openings in both room walls", () => {
+  const document = createEmptyDocument("one-ring");
+  const first = houseStructures(rectanglePoints([500, 1500], [2500, 3500]), "stone", "wood_planks", 70);
+  const second = houseStructures(rectanglePoints([6500, 1500], [8500, 3500]), "stone", "wood_planks", 70);
+  document.structures.push(...first, ...second);
+  const result = connectRooms(document, findRoom(document, first[0].id), findRoom(document, second[0].id), 400);
+  assert.equal(result.structures.filter((item) => item.type === "door" && item.state === "open").length, 2);
+  assert.equal(result.structures.filter((item) => item.type === "area").length, 3);
+  assert.equal(validateMapDocument(result), "");
 });
 
 test("kits follow the system: O Um Anel is medieval, V5 and Hunter are the modern city", () => {

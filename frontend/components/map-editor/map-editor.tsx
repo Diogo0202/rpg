@@ -13,6 +13,7 @@ import {
 import { findProp, kitForSystem, type MapKit } from "../../lib/map-kits";
 import { fogCellRect, redactForViewer, viewerMasks } from "../../lib/map-visibility";
 import { buildUniversalVtt, vttImageSize } from "../../lib/map-transfer";
+import { connectRooms, duplicateSelection, editRoomVertex, findRoom, moveSelection } from "../../lib/map-editing";
 import { blobToBase64, downloadBlob, rasterizeMapSvg } from "../../lib/map-raster";
 import { MAX_FOG_REGIONS, type FogRegion, type MapFog } from "../../lib/map-document";
 import { usePortraitUrls } from "../portrait-picker";
@@ -103,6 +104,12 @@ function moveElement(document: MapDocumentV2, id: string, dx: number, dy: number
   return { ...document, pins, structures };
 }
 
+function chosenMove(document: MapDocumentV2, ids: string[], activeId: string, dx: number, dy: number, point: Point): MapDocumentV2 {
+  const active = document.structures.find((item) => item.id === activeId);
+  if (active?.type === "door" && ids.length === 1) return moveElement(document, activeId, dx, dy, point);
+  return moveSelection(document, new Set(ids.length ? ids : [activeId]), dx, dy);
+}
+
 const MAP_COLUMNS = "id,campaign_id,name,document,version,system_key,shared_with_players,updated_at";
 type MapPatch = Pick<EditableMap, "name" | "system_key" | "shared_with_players"> & { document: MapDocumentV2 };
 
@@ -161,6 +168,10 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
   const [tool, setTool] = useState<Tool>("select");
   const [houseShape, setHouseShape] = useState<"rect" | "polygon">("rect");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [corridorWidth, setCorridorWidth] = useState(500);
+  const [roomVertex, setRoomVertex] = useState(0);
   const [draftPoints, setDraftPoints] = useState<Point[]>([]);
   const [cursor, setCursor] = useState<Point | null>(null);
   const [rect, setRectState] = useState<{ from: Point; to: Point } | null>(null);
@@ -302,7 +313,8 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
       switch (tool) {
         case "select": {
           const id = hitTest(document, point, kit);
-          setSelectedId(id);
+          const chosen = (event.shift || multiSelectMode) && id ? [...new Set([...selectedIds, id])] : id && selectedIds.includes(id) ? selectedIds : id ? [id] : [];
+          setSelectedIds(chosen); setSelectedId(id);
           drag.current = id ? { id, from: point, base: document, moved: false } : null;
           return;
         }
@@ -352,7 +364,7 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
         const dy = Math.round(point[1] - current.from[1]);
         if (!current.moved && Math.hypot(dx, dy) < 20) return;
         current.moved = true;
-        setDocument(moveElement(current.base, current.id, dx, dy, point));
+        setDocument(chosenMove(current.base, selectedIds, current.id, dx, dy, point));
         return;
       }
       if (rectRef.current) { setRect({ ...rectRef.current, to: snapGrid && tool !== "fog" ? snapToGrid(point, document.grid.size) : point }); return; }
@@ -405,12 +417,32 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
     setTool(next);
     setDraftPoints([]); setCursor(null); setRect(null);
     if (next !== "select") setSelectedId(null);
+    if (next !== "select") setSelectedIds([]);
     setMessage("");
   }
 
   function updateSelected(patch: Partial<MapStructure>) {
     if (!document || !selectedId) return;
     commit({ ...document, structures: document.structures.map((item) => item.id === selectedId ? { ...item, ...patch } as MapStructure : item) });
+  }
+
+  function moveSelectionBy(dx: number, dy: number) {
+    if (!document || selectedIds.length === 0) return;
+    commit(moveSelection(document, new Set(selectedIds), dx, dy));
+  }
+
+  function makeCorridor() {
+    if (!document || selectedIds.length < 2) return;
+    const first = findRoom(document, selectedIds[0]), second = findRoom(document, selectedIds[1]);
+    if (!first || !second) { setMessage("Selecione duas salas pelo piso ou muro."); return; }
+    commit(connectRooms(document, first, second, corridorWidth));
+    setMessage("Corredor criado, com vãos abertos nas duas paredes.");
+  }
+
+  function duplicateRooms() {
+    if (!document || !selectedIds.length) return;
+    const result = duplicateSelection(document, new Set(selectedIds), 300, 300);
+    commit(result.document); setSelectedIds(result.ids); setSelectedId(result.ids[0] ?? null);
   }
 
   function submitPin(pin: MapPin) {
@@ -527,6 +559,7 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
           <button type="button" className={styles.tool} disabled={past.length === 0} onClick={undo} title="Ctrl+Z">Desfazer</button>
           <button type="button" className={styles.tool} disabled={future.length === 0} onClick={redo} title="Ctrl+Y">Refazer</button>
           {draftPoints.length > 0 && <button type="button" className={styles.tool} onClick={finishPolyline}>Concluir traço</button>}
+          <button type="button" className={styles.tool} aria-pressed={multiSelectMode} onClick={() => { setMultiSelectMode(!multiSelectMode); if (!multiSelectMode) setSelectedIds(selectedId ? [selectedId] : []); }} title="Ative e toque nos elementos para formar um conjunto">Seleção múltipla</button>
         </div>
       </div>
       <p className={styles.hint}>{previewPlayers ? "Prévia do que os jogadores veem: pins e sombras só do Mestre ficam ocultos, e a névoa e a linha de visão valem para o jogador escolhido." : activeHint}</p>
@@ -637,6 +670,19 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
           <label>Piso<select value={selected.material} onChange={(event) => updateSelected({ material: event.target.value })}>{kit.floors.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
           <label>Rótulo<input value={selected.label ?? ""} maxLength={120} onChange={(event) => updateSelected({ label: event.target.value || undefined })} placeholder="Ex.: Taverna" /></label>
         </>}
+        {findRoom(document, selected.id) && (() => {
+          const room = findRoom(document, selected.id)!;
+          const area = document.structures.find((item) => item.id === room.areaId);
+          if (area?.type !== "area") return null;
+          const index = Math.min(roomVertex, area.points.length - 1);
+          const vertex = area.points[index];
+          return <>
+            <label>Canto da sala<select value={index} onChange={(event) => setRoomVertex(Number(event.target.value))}>{area.points.map((_, i) => <option key={i} value={i}>Canto {i + 1}</option>)}</select></label>
+            <label>Posição X<input type="number" min="0" max="10000" value={vertex[0]} onChange={(event) => { const next = Number(event.target.value); if (Number.isFinite(next) && next >= 0 && next <= 10000) commit(editRoomVertex(document, room, index, [next, vertex[1]])); }} /></label>
+            <label>Posição Y<input type="number" min="0" max={document.height} value={vertex[1]} onChange={(event) => { const next = Number(event.target.value); if (Number.isFinite(next) && next >= 0 && next <= document.height) commit(editRoomVertex(document, room, index, [vertex[0], next])); }} /></label>
+            <p className={styles.hint}>Os {room.doorIds.length} vãos permanecem ligados ao muro da sala.</p>
+          </>;
+        })()}
         {selected.type === "door" && <>
           <label>Estilo<select value={selected.style} onChange={(event) => updateSelected({ style: event.target.value })}>{kit.doors.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
           <label>Estado<select value={selected.state} onChange={(event) => updateSelected({ state: event.target.value as "open" | "closed" | "locked" })}><option value="closed">Fechada</option><option value="open">Aberta</option><option value="locked">Trancada</option></select></label>
@@ -649,6 +695,12 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
         </>}
         <label className={styles.check}><input type="checkbox" checked={selected.gm_only === true} onChange={(event) => updateSelected({ gm_only: event.target.checked || undefined })} />Só o Mestre vê</label>
         <button type="button" className={`${styles.tool} ${styles.danger}`} onClick={() => { commit(removeElement(document, selected.id)); setSelectedId(null); }}>Remover</button>
+        {selectedIds.length > 0 && <>
+          <p className={styles.hint}>{selectedIds.length} elemento(s) na seleção. Shift + toque/clique adiciona itens.</p>
+          <div className={styles.row}><button type="button" className={styles.tool} onClick={() => moveSelectionBy(250, 0)}>Mover →</button><button type="button" className={styles.tool} onClick={duplicateRooms}>Duplicar conjunto</button></div>
+          <label>Largura do corredor ({corridorWidth})<input type="range" min={100} max={1500} step={50} value={corridorWidth} onChange={(event) => setCorridorWidth(Number(event.target.value))} /></label>
+          <button type="button" className={styles.tool} disabled={selectedIds.length < 2} onClick={makeCorridor}>Ligar duas salas por corredor</button>
+        </>}
       </section>}
 
       {!pinDraft && selectedPin && <section className={styles.card} aria-label="Pin selecionado">

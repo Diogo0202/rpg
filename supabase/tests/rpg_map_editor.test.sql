@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(34);
 
 insert into auth.users (id, aud, role, email)
 values
@@ -74,7 +74,12 @@ values ('73000000-0000-0000-0000-000000000001', '23000000-0000-0000-0000-0000000
             {"id":"pc2","kind":"character","sheet_id":"43000000-0000-0000-0000-000000000002","label":"B","x":2500,"y":2000,"gm_only":false},
             {"id":"npc","kind":"npc","entity_id":"63000000-0000-0000-0000-000000000001","label":"Taverneiro","x":3000,"y":2000,"gm_only":false,"icon":"innkeeper"},
             {"id":"trap","kind":"item","label":"Armadilha","x":3500,"y":2500,"gm_only":true,"icon":"trap","notes":"segredo"}]}'::jsonb);
+select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000002', true);
 select ok(exists (select 1 from public.map_notifications where map_id = '73000000-0000-0000-0000-000000000001'), 'map writes create a realtime notification');
+select lives_ok($$select public.save_map_object('73000000-0000-0000-0000-000000000001','o1',
+  '{"kind":"container","label":"Barril","reach_cells":20,"items":[{"id":"coin","name":"Moedas","quantity":4,"category":"equipment"}]}'::jsonb)$$,
+  'narrator configures a private container');
+select is((public.get_map_objects('73000000-0000-0000-0000-000000000001')->0->'config'->'items'->0->>'quantity')::int,4,'narrator sees container stock');
 
 -- Player before sharing.
 set local role authenticated;
@@ -98,6 +103,19 @@ update public.maps set shared_with_players = true where id = '73000000-0000-0000
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000001', true);
 select is((select count(*)::integer from public.list_player_maps('23000000-0000-0000-0000-000000000001')), 1, 'shared map is listed for players');
+select is((public.get_map_objects('73000000-0000-0000-0000-000000000001')->0 ? 'config'),false,'player object list hides private config');
+select is((public.get_map_objects('73000000-0000-0000-0000-000000000001')->0->>'kind'),'container','player can identify revealed object kind');
+select lives_ok($$select public.request_map_action('73000000-0000-0000-0000-000000000001',
+ (public.get_map_objects('73000000-0000-0000-0000-000000000001')->0->>'id')::uuid,
+ '43000000-0000-0000-0000-000000000001','examine','d2000000-0000-0000-0000-000000000001')$$,'player can submit an in-range request');
+select is((public.request_map_action('73000000-0000-0000-0000-000000000001',
+ (public.get_map_objects('73000000-0000-0000-0000-000000000001')->0->>'id')::uuid,
+ '43000000-0000-0000-0000-000000000001','examine','d2000000-0000-0000-0000-000000000001')->>'status'),'pending','retry returns original request');
+reset role;
+select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000002', true);
+select is((public.decide_map_action((select id from public.map_action_requests where operation_id='d2000000-0000-0000-0000-000000000001'),true)->'result'->'items'->0->>'name'),'Moedas','narrator approval releases container contents');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000001', true);
 select is((select jsonb_array_length(public.get_player_map('73000000-0000-0000-0000-000000000001') -> 'document' -> 'pins')), 3, 'GM-only pins are redacted');
 select is((select jsonb_array_length(public.get_player_map('73000000-0000-0000-0000-000000000001') -> 'document' -> 'structures')), 4, 'GM-only shadows are redacted');
 select is((select public.get_player_map('73000000-0000-0000-0000-000000000001') -> 'document' -> 'pins' -> 0 ->> 'portrait_path'),
@@ -108,6 +126,10 @@ select is(((public.move_own_pin('73000000-0000-0000-0000-000000000001', 'pc', 43
 select throws_ok($$select public.move_own_pin('73000000-0000-0000-0000-000000000001', 'pc2', 1, 1)$$, '42501', null, 'player cannot move another player pin');
 select throws_ok($$select public.move_own_pin('73000000-0000-0000-0000-000000000001', 'npc', 1, 1)$$, '42501', null, 'player cannot move NPC pins');
 
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000003', true);
+select is((select count(*)::int from public.map_action_requests),0,'another player cannot read a request');
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '13000000-0000-0000-0000-000000000004', true);

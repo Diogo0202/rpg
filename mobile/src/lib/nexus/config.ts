@@ -21,7 +21,7 @@ export const LOCAL_ENTITY_FIELDS: Record<string, string[]> = {
   character_sheets: ["name", "system_key", "template_name", "template_version", "template_fields", "values", "effects"],
   character_inventory: ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"],
   world_entities: ["kind", "name", "description", "tags"],
-  maps: ["name", "columns", "rows", "description"],
+  maps: ["name", "document", "columns", "rows", "description"],
   map_pins: ["map_id", "label", "x", "y", "note"],
   journal_sessions: ["title", "session_date", "summary"],
   journal_notes: ["session_id", "title", "body"],

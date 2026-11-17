@@ -69,6 +69,11 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
   } else if (entityType === "maps") {
     assertOnlyKeys(data, ["name", "columns", "rows", "description", "document", "grid_kind", "isometric"], "Mapa");
     const document = object(data.document);
+    if (document.version === 2) {
+      if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 160) throw new Error("O mapa precisa ter um nome válido.");
+      if (!data.document || typeof data.document !== "object" || Array.isArray(data.document)) throw new Error("O documento do mapa é inválido.");
+      return { entityType, data: { name: data.name, document: data.document } };
+    }
     const columns = data.columns ?? document.width, rows = data.rows ?? document.height;
     const description = data.description ?? document.description;
     if (columns !== undefined && (!Number.isInteger(columns) || Number(columns) < 1 || Number(columns) > 128)) throw new Error("A largura do mapa precisa ser um inteiro entre 1 e 128.");
