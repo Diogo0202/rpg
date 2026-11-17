@@ -16,6 +16,7 @@ import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
 import { DistributionControls, distributionProblems } from "@/components/nexus/DistributionControls";
 import { distributionRulesFor, matchingDistribution } from "@/lib/creation-distributions";
 import { stepHelp } from "@/lib/step-help";
+import { hunterTemplateCreationProblems } from "@/lib/nexus/hunter-creation";
 import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "@/lib/priority-points";
 
 export const Route = createFileRoute("/fichas/nova")({
@@ -184,8 +185,9 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
     }
     // The database refuses a sheet that breaks a creation rule; say why before it syncs.
     const violations = creationRuleViolations(template, prepared.values);
-    if (violations.length) {
-      setProblems(violations.map(ruleMessage));
+    const hunterProblems = hunterTemplateCreationProblems(template, prepared.values);
+    if (violations.length || hunterProblems.length) {
+      setProblems([...violations.map(ruleMessage), ...hunterProblems]);
       const invalidStep = steps.findIndex((s) => s.fields.some((f) => violations.some((rule) => rule.fields.includes(f.id) || ("field" in rule && rule.field === f.id) || ("collection" in rule && rule.collection === f.id))));
       if (invalidStep >= 0) setStep(invalidStep);
       focusProblems(); toast.error("A ficha nÃ£o segue as regras de criaÃ§Ã£o."); return;
