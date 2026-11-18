@@ -10,7 +10,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import sheets
+from app.adapters.inbound.http import sheets
+from app.adapters.inbound.http.errors import http_status
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
+from app.domain.errors import DomainError
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 
 app = FastAPI()
@@ -21,25 +25,20 @@ AUTH = {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture
-def recorded(monkeypatch) -> list[tuple[str, Any]]:
+def recorded() -> list[tuple[str, Any]]:
     calls: list[tuple[str, Any]] = []
 
-    async def current_user(_authorization):
-        return "17000000-0000-0000-0000-000000000001"
-
-    async def rpc(name, _authorization, payload):
+    def rpc(name: str, payload: dict[str, Any]) -> Any:
         calls.append((name, payload))
         return {"id": SHEET_ID, "version": payload["p_expected_version"] + 1}
 
-    async def request(method, path, _authorization, *, params=None, payload=None):
+    def request(method: str, path: str, params: dict[str, str] | None, _payload: Any) -> Any:
         calls.append((f"{method} {path}", params))
         if method == "DELETE":
             return [{"id": SHEET_ID}] if params["version"] == "eq.4" else []
         return [{"version": 3, "name": "Lia", "values": {"vigor": 2}, "author_name": "Lia", "restored_from": None}]
 
-    monkeypatch.setattr(sheets, "_current_user_id", current_user)
-    monkeypatch.setattr(sheets, "_rpc", rpc)
-    monkeypatch.setattr(sheets, "_request", request)
+    use_fake_supabase(app, FakeSupabase(user_id="17000000-0000-0000-0000-000000000001", on_request=request, on_rpc=rpc))
     return calls
 
 
@@ -101,7 +100,7 @@ def test_rpc_errors_map_to_http_statuses(monkeypatch, code: str, status: int) ->
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "test-key")
     transport = httpx.MockTransport(lambda request: httpx.Response(400, json={"code": code, "message": "erro"}))
     real_client = httpx.AsyncClient
-    monkeypatch.setattr(sheets.httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
-    with pytest.raises(sheets.HTTPException) as error:
-        asyncio.run(sheets._rpc("restore_character_sheet_version", "Bearer test-token", {}))
-    assert error.value.status_code == status
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
+    with pytest.raises(DomainError) as error:
+        asyncio.run(SupabaseRestClient("Bearer test-token").rpc("restore_character_sheet_version", {}))
+    assert http_status(error.value) == status

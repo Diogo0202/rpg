@@ -8,9 +8,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.adapters.inbound.http import sheets
 from app.models import TemplateDraft
-from app.routes import sheets
 from app.services.sheet_creation import prepare_sheet_creation
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 
 CAMPAIGN_ID = "00000000-0000-0000-0000-000000000001"
@@ -110,24 +111,15 @@ def test_legacy_text_nome_field_receives_normalized_name() -> None:
     ],
 )
 def test_creation_failures_are_reported_before_insert(
-    monkeypatch: pytest.MonkeyPatch,
     template: dict[str, Any],
     name: str,
     values: dict[str, Any],
     detail: str,
 ) -> None:
-    calls: list[tuple[str, str, dict[str, str] | None, dict[str, Any] | None]] = []
-
-    async def current_user_id(authorization: str | None) -> str:
-        assert authorization == "Bearer test-token"
-        return USER_ID
-
-    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
-        calls.append((method, path, params, payload))
-        return [template] if method == "GET" else [{"id": "unexpected"}]
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
-    monkeypatch.setattr(sheets, "_request", request)
+    supabase = use_fake_supabase(app, FakeSupabase(
+        user_id=USER_ID,
+        on_request=lambda method, *_: [template] if method == "GET" else [{"id": "unexpected"}],
+    ))
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},
@@ -136,22 +128,17 @@ def test_creation_failures_are_reported_before_insert(
 
     assert response.status_code == 422
     assert detail in response.json()["detail"]
-    assert len(calls) == 1
-    assert calls[0][0:2] == ("GET", "system_templates")
-    assert calls[0][2]["status"] == "eq.approved"
-    assert calls[0][2]["campaign_id"] == f"eq.{CAMPAIGN_ID}"
+    assert len(supabase.requests) == 1
+    lookup = supabase.requests[0]
+    assert (lookup.method, lookup.path) == ("GET", "system_templates")
+    assert lookup.params["status"] == "eq.approved"
+    assert lookup.params["campaign_id"] == f"eq.{CAMPAIGN_ID}"
 
 
-def test_create_route_loads_approved_db_template_and_inserts_prepared_values(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_route_loads_approved_db_template_and_inserts_prepared_values() -> None:
     approved = template_row(marked_fields())
-    calls: list[tuple[str, str, dict[str, str] | None, dict[str, Any] | None]] = []
 
-    async def current_user_id(authorization: str | None) -> str:
-        assert authorization == "Bearer test-token"
-        return USER_ID
-
-    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
-        calls.append((method, path, params, payload))
+    def respond(method: str, _path: str, _params: Any, payload: dict[str, Any] | None) -> Any:
         if method == "GET":
             return [approved]
         assert payload is not None
@@ -164,8 +151,7 @@ def test_create_route_loads_approved_db_template_and_inserts_prepared_values(mon
             "effects": [],
         }]
 
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
-    monkeypatch.setattr(sheets, "_request", request)
+    supabase = use_fake_supabase(app, FakeSupabase(user_id=USER_ID, on_request=respond))
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},
@@ -177,15 +163,15 @@ def test_create_route_loads_approved_db_template_and_inserts_prepared_values(mon
     assert response.json()["values"] == {"character_name": "Mara Vale", "strength": 3}
     assert response.json()["version"] == 1
     assert response.json()["effects"] == []
-    assert len(calls) == 2
-    lookup = calls[0][2]
-    assert lookup["id"] == f"eq.{TEMPLATE_ID}"
-    assert lookup["campaign_id"] == f"eq.{CAMPAIGN_ID}"
-    assert lookup["status"] == "eq.approved"
-    assert calls[1][0:2] == ("POST", "character_sheets")
-    assert calls[1][3]["values"] == {"character_name": "Mara Vale", "strength": 3}
-    assert "pool" not in calls[1][3]["values"]
-    assert "check" not in calls[1][3]["values"]
+    assert len(supabase.requests) == 2
+    lookup, insert = supabase.requests
+    assert lookup.params["id"] == f"eq.{TEMPLATE_ID}"
+    assert lookup.params["campaign_id"] == f"eq.{CAMPAIGN_ID}"
+    assert lookup.params["status"] == "eq.approved"
+    assert (insert.method, insert.path) == ("POST", "character_sheets")
+    assert insert.payload["values"] == {"character_name": "Mara Vale", "strength": 3}
+    assert "pool" not in insert.payload["values"]
+    assert "check" not in insert.payload["values"]
 
 
 @pytest.mark.parametrize(
@@ -198,54 +184,34 @@ def test_create_route_loads_approved_db_template_and_inserts_prepared_values(mon
         f"{CAMPAIGN_ID}/{USER_ID}/00000000-0000-0000-0000-000000000009.png",
     ],
 )
-def test_create_route_requires_own_portrait_in_this_campaign(monkeypatch: pytest.MonkeyPatch, portrait: str | None) -> None:
-    calls: list[str] = []
-
-    async def current_user_id(authorization: str | None) -> str:
-        return USER_ID
-
-    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
-        calls.append(path)
-        return [template_row(marked_fields())]
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
-    monkeypatch.setattr(sheets, "_request", request)
+def test_create_route_requires_own_portrait_in_this_campaign(portrait: str | None) -> None:
+    supabase = use_fake_supabase(app, FakeSupabase(user_id=USER_ID, on_request=lambda *_: [template_row(marked_fields())]))
     body: dict[str, Any] = {"template_id": TEMPLATE_ID, "name": "Mara", "values": {"strength": 3}}
     if portrait is not None:
         body["portrait_path"] = portrait
     response = client.post(f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets", headers={"Authorization": "Bearer test-token"}, json=body)
     assert response.status_code == 422
-    assert "character_sheets" not in calls
+    assert "character_sheets" not in [request.path for request in supabase.requests]
 
 
-def test_create_route_persists_the_portrait_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    inserted: dict[str, Any] = {}
-
-    async def current_user_id(authorization: str | None) -> str:
-        return USER_ID
-
-    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
+def test_create_route_persists_the_portrait_path() -> None:
+    def respond(method: str, _path: str, _params: Any, payload: dict[str, Any] | None) -> Any:
         if method == "GET":
             return [template_row(marked_fields())]
-        inserted.update(payload or {})
         return [{"id": "00000000-0000-0000-0000-000000000004", **(payload or {}), "version": 1}]
 
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
-    monkeypatch.setattr(sheets, "_request", request)
+    supabase = use_fake_supabase(app, FakeSupabase(user_id=USER_ID, on_request=respond))
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},
         json={"template_id": TEMPLATE_ID, "name": "Mara", "values": {"strength": 3}, "portrait_path": PORTRAIT},
     )
     assert response.status_code == 201
-    assert inserted["portrait_path"] == PORTRAIT
+    assert supabase.requests[-1].payload["portrait_path"] == PORTRAIT
 
 
-def test_create_route_rejects_client_template_schema(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def current_user_id(authorization: str | None) -> str:
-        return USER_ID
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
+def test_create_route_rejects_client_template_schema() -> None:
+    use_fake_supabase(app, FakeSupabase(user_id=USER_ID))
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/sheets",
         headers={"Authorization": "Bearer test-token"},

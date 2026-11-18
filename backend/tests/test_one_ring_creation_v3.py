@@ -37,12 +37,20 @@ def test_report_incomplete_has_field_problems():
 def v3_api(monkeypatch):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-    from app.routes import sheets
-    app=FastAPI();app.include_router(sheets.router)
-    async def user(_):return '81000000-0000-4000-8000-000000000001'
-    async def template(*_):return {'name':STARTER['template']['name'],'version':3,'schema':STARTER['template']}
-    monkeypatch.setattr(sheets,'_current_user_id',user);monkeypatch.setattr(sheets,'_get_template',template)
-    return TestClient(app),sheets
+    from app.adapters.inbound.http import sheets
+    from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
+    app = FastAPI()
+    app.include_router(sheets.router)
+    template = {'name': STARTER['template']['name'], 'version': 3, 'schema': STARTER['template']}
+
+    def respond(method, path, _params, payload):
+        if method == 'GET' and path == 'system_templates':
+            return [template]
+        return {'id': '84000000-0000-4000-8000-000000000001', 'values': payload['p_values']}
+
+    supabase = FakeSupabase(user_id='81000000-0000-4000-8000-000000000001', on_request=respond)
+    use_fake_supabase(app, supabase)
+    return TestClient(app), supabase
 
 def test_validate_endpoint_fields_and_derivatives(v3_api):
     client,_=v3_api
@@ -56,13 +64,11 @@ def test_validate_endpoint_fields_and_derivatives(v3_api):
     assert bad.json()['valid'] is False
     assert any(p['field']=='unknown' for p in bad.json()['field_problems'])
 
-def test_creation_endpoint_atomic_rpc(v3_api,monkeypatch):
-    client,sheets=v3_api;calls=[]
-    async def request(method,path,authorization,**kwargs):
-        calls.append((method,path,authorization,kwargs))
-        return {'id':'84000000-0000-4000-8000-000000000001','values':kwargs['payload']['p_values']}
-    monkeypatch.setattr(sheets,'_request',request)
-    response=client.post('/api/v1/campaigns/82000000-0000-4000-8000-000000000001/sheets',headers={'Authorization':'Bearer fixture'},json={'template_id':'83000000-0000-4000-8000-000000000001','name':CASES[0]['input']['nome'],'values':CASES[0]['expected']['values']})
-    assert response.status_code==201,response.text
-    assert calls[0][0:3]==('POST','rpc/create_one_ring_sheet','Bearer fixture')
-    assert calls[0][3]['payload']['p_values']['experiencia']==0
+def test_creation_endpoint_atomic_rpc(v3_api):
+    client, supabase = v3_api
+    response = client.post('/api/v1/campaigns/82000000-0000-4000-8000-000000000001/sheets', headers={'Authorization': 'Bearer fixture'},
+                           json={'template_id': '83000000-0000-4000-8000-000000000001', 'name': CASES[0]['input']['nome'], 'values': CASES[0]['expected']['values']})
+    assert response.status_code == 201, response.text
+    creation = supabase.requests[-1]
+    assert (creation.method, creation.path) == ('POST', 'rpc/create_one_ring_sheet')
+    assert creation.payload['p_values']['experiencia'] == 0

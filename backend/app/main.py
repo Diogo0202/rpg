@@ -25,7 +25,7 @@ from app.access_audit import AccessAuditMiddleware
 from app.shared_concurrency import SharedAdmissionMiddleware
 from app.routes.generators import router as generation_router
 from app.routes.v5 import router as v5_router
-from app.routes.sheets import router as sheets_router
+from app.adapters.inbound.http.sheets import router as sheets_router
 from app.routes.rules import router as rules_router
 from app.routes.modifiers import router as modifiers_router
 from app.routes.v5_actions import router as v5_actions_router

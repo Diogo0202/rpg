@@ -5,8 +5,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.adapters.inbound.http import sheets
 from app.models import TemplateDraft
-from app.routes import sheets
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 from app.services.creation_rules import evaluate_creation_rules
 from app.services.sheet_creation import prepare_sheet_creation
 from app.services.sheet_values import validate_sheet_values
@@ -109,19 +110,11 @@ def test_min_max_only_on_numbers() -> None:
         TemplateDraft.model_validate({"name": "Ficha", "fields": [{"id": "nome", "label": "Nome", "kind": "text", "max": 3}]})
 
 
-def test_validate_creation_endpoint_reports_without_creating(monkeypatch) -> None:
+def test_validate_creation_endpoint_reports_without_creating() -> None:
     app = FastAPI()
     app.include_router(sheets.router)
     client = TestClient(app)
-
-    async def current_user(_authorization):
-        return "00000000-0000-0000-0000-000000000003"
-
-    async def get_template(_campaign, _template, _authorization):
-        return template()
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user)
-    monkeypatch.setattr(sheets, "_get_template", get_template)
+    supabase = use_fake_supabase(app, FakeSupabase(on_request=lambda *_: [template()]))
     url = "/api/v1/campaigns/00000000-0000-0000-0000-000000000001/sheets/validate-creation"
     body = {"template_id": "00000000-0000-0000-0000-000000000002"}
     good = client.post(url, json={**body, "values": valid_values()}, headers={"Authorization": "Bearer t"})
@@ -131,16 +124,13 @@ def test_validate_creation_endpoint_reports_without_creating(monkeypatch) -> Non
     assert report["valid"] is False
     assert any("entre 1 e 5" in error for error in report["field_errors"])
     assert [item["rule_id"] for item in report["violations"]] == ["atributos"]
+    assert {request.method for request in supabase.requests} == {"GET"}
 
 
-def test_validate_creation_endpoint_reports_hunter_edge_count_before_submit(monkeypatch) -> None:
+def test_validate_creation_endpoint_reports_hunter_edge_count_before_submit() -> None:
     app = FastAPI()
     app.include_router(sheets.router)
     client = TestClient(app)
-
-    async def current_user(_authorization):
-        return "00000000-0000-0000-0000-000000000003"
-
     fields = [
         {"id": "nome", "label": "Nome", "kind": "text", "character_name": True},
         {"id": "credo", "label": "Credo", "kind": "select", "options": ["Inquisitivo"]},
@@ -156,11 +146,7 @@ def test_validate_creation_endpoint_reports_hunter_edge_count_before_submit(monk
         "system_key": "hunter", "fields": fields, "creation_rules": [],
     }}
 
-    async def get_template(_campaign, _template, _authorization):
-        return hunter_template
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user)
-    monkeypatch.setattr(sheets, "_get_template", get_template)
+    use_fake_supabase(app, FakeSupabase(on_request=lambda *_: [hunter_template]))
     response = client.post(
         "/api/v1/campaigns/00000000-0000-0000-0000-000000000001/sheets/validate-creation",
         json={"template_id": "00000000-0000-0000-0000-000000000002", "values": {

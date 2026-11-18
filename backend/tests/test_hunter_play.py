@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.routes import hunter as hunter_routes
-from app.routes import sheets as sheets_routes
+from app.adapters.inbound.http import sheets as sheets_routes
 from app.routes.generators import require_signed_in_user
 from app.services import hunter_traits
 from app.services.hunter_traits import (
@@ -199,7 +199,9 @@ def test_database_errors_become_clear_statuses(monkeypatch: pytest.MonkeyPatch, 
 
 # --- Sheet creation runs the Hunter checks ------------------------------------------------------
 
-def test_sheet_creation_refuses_a_hunter_without_starting_edges(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sheet_creation_refuses_a_hunter_without_starting_edges() -> None:
+    from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
+
     schema = json.loads((Path(__file__).parent / "fixtures/hunter_starter.json").read_text(encoding="utf-8"))
     from tests.test_hunter_creation import values_for_mode
 
@@ -207,21 +209,15 @@ def test_sheet_creation_refuses_a_hunter_without_starting_edges(monkeypatch: pyt
     campaign = "2a000000-0000-0000-0000-000000000001"
     posted: list[dict[str, Any]] = []
 
-    async def current_user(authorization: str | None) -> str:
-        return user
-
-    async def template(campaign_id: Any, template_id: Any, authorization: str) -> dict[str, Any]:
-        return {"name": schema["name"], "version": 4, "schema": schema}
-
-    async def request(method: str, path: str, authorization: str | None, **kwargs: Any) -> Any:
-        posted.append(kwargs.get("payload") or {})
+    def respond(method: str, path: str, _params: Any, payload: dict[str, Any] | None) -> Any:
+        if method == "GET" and path == "system_templates":
+            return [{"name": schema["name"], "version": 4, "schema": schema}]
+        posted.append(payload or {})
         return [{"id": "sheet"}]
 
-    monkeypatch.setattr(sheets_routes, "_current_user_id", current_user)
-    monkeypatch.setattr(sheets_routes, "_get_template", template)
-    monkeypatch.setattr(sheets_routes, "_request", request)
     app = FastAPI()
     app.include_router(sheets_routes.router)
+    use_fake_supabase(app, FakeSupabase(user_id=user, on_request=respond))
     portrait = f"{campaign}/{user}/3a000000-0000-0000-0000-000000000009.webp"
     body = {"template_id": "3a000000-0000-0000-0000-000000000001", "name": "Mara", "portrait_path": portrait}
     with TestClient(app) as test_client:

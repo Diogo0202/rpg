@@ -5,8 +5,11 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 import pytest
 
+from app.adapters.inbound.http import sheets
+from app.adapters.outbound.supabase.sheet_repository import SupabaseSheetRepository
+from app.application.sheets.service import SheetService
 from app.main import app
-from app.routes import sheets
+from tests.support.fake_supabase import FakeSupabase
 
 
 client = TestClient(app)
@@ -23,25 +26,19 @@ def test_demon_registration_and_activation_require_session():
     }).status_code == 401
 
 
-def test_activation_passes_version_and_operation_id_to_atomic_rpc(monkeypatch):
-    calls = []
-
-    async def identity(_authorization):
-        return str(UUID("de000000-0000-4000-8000-000000000002"))
-
-    async def rpc(name, authorization, payload):
-        calls.append((name, authorization, payload))
-        return {"activation": {"operation_id": OPERATION, "faith_after": 1}}
-
-    monkeypatch.setattr(sheets, "_current_user_id", identity)
-    monkeypatch.setattr(sheets, "_rpc", rpc)
+def test_activation_passes_version_and_operation_id_to_atomic_rpc():
+    supabase = FakeSupabase(
+        user_id="de000000-0000-4000-8000-000000000002",
+        on_rpc=lambda *_: {"activation": {"operation_id": OPERATION, "faith_after": 1}},
+    )
+    service = SheetService(identity=supabase, sheets=SupabaseSheetRepository(supabase))
     result = asyncio.run(sheets.activate_demon_evocation(
         UUID(SHEET), sheets.DemonEvocationActivation(
             evocation_id=UUID(POWER), operation_id=UUID(OPERATION), expected_version=1,
-        ), authorization="Bearer test",
+        ), service=service,
     ))
     assert result["activation"]["faith_after"] == 1
-    assert calls == [("activate_demon_evocation", "Bearer test", {
+    assert supabase.rpcs == [("activate_demon_evocation", {
         "p_sheet_id": SHEET, "p_evocation_id": POWER,
         "p_operation_id": OPERATION, "p_expected_version": 1,
     })]

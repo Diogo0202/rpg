@@ -15,7 +15,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import sheets
+from app.adapters.inbound.http import sheets
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SHEETS = json.loads((FIXTURES / "vampire_wizard_sheets.json").read_text(encoding="utf-8"))
@@ -32,22 +33,18 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def api(monkeypatch: pytest.MonkeyPatch):
+def api():
     inserted: list[dict[str, Any]] = []
     state = {"system": "v3"}
 
-    async def current_user_id(authorization: str | None) -> str:
-        return USER_ID
-
-    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
+    def respond(method: str, _path: str, _params: Any, payload: dict[str, Any] | None) -> Any:
         if method == "GET":
             template = TEMPLATES[state["system"]]
             return [{"id": TEMPLATE_ID, "campaign_id": CAMPAIGN_ID, "name": template["name"], "version": 1, "schema": template}]
         inserted.append(payload or {})
         return [{"id": "00000000-0000-0000-0000-000000000004", **(payload or {}), "version": 1}]
 
-    monkeypatch.setattr(sheets, "_current_user_id", current_user_id)
-    monkeypatch.setattr(sheets, "_request", request)
+    use_fake_supabase(app, FakeSupabase(user_id=USER_ID, on_request=respond))
     return state, inserted
 
 

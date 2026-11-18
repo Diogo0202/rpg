@@ -6,8 +6,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.adapters.inbound.http import sheets
+from app.adapters.inbound.http.errors import http_status
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
+from app.domain.errors import DomainError
 from app.models import TemplateDraft
-from app.routes import sheets
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 
 app = FastAPI()
@@ -31,26 +35,19 @@ SCHEMA = {
 }
 
 
+SHEET_ROW = {"campaign_id": "22000000-0000-0000-0000-000000000001", "template_id": "32000000-0000-0000-0000-000000000001",
+             "values": {"autocontrole": 2, "resolucao": 1, "vontade_superficial": 2}}
+TEMPLATE_ROW = {"name": "V5 base", "version": 1, "schema": SCHEMA}
+
+
 @pytest.fixture
-def calls(monkeypatch) -> list[tuple[str, dict[str, Any]]]:
-    recorded: list[tuple[str, dict[str, Any]]] = []
-
-    async def current_user(_authorization):
-        return "12000000-0000-0000-0000-000000000001"
-
-    async def rpc(name, _authorization, payload):
-        recorded.append((name, payload))
-        return {"sheet": {"id": SHEET_ID}, "event": {"delta": payload.get("p_delta", payload.get("p_amount"))}}
-
-    async def sheet_and_template(_sheet_id, _authorization):
-        sheet = {"campaign_id": "22000000-0000-0000-0000-000000000001", "template_id": "32000000-0000-0000-0000-000000000001",
-                 "values": {"autocontrole": 2, "resolucao": 1, "vontade_superficial": 2}}
-        return sheet, {"name": "V5 base", "version": 1, "schema": SCHEMA}
-
-    monkeypatch.setattr(sheets, "_current_user_id", current_user)
-    monkeypatch.setattr(sheets, "_rpc", rpc)
-    monkeypatch.setattr(sheets, "_sheet_and_template", sheet_and_template)
-    return recorded
+def calls() -> list[tuple[str, dict[str, Any]]]:
+    supabase = use_fake_supabase(app, FakeSupabase(
+        user_id="12000000-0000-0000-0000-000000000001",
+        on_request=lambda _method, path, *_: [TEMPLATE_ROW if path == "system_templates" else SHEET_ROW],
+        on_rpc=lambda _name, payload: {"sheet": {"id": SHEET_ID}, "event": {"delta": payload.get("p_delta", payload.get("p_amount"))}},
+    ))
+    return supabase.rpcs
 
 
 def test_adjust_calls_idempotent_rpc_without_expected_version(calls) -> None:
@@ -103,13 +100,13 @@ def test_rpc_maps_postgres_errors_without_leaking_messages(monkeypatch, code, st
 
     transport = httpx.MockTransport(handler)
     real_client = httpx.AsyncClient
-    monkeypatch.setattr(sheets.httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
     import asyncio
 
-    with pytest.raises(sheets.HTTPException) as error:
-        asyncio.run(sheets._rpc("increment_xp", "Bearer test-token", {"p_amount": 1}))
-    assert error.value.status_code == status
-    assert "internal detail" not in error.value.detail
+    with pytest.raises(DomainError) as error:
+        asyncio.run(SupabaseRestClient("Bearer test-token").rpc("increment_xp", {"p_amount": 1}))
+    assert http_status(error.value) == status
+    assert "internal detail" not in error.value.message
 
 
 def test_template_draft_validates_resource_references() -> None:
