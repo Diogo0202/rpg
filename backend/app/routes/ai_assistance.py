@@ -14,7 +14,9 @@ import httpx
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
-from app.routes.sheets import _current_user_id, _get_template, _request
+from app.adapters.inbound.http.errors import domain_errors_as_http
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
+from app.adapters.outbound.supabase.sheet_repository import SupabaseSheetRepository
 from app.services.sheet_creation import approved_template_draft, prepare_sheet_creation
 from app.services import ai_provider, tutor_policy
 from app.services.prompt_security import UntrustedDataError, normalize_untrusted_text
@@ -65,6 +67,30 @@ class Approval(Review):
 
 class Publication(Review):
     fields: dict[str, Any]
+
+
+# Acesso ao Supabase com o token do usuário. Este módulo ainda não tem casos de uso próprios;
+# a migração completa para portas está prevista na etapa 4 de docs/adr/0002-backend-hexagonal.md.
+
+
+async def _current_user_id(authorization: str | None) -> str:
+    with domain_errors_as_http():
+        return await SupabaseRestClient(authorization).current_user_id()
+
+
+async def _request(
+    method: str, path: str, authorization: str | None, *, params: dict | None = None, payload: dict | None = None,
+) -> Any:
+    with domain_errors_as_http():
+        return await SupabaseRestClient(authorization).request(method, path, params=params, payload=payload)
+
+
+async def _get_template(campaign_id: UUID, template_id: UUID, authorization: str) -> dict:
+    with domain_errors_as_http():
+        template = await SupabaseSheetRepository(SupabaseRestClient(authorization)).approved_template(campaign_id, template_id)
+    if template is None:
+        raise HTTPException(404, "template aprovado não encontrado nesta campanha")
+    return template
 
 
 @dataclass

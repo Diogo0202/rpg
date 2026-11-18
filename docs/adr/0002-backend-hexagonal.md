@@ -27,9 +27,9 @@ A alternativa de mover arquivos sem mudar as dependências deixaria a regra de n
 Cada contexto migra numa etapa própria, e a suíte do backend precisa continuar verde ao fim de cada uma. A linha de base é de 1814 testes aprovados.
 
 1. Fichas (`sheets`): concluída. `SheetService`, `SheetRepository`, `SupabaseRestClient` e `SupabaseSheetRepository` substituem o antigo `routes/sheets.py`.
-2. Rotas que ainda importam `_request`, `_rpc`, `_current_user_id` ou `_get_template` de `app.routes.sheets`: `experience`, `v5`, `v5_actions`, `v5_sanguine` e `ai_assistance`. O módulo `app/routes/sheets.py` mantém essas funções apenas até a última delas migrar.
+2. Experiência e Vampiro V5: concluída. `ExperienceService`, `V5RollService`, `V5BloodService`, `V5ActionService` e `V5SanguineService` dependem das portas `AdvanceRepository`, `V5Store`, `WeaponReader`, `SanguineStore` e `RollActivityRecorder`. Cada repositório traz a própria tabela de SQLSTATE ou de status HTTP, passada ao `SupabaseRestClient` por chamada. O módulo de compatibilidade `app/routes/sheets.py` foi removido.
 3. Crônica, convites, marketplace e sincronização mobile, que hoje têm clientes Supabase próprios.
-4. Provedores externos (IA, Spotify, Discord, e-mail) como adaptadores de saída atrás de portas.
+4. Provedores externos (IA, Spotify, Discord, e-mail) como adaptadores de saída atrás de portas. `routes/ai_assistance.py` já usa o `SupabaseRestClient`, mas a reserva, o despacho e a liquidação do orçamento da IA continuam na rota e serão movidos para um caso de uso nesta etapa.
 5. Mover para `domain/` os módulos de `services/` que já são regras puras (`creation_rules`, `sheet_values`, `sheet_calculations`, `dice`, `v5_*`, `one_ring*`, `sotdl_progression` e similares) e unificar as tabelas de SQLSTATE num único adaptador.
 
 Frontend (`frontend/lib`, `frontend/components`), mobile (`mobile/src`) e `shared/` formam as fases seguintes. O desenho dessas fases depende de um levantamento ainda não feito: [falta detalhe real].
@@ -46,7 +46,7 @@ Frontend (`frontend/lib`, `frontend/components`), mobile (`mobile/src`) e `share
 
 Testes de contrato com o PostgREST continuam possíveis, porque o Supabase falso grava método, caminho, parâmetros e corpo de cada chamada. Testes de caso de uso podem montar `SheetService` com repositórios em memória, sem FastAPI.
 
-Durante a migração convivem dois estilos: rotas antigas em `app/routes/` e rotas novas em `app/adapters/inbound/http/`. O módulo de compatibilidade deixa isso explícito e deve sumir ao fim da etapa 2.
+Durante a migração convivem dois estilos: rotas antigas em `app/routes/` e rotas novas em `app/adapters/inbound/http/`. Uma rota só sai de `app/routes/` quando todos os seus testes passam a injetar adaptadores falsos.
 
 ## Critérios de verificação
 
