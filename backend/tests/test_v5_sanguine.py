@@ -12,7 +12,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import v5_sanguine as routes
+from app.adapters.inbound.http import v5_sanguine as routes
+from app.domain.errors import Conflict, Forbidden
+from tests.support.fake_supabase import stub_supabase
 from app.routes.generators import require_signed_in_user
 from app.services.sheet_values import validate_sheet_values
 from app.services.v5_sanguine import (
@@ -148,11 +150,11 @@ def _hunt(**changes: Any) -> dict[str, Any]:
 def test_hunt_calls_the_atomic_rpc(client, monkeypatch) -> None:
     calls: list[tuple[str, dict[str, Any]]] = []
 
-    async def fake_rpc(name, authorization, payload):
+    async def fake_rpc(name, payload):
         calls.append((name, payload))
         return {"hunt": {"id": "h1", "hunger_after": 2}, "sheet": {"values": {"fome": 2}, "effects": [], "version": 4}, "replayed": False}
 
-    monkeypatch.setattr(routes, "_rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     body = _hunt()
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/hunts", headers=AUTH, json=body)
     assert response.status_code == 201, response.text
@@ -175,15 +177,15 @@ def test_hunt_rejects_incoherent_requests(client, monkeypatch, changes) -> None:
     async def never(*args, **kwargs):
         raise AssertionError("RPC must not be called")
 
-    monkeypatch.setattr(routes, "_rpc", never)
+    stub_supabase(client.app, rpc=never)
     assert client.post(f"/api/v1/v5/sheets/{SHEET_ID}/hunts", headers=AUTH, json=_hunt(**changes)).status_code == 422
 
 
 def test_hunt_errors_are_translated(client, monkeypatch) -> None:
-    async def forbidden(name, authorization, payload):
-        raise routes.HTTPException(status_code=403, detail="x")
+    async def forbidden(name, payload):
+        raise Forbidden("x")
 
-    monkeypatch.setattr(routes, "_rpc", forbidden)
+    stub_supabase(client.app, rpc=forbidden)
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/hunts", headers=AUTH, json=_hunt())
     assert response.status_code == 403 and "dono da ficha" in response.json()["detail"]
 
@@ -192,14 +194,14 @@ def test_bonds_are_listed_with_degree_and_history(client, monkeypatch) -> None:
     now = datetime.now(timezone.utc)
     bond_id = str(uuid4())
 
-    async def fake_request(method, path, authorization, *, params=None, payload=None):
+    async def fake_request(method, path, params=None, payload=None):
         if path == "v5_blood_bonds":
             assert params["thrall_sheet_id"] == f"eq.{SHEET_ID}"
             return [{"id": bond_id, "decay_days": 30, "regnant_label": "Regente"}]
         assert path == "v5_blood_bond_drinks" and params["bond_id"] == f"in.({bond_id})"
         return [{"bond_id": bond_id, "drank_at": (now - timedelta(days=days)).isoformat()} for days in (1, 3)]
 
-    monkeypatch.setattr(routes, "_request", fake_request)
+    stub_supabase(client.app, request=fake_request)
     body = client.get(f"/api/v1/v5/sheets/{SHEET_ID}/blood-bonds", headers=AUTH).json()
     assert body[0]["degree"] == 2 and len(body[0]["drinks"]) == 2
 
@@ -207,11 +209,11 @@ def test_bonds_are_listed_with_degree_and_history(client, monkeypatch) -> None:
 def test_drink_needs_exactly_one_donor(client, monkeypatch) -> None:
     payloads: list[dict[str, Any]] = []
 
-    async def fake_rpc(name, authorization, payload):
+    async def fake_rpc(name, payload):
         payloads.append(payload)
         return {"bond": {}, "drink": {}, "degree": 1}
 
-    monkeypatch.setattr(routes, "_rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     base = {"operation_id": str(uuid4())}
     assert client.post(f"/api/v1/v5/sheets/{SHEET_ID}/blood-bonds/drinks", headers=AUTH, json=base).status_code == 422
     both = {**base, "regnant_sheet_id": str(uuid4()), "regnant_entity_id": str(uuid4())}
@@ -225,10 +227,10 @@ def test_drink_needs_exactly_one_donor(client, monkeypatch) -> None:
 
 
 def test_only_the_narrator_records_drinks(client, monkeypatch) -> None:
-    async def forbidden(name, authorization, payload):
-        raise routes.HTTPException(status_code=403, detail="x")
+    async def forbidden(name, payload):
+        raise Forbidden("x")
 
-    monkeypatch.setattr(routes, "_rpc", forbidden)
+    stub_supabase(client.app, rpc=forbidden)
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/blood-bonds/drinks", headers=AUTH,
                            json={"operation_id": str(uuid4()), "regnant_sheet_id": str(uuid4())})
     assert response.status_code == 403 and "narrador" in response.json()["detail"]
@@ -237,11 +239,11 @@ def test_only_the_narrator_records_drinks(client, monkeypatch) -> None:
 def test_regnant_action_waits_for_the_narrator(client, monkeypatch) -> None:
     calls: list[tuple[str, dict[str, Any]]] = []
 
-    async def fake_rpc(name, authorization, payload):
+    async def fake_rpc(name, payload):
         calls.append((name, payload))
         return {"id": "a1", "status": "pendente" if name == "request_v5_regnant_action" else payload["p_decision"]}
 
-    monkeypatch.setattr(routes, "_rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     bond_id, roll_id = str(uuid4()), str(uuid4())
     created = client.post(f"/api/v1/v5/blood-bonds/{bond_id}/regnant-actions", headers=AUTH,
                           json={"action": "  Mentir para o Regente ", "roll_id": roll_id})
@@ -255,10 +257,10 @@ def test_regnant_action_waits_for_the_narrator(client, monkeypatch) -> None:
 
 
 def test_regnant_decision_conflict_is_translated(client, monkeypatch) -> None:
-    async def conflict(name, authorization, payload):
-        raise routes.HTTPException(status_code=409, detail="x")
+    async def conflict(name, payload):
+        raise Conflict("x")
 
-    monkeypatch.setattr(routes, "_rpc", conflict)
+    stub_supabase(client.app, rpc=conflict)
     response = client.post("/api/v1/v5/regnant-actions/00000000-0000-0000-0000-000000000001/decision", headers=AUTH,
                            json={"decision": "permitida"})
     assert response.status_code == 409 and "já foi decidida" in response.json()["detail"]

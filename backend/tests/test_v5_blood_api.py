@@ -1,11 +1,14 @@
 from uuid import uuid4
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+
+from app.domain.errors import Conflict, Forbidden, InvalidInput
 from fastapi.testclient import TestClient
 
 from app.routes.generators import require_signed_in_user
-from app.routes.v5 import router as v5_router
+from app.adapters.inbound.http.v5 import router as v5_router
+from tests.support.fake_supabase import stub_roll_activity, stub_supabase
 
 SHEET_ID = str(uuid4())
 OPERATION_ID = str(uuid4())
@@ -30,11 +33,11 @@ def _result(outcome, values=None, dice=None, replayed=False):
 def test_rouse_forwards_operation_and_level_and_derives_state(client, monkeypatch):
     calls = []
 
-    async def fake_rpc(name, authorization, payload):
+    async def fake_rpc(name, payload):
         calls.append((name, payload))
         return _result({"success": False, "hunger_after": 3}, {"fome": 3}, [3, 2])
 
-    monkeypatch.setattr("app.routes.v5._rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/rouse",
                            json={"operation_id": OPERATION_ID, "discipline_level": 1, "reason": "Rapidez"}, headers=AUTH)
     assert response.status_code == 200
@@ -57,11 +60,11 @@ def test_rouse_forwards_operation_and_level_and_derives_state(client, monkeypatc
 def test_blood_actions_call_their_rpc(client, monkeypatch, path, payload, rpc, expected):
     calls = []
 
-    async def fake_rpc(name, authorization, body):
+    async def fake_rpc(name, body):
         calls.append((name, body))
         return _result({"success": True})
 
-    monkeypatch.setattr("app.routes.v5._rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/{path}", json={"operation_id": OPERATION_ID, **payload}, headers=AUTH)
     assert response.status_code == 200
     assert calls == [(rpc, {"p_sheet_id": SHEET_ID, "p_operation_id": OPERATION_ID, **expected})]
@@ -81,16 +84,16 @@ def test_blood_actions_validate_and_never_accept_client_dice(client, monkeypatch
     async def never(*args, **kwargs):
         raise AssertionError("must not call the database")
 
-    monkeypatch.setattr("app.routes.v5._rpc", never)
+    stub_supabase(client.app, rpc=never)
     assert client.post(f"/api/v1/v5/sheets/{SHEET_ID}/{path}", json=payload, headers=AUTH).status_code == 422
 
 
 @pytest.mark.parametrize(("status", "fragment"), [(403, "dono da ficha"), (409, "já foi usado"), (422, "inválida")])
 def test_blood_errors_are_mapped(client, monkeypatch, status, fragment):
     async def fake_rpc(*args, **kwargs):
-        raise HTTPException(status_code=status, detail="x")
+        raise {403: Forbidden, 409: Conflict, 422: InvalidInput}[status]("x")
 
-    monkeypatch.setattr("app.routes.v5._rpc", fake_rpc)
+    stub_supabase(client.app, rpc=fake_rpc)
     response = client.post(f"/api/v1/v5/sheets/{SHEET_ID}/remorse", json={"operation_id": OPERATION_ID}, headers=AUTH)
     assert response.status_code == status and fragment in response.json()["detail"]
 
@@ -98,13 +101,13 @@ def test_blood_errors_are_mapped(client, monkeypatch, status, fragment):
 def test_sheet_blood_state_and_events(client, monkeypatch):
     seen = []
 
-    async def fake_request(method, path, authorization, *, params=None, payload=None):
+    async def fake_request(method, path, params=None, payload=None):
         seen.append((path, params))
         if path == "character_sheets":
             return [{"id": SHEET_ID, "values": {**VALUES, "manchas": 2}}]
         return [{"id": 3, "kind": "rouse", "dice": [7], "outcome": {"success": True}}]
 
-    monkeypatch.setattr("app.routes.v5._request", fake_request)
+    stub_supabase(client.app, request=fake_request)
     state = client.get(f"/api/v1/v5/sheets/{SHEET_ID}/blood", headers=AUTH).json()
     assert state["remorse_pool"] == 1 and state["frenzy_pool"]["fury"] == 4
     events = client.get(f"/api/v1/v5/sheets/{SHEET_ID}/blood-events?limit=5", headers=AUTH)

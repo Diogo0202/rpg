@@ -7,6 +7,8 @@ domínio sem repassar mensagens internas do banco.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
 
@@ -23,11 +25,23 @@ from app.domain.errors import (
 )
 
 REQUEST_TIMEOUT_SECONDS = 8
+MAX_AUTHORIZATION_LENGTH = 8192
 WRITE_METHODS = frozenset({"POST", "PATCH", "DELETE"})
 NOT_ALLOWED = "operação não permitida nesta campanha"
 
-# Códigos SQLSTATE levantados pelas funções RPC de fichas.
-RPC_ERRORS: dict[str, tuple[type[DomainError], str]] = {
+ErrorSpec = tuple[type[DomainError], str]
+SqlStateErrors = dict[str, ErrorSpec]
+
+
+@dataclass(frozen=True)
+class TableErrors:
+    """Tradução própria de status HTTP para uma leitura de tabela."""
+
+    by_status: Mapping[int, ErrorSpec]
+    otherwise: ErrorSpec
+
+# Códigos SQLSTATE levantados pelas funções RPC de fichas; outras RPCs podem trazer a própria tabela.
+RPC_ERRORS: SqlStateErrors = {
     "42501": (Forbidden, "operação não permitida nesta ficha"),
     "23514": (InvalidInput, "valor sairia do limite permitido"),
     "23505": (Conflict, "ID da operação já foi usado para outro ajuste"),
@@ -49,9 +63,10 @@ class SupabaseRest(Protocol):
         *,
         params: dict[str, str] | None = None,
         payload: dict[str, Any] | None = None,
+        errors: TableErrors | None = None,
     ) -> Any: ...
 
-    async def rpc(self, function: str, payload: dict[str, Any]) -> Any: ...
+    async def rpc(self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | None = None) -> Any: ...
 
 
 class SupabaseRestClient:
@@ -82,6 +97,7 @@ class SupabaseRestClient:
         *,
         params: dict[str, str] | None = None,
         payload: dict[str, Any] | None = None,
+        errors: TableErrors | None = None,
     ) -> Any:
         base_url, headers = self._session()
         headers["Accept"] = "application/json"
@@ -96,10 +112,14 @@ class SupabaseRestClient:
                 )
         except httpx.HTTPError as error:
             raise ServiceUnavailable("Supabase indisponível") from error
-        _raise_for_table_status(response, has_payload=payload is not None)
+        if errors is None:
+            _raise_for_table_status(response, has_payload=payload is not None)
+        elif response.status_code >= 400:
+            error_type, message = errors.by_status.get(response.status_code, errors.otherwise)
+            raise error_type(message)
         return response.json() if response.content else []
 
-    async def rpc(self, function: str, payload: dict[str, Any]) -> Any:
+    async def rpc(self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | None = None) -> Any:
         base_url, headers = self._session()
         headers["Content-Type"] = "application/json"
         try:
@@ -110,7 +130,8 @@ class SupabaseRestClient:
         if response.status_code == 401:
             raise Unauthenticated("sessão inválida")
         if response.status_code >= 400:
-            error_type, message = RPC_ERRORS.get(_sqlstate(response) or "", (Forbidden, NOT_ALLOWED))
+            table = RPC_ERRORS if errors is None else errors
+            error_type, message = table.get(_sqlstate(response) or "", (Forbidden, NOT_ALLOWED))
             raise error_type(message)
         return response.json()
 
@@ -120,7 +141,8 @@ class SupabaseRestClient:
         api_key = os.getenv("SUPABASE_PUBLISHABLE_KEY")
         if not base_url or not api_key:
             raise ServiceUnavailable("Supabase da API não está configurado")
-        if not self._authorization or not self._authorization.startswith("Bearer "):
+        token = self._authorization
+        if not token or not token.startswith("Bearer ") or len(token) > MAX_AUTHORIZATION_LENGTH:
             raise Unauthenticated("sessão necessária")
         return base_url.rstrip("/"), {"apikey": api_key, "Authorization": self._authorization}
 

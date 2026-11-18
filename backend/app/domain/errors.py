@@ -36,3 +36,7 @@ class InvalidInput(DomainError):
 
 class ServiceUnavailable(DomainError):
     """Um serviço externo necessário está fora do ar ou sem configuração."""
+
+
+class UnexpectedUpstreamResponse(DomainError):
+    """Um serviço externo respondeu num formato que o sistema não reconhece."""

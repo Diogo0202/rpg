@@ -3,8 +3,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.routes.generators import require_signed_in_user
-from app.routes.v5 import router as v5_router
-from app.routes.v5_actions import router as v5_actions_router
+from app.adapters.inbound.http.v5 import router as v5_router
+from tests.support.fake_supabase import stub_roll_activity, stub_supabase
+from app.adapters.inbound.http.v5_actions import router as v5_actions_router
 
 
 @pytest.fixture
@@ -108,8 +109,8 @@ def test_server_reserved_damage_effect_ids_remain_rejected_for_both_requests(cli
 def test_sheet_probability_reads_authorized_state_and_applies_effects(monkeypatch, client):
     calls = []
 
-    async def read_sheet(method, path, authorization, *, params):
-        calls.append((method, path, authorization, params))
+    async def read_sheet(method, path, params=None, payload=None):
+        calls.append((method, path, params))
         return [{
             "values": {"fome": 2, "vigor": 3, "autocontrole": 2, "resolucao": 2,
                        "saude_superficial": 6, "saude_agravada": 0},
@@ -117,7 +118,7 @@ def test_sheet_probability_reads_authorized_state_and_applies_effects(monkeypatc
                          "applies_to_tags": ["fisico"]}],
         }]
 
-    monkeypatch.setattr("app.routes.v5._request", read_sheet)
+    stub_supabase(client.app, request=read_sheet)
     sheet_id = "10000000-0000-4000-8000-000000000001"
     response = client.post(
         f"/api/v1/v5/sheets/{sheet_id}/probabilities",
@@ -129,7 +130,7 @@ def test_sheet_probability_reads_authorized_state_and_applies_effects(monkeypatc
     assert body["modifier_preview"]["adjusted_pool"] == 2
     assert [item["id"] for item in body["modifier_preview"]["applied"]] == ["condition", "__damage_health_full"]
     assert body["hunger_dice"] == 2
-    assert calls == [("GET", "character_sheets", "Bearer user-token", {
+    assert calls == [("GET", "character_sheets", {
         "select": "id,values,effects", "id": f"eq.{sheet_id}", "limit": "1",
     })]
 
@@ -138,7 +139,7 @@ def test_sheet_probability_hides_unreadable_sheet_and_rejects_client_effects(mon
     async def invisible_sheet(*args, **kwargs):
         return []
 
-    monkeypatch.setattr("app.routes.v5._request", invisible_sheet)
+    stub_supabase(client.app, request=invisible_sheet)
     url = "/api/v1/v5/sheets/10000000-0000-4000-8000-000000000001/probabilities"
     assert client.post(url, headers={"Authorization": "Bearer user-token"}, json={"pool": 5, "difficulty": 3}).status_code == 404
     assert client.post(url, headers={"Authorization": "Bearer user-token"}, json={

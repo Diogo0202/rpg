@@ -17,6 +17,7 @@ from app.domain.errors import (
     NotFound,
     ServiceUnavailable,
     Unauthenticated,
+    UnexpectedUpstreamResponse,
 )
 
 HTTP_STATUS: dict[type[DomainError], int] = {
@@ -25,6 +26,7 @@ HTTP_STATUS: dict[type[DomainError], int] = {
     NotFound: 404,
     Conflict: 409,
     InvalidInput: 422,
+    UnexpectedUpstreamResponse: 502,
     ServiceUnavailable: 503,
 }
 

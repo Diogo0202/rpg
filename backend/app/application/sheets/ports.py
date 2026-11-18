@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
 
+from app.application.identity import CurrentUser
+
+__all__ = ["CurrentUser", "EvocationRegistration", "NewSheet", "Row", "SheetRepository"]
+
 Row = dict[str, Any]
-
-
-class CurrentUser(Protocol):
-    async def current_user_id(self) -> str: ...
 
 
 @dataclass(frozen=True)

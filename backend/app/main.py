@@ -24,11 +24,11 @@ from app.security import ApiSecurityMiddleware
 from app.access_audit import AccessAuditMiddleware
 from app.shared_concurrency import SharedAdmissionMiddleware
 from app.routes.generators import router as generation_router
-from app.routes.v5 import router as v5_router
+from app.adapters.inbound.http.v5 import router as v5_router
 from app.adapters.inbound.http.sheets import router as sheets_router
 from app.routes.rules import router as rules_router
 from app.routes.modifiers import router as modifiers_router
-from app.routes.v5_actions import router as v5_actions_router
+from app.adapters.inbound.http.v5_actions import router as v5_actions_router
 from app.routes.second_inquisition import router as second_inquisition_router
 from app.routes.chronicle import router as chronicle_router
 from app.routes.system_rolls import router as system_rolls_router
@@ -38,10 +38,10 @@ from app.routes.marketplace import router as marketplace_router
 from app.routes.marketplace import maintenance_router as marketplace_maintenance_router
 from app.routes.campaign_invites import router as campaign_invites_router
 from app.routes.voice_sessions import router as voice_sessions_router
-from app.routes.experience import router as experience_router
+from app.adapters.inbound.http.experience import router as experience_router
 from app.routes.hunter import router as hunter_router
 from app.routes.one_ring_company import router as one_ring_company_router
-from app.routes.v5_sanguine import router as v5_sanguine_router
+from app.adapters.inbound.http.v5_sanguine import router as v5_sanguine_router
 from app.routes.spotify import router as spotify_router
 
 app = FastAPI(title="RPG-Atlas API", version="0.1.0")

@@ -6,7 +6,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.routes import generators, modifiers, second_inquisition, v5_actions
+from app.adapters.inbound.http import v5_actions
+from app.routes import generators, modifiers, second_inquisition
 from app.routes.generators import require_signed_in_user
 from app.services import session_roll_activity, supabase_rpc
 

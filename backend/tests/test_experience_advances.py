@@ -6,7 +6,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import experience, sheets
+from app.adapters.inbound.http import experience
+from app.adapters.inbound.http.errors import http_status
+from app.adapters.outbound.supabase.advance_repository import ADVANCE_ERRORS
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
+from app.domain.errors import DomainError
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 
 app = FastAPI()
@@ -20,23 +25,18 @@ AUTH = {"Authorization": "Bearer test-token"}
 
 
 @pytest.fixture
-def calls(monkeypatch) -> list[tuple[str, dict[str, Any]]]:
+def calls() -> list[tuple[str, dict[str, Any]]]:
     recorded: list[tuple[str, dict[str, Any]]] = []
 
-    async def current_user(_authorization):
-        return "13500000-0000-0000-0000-000000000001"
-
-    async def rpc(name, _authorization, payload):
+    def rpc(name: str, payload: dict[str, Any]) -> Any:
         recorded.append((name, payload))
         return {"advance": {"status": "applied"}, "sheet": {"id": SHEET_ID}}
 
-    async def request(method, path, _authorization, *, params=None, payload=None):
+    def request(method: str, path: str, params: Any, payload: Any) -> Any:
         recorded.append((f"{method} {path}", {"params": params, "payload": payload}))
         return [{"campaign_id": CAMPAIGN_ID, "requires_approval": True}] if method != "GET" or "settings" in path else []
 
-    monkeypatch.setattr(sheets, "_current_user_id", current_user)
-    monkeypatch.setattr(experience, "_advance_rpc", rpc)
-    monkeypatch.setattr(sheets, "_request", request)
+    use_fake_supabase(app, FakeSupabase(user_id="13500000-0000-0000-0000-000000000001", on_request=request, on_rpc=rpc))
     return recorded
 
 
@@ -110,9 +110,9 @@ def test_rpc_maps_advance_errors_without_leaking(monkeypatch, code, status, text
 
     transport = httpx.MockTransport(handler)
     real_client = httpx.AsyncClient
-    monkeypatch.setattr(experience.httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
-    with pytest.raises(experience.HTTPException) as error:
-        asyncio.run(experience._advance_rpc("purchase_advance", "Bearer test-token", {}))
-    assert error.value.status_code == status
-    assert text in error.value.detail
-    assert "internal detail" not in error.value.detail
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=transport, **kwargs))
+    with pytest.raises(DomainError) as error:
+        asyncio.run(SupabaseRestClient("Bearer test-token").rpc("purchase_advance", {}, errors=ADVANCE_ERRORS))
+    assert http_status(error.value) == status
+    assert text in error.value.message
+    assert "internal detail" not in error.value.message
