@@ -6,7 +6,7 @@ import math
 import httpx
 import pytest
 
-from app.services import ai_provider as provider
+from app.adapters.outbound.ai import provider
 
 
 def _config(monkeypatch, *, enabled="true", model=provider.MODEL, input_price="0.75", output_price="4.50"):

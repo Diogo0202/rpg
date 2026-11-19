@@ -11,8 +11,11 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, ValidationError, create_model
 
+from app.application.ai.ports import AIProviderError, AIUnavailable, ProviderResult
 from app.models import FieldKind, TemplateDraft
 from app.services import tutor_policy
+
+__all__ = ["AIProviderError", "AIUnavailable", "OpenAiProvider", "ProviderResult"]
 
 MODEL = "gpt-5.4-mini-2026-03-17"
 MAX_INPUT_BYTES = 64 * 1024
@@ -22,17 +25,6 @@ MAX_OUTPUT_TOKENS = 4096
 BASE_INPUT_PRICE = Decimal("0.75")
 BASE_OUTPUT_PRICE = Decimal("4.50")
 API_URL = "https://api.openai.com/v1/responses"
-
-
-class AIUnavailable(Exception):
-    """AI assistance is disabled or not configured."""
-
-
-class AIProviderError(Exception):
-    def __init__(self, code: str, usage: dict[str, int] | None = None):
-        super().__init__(code)
-        self.code = code
-        self.usage = usage
 
 
 @dataclass(frozen=True)
@@ -47,14 +39,6 @@ class ProviderSettings:
     def cost_micro(self, input_tokens: int, output_tokens: int) -> int:
         cost = (Decimal(input_tokens) * self.input_price + Decimal(output_tokens) * self.output_price)
         return int(cost.to_integral_value(rounding=ROUND_CEILING))
-
-
-@dataclass(frozen=True)
-class ProviderResult:
-    result: dict[str, Any]
-    input_tokens: int
-    output_tokens: int
-    model: str
 
 
 def provider_settings() -> ProviderSettings:
@@ -470,3 +454,21 @@ async def generate_proposal(kind: str, context: dict[str, Any], template: dict[s
             raise AIProviderError(error.code, usage) from None
         raise
     return ProviderResult(parsed, input_tokens, output_tokens, settings.model)
+
+
+class OpenAiProvider:
+    """Implementação da porta ``AiProvider``; chama as funções do módulo para ler a configuração a cada uso."""
+
+    def settings(self) -> ProviderSettings:
+        return provider_settings()
+
+    def check_request(
+        self, kind: str, context: dict[str, Any], template: dict[str, Any] | None = None, settings: ProviderSettings | None = None,
+    ) -> None:
+        build_request(kind, context, template, settings)
+
+    async def generate(self, kind: str, context: dict[str, Any], template: dict[str, Any] | None) -> ProviderResult:
+        return await generate_proposal(kind, context, template)
+
+    def validate(self, kind: str, result: dict[str, Any], template: dict[str, Any] | None = None) -> dict[str, Any]:
+        return validate_result(kind, result, template)

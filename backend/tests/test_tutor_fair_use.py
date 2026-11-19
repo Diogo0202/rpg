@@ -9,8 +9,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import ai_assistance as ai
-from app.services import ai_provider, tutor_policy
+from app.adapters.inbound.http import ai_assistance as ai
+from app.adapters.outbound.ai import provider as ai_provider
+from app.adapters.outbound.supabase.ai_store import SupabaseAiPrivateStore
+from app.application.ai.ports import Actor
+from app.services import tutor_policy
 
 C = "10000000-0000-4000-8000-000000000001"
 U = "20000000-0000-4000-8000-000000000001"
@@ -23,20 +26,30 @@ def client(monkeypatch):
     app = FastAPI()
     app.include_router(ai.router)
 
-    async def actor(*args):
-        return ai.Actor(U, "Bearer fixture", False, True)
-
-    monkeypatch.setattr(ai, "_actor", actor)
+    app.dependency_overrides[ai.campaign_actor] = lambda: Actor(U, False, True)
     monkeypatch.setenv("AI_ENABLED", "false")
     return TestClient(app)
 
 
-def _forbid_paid_calls(monkeypatch):
+def use_paid_generation(client, run):
+    """Troca a chamada paga inteira por uma função com a assinatura (campanha, ator, tipo, contexto, modelo, operação)."""
+    class Paid:
+        async def run(self, *args, check=None):
+            return await run(*args[:6])
+
+    client.app.dependency_overrides[ai.paid_generation] = Paid
+
+
+def use_private_transport(client, transport):
+    client.app.dependency_overrides[ai.ai_private_store] = lambda: SupabaseAiPrivateStore(transport)
+
+
+def _forbid_paid_calls(client):
     async def forbidden(*args, **kwargs):
         raise AssertionError("Pedido de lore não pode chegar ao provedor pago")
 
-    monkeypatch.setattr(ai, "_paid_generation", forbidden)
-    monkeypatch.setattr(ai, "_service", forbidden)
+    use_paid_generation(client, forbidden)
+    use_private_transport(client, forbidden)
 
 
 @pytest.mark.parametrize("body", [
@@ -48,7 +61,7 @@ def _forbid_paid_calls(monkeypatch):
     {"expression": "narrativa + 1", "values": {"narrativa": 2}},
 ])
 def test_api_refuses_lore_before_any_paid_call(client, monkeypatch, body):
-    _forbid_paid_calls(monkeypatch)
+    _forbid_paid_calls(client)
     response = client.post(f"/api/v1/campaigns/{C}/ai/tutor", json={**body, "explain": True, "idempotency_key": OP})
     assert response.status_code == 422
     assert response.json()["detail"] == tutor_policy.REFUSAL_MESSAGE
@@ -61,7 +74,7 @@ def test_api_accepts_mechanical_question_and_returns_bullets(client, monkeypatch
         captured.update(kind=kind, context=context)
         return {"explanation": "- Some Força 3 e Vigor 2.\n- A parada fica com 5 dados."}
 
-    monkeypatch.setattr(ai, "_paid_generation", explain)
+    use_paid_generation(client, explain)
     body = {"expression": "forca + vigor", "values": {"forca": 3, "vigor": 2}, "explain": True,
             "question": "Quantos dados entram na parada?", "idempotency_key": OP}
     response = client.post(f"/api/v1/campaigns/{C}/ai/tutor", json=body)
@@ -83,7 +96,7 @@ def test_api_discards_explanations_outside_bullet_mechanics(client, monkeypatch,
     async def explain(*args):
         return {"explanation": explanation}
 
-    monkeypatch.setattr(ai, "_paid_generation", explain)
+    use_paid_generation(client, explain)
     body = {"expression": "forca + vigor", "values": {"forca": 3, "vigor": 2}, "explain": True, "idempotency_key": OP}
     response = client.post(f"/api/v1/campaigns/{C}/ai/tutor", json=body)
     assert response.status_code == 502

@@ -32,7 +32,7 @@ from app.adapters.inbound.http.v5_actions import router as v5_actions_router
 from app.routes.second_inquisition import router as second_inquisition_router
 from app.adapters.inbound.http.chronicle import router as chronicle_router
 from app.routes.system_rolls import router as system_rolls_router
-from app.routes.ai_assistance import router as ai_assistance_router
+from app.adapters.inbound.http.ai_assistance import router as ai_assistance_router
 from app.adapters.inbound.http.mobile_sync import router as mobile_sync_router
 from app.adapters.inbound.http.marketplace import router as marketplace_router
 from app.adapters.inbound.http.marketplace import maintenance_router as marketplace_maintenance_router
