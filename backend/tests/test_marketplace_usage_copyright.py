@@ -4,11 +4,18 @@ import asyncio
 import inspect
 
 import pytest
-from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.testclient import TestClient
+from fastapi import UploadFile
 
-from app.routes import marketplace as route
+import httpx
+
+from app.adapters.inbound.http import marketplace as route
+from app.adapters.inbound.http.errors import http_status
+from app.adapters.outbound.supabase.marketplace import MEMBER_ERRORS, USAGE_BATCH_SIZE, SupabaseMarketplaceServiceRole
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
+from app.application.marketplace.service import MarketplaceService
+from app.domain.errors import DomainError, Forbidden
 from app.services import marketplace
+from tests.support.marketplace_fakes import fakes, marketplace_client
 
 
 USER = "71000000-0000-4000-8000-000000000001"
@@ -17,11 +24,8 @@ CAMPAIGN = "72000000-0000-4000-8000-000000000001"
 TOKEN = "Bearer verified-marketplace-test-token"
 
 
-def _client() -> TestClient:
-    app = FastAPI()
-    app.include_router(route.router)
-    app.include_router(route.maintenance_router)
-    return TestClient(app)
+def _client():
+    return marketplace_client(maintenance=True)
 
 
 def _copyright_body(**changes) -> dict:
@@ -44,8 +48,8 @@ def _authenticated(monkeypatch, calls, result=None):
         calls.append((path, payload))
         return result
 
-    monkeypatch.setattr(marketplace, "current_user_id", current_user)
-    monkeypatch.setattr(marketplace, "request_user", request_user)
+    monkeypatch.setattr(fakes, "current_user_id", current_user)
+    monkeypatch.setattr(fakes, "request_user", request_user)
 
 
 # --- usage_count assíncrono -------------------------------------------------
@@ -57,7 +61,7 @@ def test_clone_schedules_background_aggregation_after_response(monkeypatch) -> N
     async def apply():
         aggregations.append(len(calls))
 
-    monkeypatch.setattr(marketplace, "apply_usage_events_in_background", apply)
+    monkeypatch.setattr(fakes, "apply_usage_events", apply)
     response = _client().post(f"/api/v1/marketplace/systems/{SYSTEM}/clone", headers={"Authorization": TOKEN},
                               json={"campaign_id": CAMPAIGN, "idempotency_key": "clone-key-0001"})
     assert response.status_code == 200
@@ -72,14 +76,14 @@ def test_failed_clone_does_not_schedule_aggregation(monkeypatch) -> None:
         return USER
 
     async def request_user(*_args, **_kwargs):
-        raise HTTPException(status_code=403, detail="operação não permitida")
+        raise Forbidden("operação não permitida")
 
     async def apply():  # pragma: no cover - must not run
         aggregations.append(True)
 
-    monkeypatch.setattr(marketplace, "current_user_id", current_user)
-    monkeypatch.setattr(marketplace, "request_user", request_user)
-    monkeypatch.setattr(marketplace, "apply_usage_events_in_background", apply)
+    monkeypatch.setattr(fakes, "current_user_id", current_user)
+    monkeypatch.setattr(fakes, "request_user", request_user)
+    monkeypatch.setattr(fakes, "apply_usage_events", apply)
     response = _client().post(f"/api/v1/marketplace/systems/{SYSTEM}/clone", headers={"Authorization": TOKEN},
                               json={"campaign_id": CAMPAIGN, "idempotency_key": "clone-key-0001"})
     assert response.status_code == 403 and aggregations == []
@@ -111,7 +115,7 @@ def _fake_httpx(monkeypatch, response, sent):
                 raise response
             return response
 
-    monkeypatch.setattr(marketplace.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
 
 
 def test_apply_usage_events_uses_service_role_rpc(monkeypatch) -> None:
@@ -119,10 +123,10 @@ def test_apply_usage_events_uses_service_role_rpc(monkeypatch) -> None:
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-test-key")
     sent = []
     _fake_httpx(monkeypatch, _Response(200, 3), sent)
-    assert asyncio.run(marketplace.apply_usage_events()) == 3
+    assert asyncio.run(SupabaseMarketplaceServiceRole().apply_usage_events()) == 3
     assert sent[0]["url"] == "https://example.supabase.co/rest/v1/rpc/marketplace_apply_usage_events"
     assert sent[0]["headers"]["Authorization"] == "Bearer service-test-key"
-    assert sent[0]["json"] == {"p_batch_size": marketplace.USAGE_BATCH_SIZE}
+    assert sent[0]["json"] == {"p_batch_size": USAGE_BATCH_SIZE}
 
 
 def test_apply_usage_events_without_service_key_is_deferred(monkeypatch) -> None:
@@ -130,7 +134,7 @@ def test_apply_usage_events_without_service_key_is_deferred(monkeypatch) -> None
     monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
     sent = []
     _fake_httpx(monkeypatch, _Response(200, 1), sent)
-    assert asyncio.run(marketplace.apply_usage_events()) is None
+    assert asyncio.run(SupabaseMarketplaceServiceRole().apply_usage_events()) is None
     assert sent == []
 
 
@@ -139,16 +143,16 @@ def test_apply_usage_events_rejects_invalid_rpc_result(monkeypatch, payload) -> 
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-test-key")
     _fake_httpx(monkeypatch, _Response(200, payload), [])
-    with pytest.raises(HTTPException) as error:
-        asyncio.run(marketplace.apply_usage_events())
-    assert error.value.status_code == 503
+    with pytest.raises(DomainError) as error:
+        asyncio.run(SupabaseMarketplaceServiceRole().apply_usage_events())
+    assert http_status(error.value) == 503
 
 
 def test_background_aggregation_swallows_failures(monkeypatch) -> None:
     monkeypatch.setenv("SUPABASE_URL", "https://example.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "service-test-key")
-    _fake_httpx(monkeypatch, marketplace.httpx.ConnectError("down"), [])
-    assert asyncio.run(marketplace.apply_usage_events_in_background()) is None
+    _fake_httpx(monkeypatch, httpx.ConnectError("down"), [])
+    assert asyncio.run(MarketplaceService(None, None, None, SupabaseMarketplaceServiceRole()).aggregate_usage_in_background()) is None
 
 
 def test_maintenance_endpoint_requires_service_secret(monkeypatch) -> None:
@@ -158,7 +162,7 @@ def test_maintenance_endpoint_requires_service_secret(monkeypatch) -> None:
         applied.append(True)
         return 7
 
-    monkeypatch.setattr(marketplace, "apply_usage_events", apply)
+    monkeypatch.setattr(fakes, "apply_usage_events", apply)
     client = _client()
     monkeypatch.delenv("MARKETPLACE_MAINTENANCE_TOKEN", raising=False)
     assert client.post("/internal/maintenance/marketplace-usage").status_code == 503
@@ -179,7 +183,7 @@ def test_public_list_reads_the_column_and_supports_popular_sort(monkeypatch) -> 
         return [{"id": SYSTEM, "name": "A", "description": "d", "tags": ["x"], "author_name": "a", "automation_level": "static",
                  "dependencies": [], "updated_at": "2026-10-26T10:00:00Z", "usage_count": 12, "likes": 0, "dislikes": 0}]
 
-    monkeypatch.setattr(marketplace, "request_public", request_public)
+    monkeypatch.setattr(fakes, "request_public", request_public)
     client = _client()
     popular = client.get("/api/v1/marketplace/systems?sort=popular")
     default = client.get("/api/v1/marketplace/systems")
@@ -244,10 +248,10 @@ def test_report_limit_maps_to_429(monkeypatch) -> None:
             return {"code": "54000", "message": "report limit reached"}
 
     _fake_httpx(monkeypatch, Response(), [])
-    with pytest.raises(HTTPException) as error:
-        asyncio.run(marketplace.request_user("POST", "rpc/marketplace_report_copyright", TOKEN, payload={}))
-    assert error.value.status_code == 429
-    assert "report limit reached" not in str(error.value.detail)
+    with pytest.raises(DomainError) as error:
+        asyncio.run(SupabaseRestClient(TOKEN).rpc("marketplace_report_copyright", {}, errors=MEMBER_ERRORS))
+    assert http_status(error.value) == 429
+    assert "report limit reached" not in error.value.message
 
 
 def test_moderation_queue_keeps_copyright_fields_without_user_ids(monkeypatch) -> None:

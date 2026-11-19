@@ -34,6 +34,18 @@ class InvalidInput(DomainError):
     """Os dados enviados violam uma regra do modelo ou do sistema de regras."""
 
 
+class LimitExceeded(DomainError):
+    """O volume de registros passou do limite que o sistema processa de uma vez."""
+
+
+class RateLimited(DomainError):
+    """A operação foi repetida antes do intervalo ou além do limite permitido."""
+
+    def __init__(self, message: str, retry_after_seconds: str | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class ServiceUnavailable(DomainError):
     """Um serviço externo necessário está fora do ar ou sem configuração."""
 

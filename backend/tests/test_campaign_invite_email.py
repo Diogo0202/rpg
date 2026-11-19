@@ -8,7 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import campaign_invites as route
+from app.adapters.inbound.http import campaign_invites as route
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 from app.services import invite_email
 
 
@@ -27,9 +28,11 @@ ROW = {
 }
 
 
-def _client() -> TestClient:
+def _client(supabase: FakeSupabase | None = None) -> TestClient:
     app = FastAPI()
     app.include_router(route.router)
+    if supabase is not None:
+        use_fake_supabase(app, supabase)
     return TestClient(app)
 
 
@@ -48,36 +51,30 @@ def test_unconfigured_provider_returns_503_without_reserving(monkeypatch) -> Non
     for name in ("INVITE_EMAIL_PROVIDER", "INVITE_EMAIL_FROM", "APP_BASE_URL", "RESEND_API_KEY", "SMTP_HOST"):
         monkeypatch.delenv(name, raising=False)
 
-    async def reserve(*_args):
+    def reserve(*_args):
         raise AssertionError("must not reserve a send without a provider")
 
-    monkeypatch.setattr(route, "reserve_send", reserve)
-    response = _client().post(f"/api/v1/campaign-invites/{INVITE}/email", headers={"Authorization": TOKEN})
+    response = _client(FakeSupabase(on_rpc=reserve)).post(f"/api/v1/campaign-invites/{INVITE}/email", headers={"Authorization": TOKEN})
     assert response.status_code == 503
     assert "não está configurado" in response.json()["detail"]
 
 
 def test_sends_to_the_recipient_stored_in_the_database(monkeypatch, configured) -> None:
-    calls: list[tuple] = []
     sent: list[invite_email.InviteEmail] = []
-
-    async def reserve(invite_id, authorization):
-        calls.append((str(invite_id), authorization))
-        return dict(ROW)
 
     async def deliver(settings, message):
         sent.append(message)
 
-    monkeypatch.setattr(route, "reserve_send", reserve)
+    supabase = FakeSupabase(on_rpc=lambda *_: [dict(ROW)])
     monkeypatch.setattr(invite_email, "deliver", deliver)
-    response = _client().post(
+    response = _client(supabase).post(
         f"/api/v1/campaign-invites/{INVITE}/email",
         headers={"Authorization": TOKEN},
         json={"email": "atacante@example.test"},
     )
     assert response.status_code == 200
     assert response.json()["email_sent_count"] == 1
-    assert calls == [(INVITE, TOKEN)]
+    assert supabase.rpcs == [("reserve_campaign_invite_email", {"p_invite_id": INVITE})]
     assert sent[0].to == "convidada@example.test"
     assert "ABCD-EF12-3456" in sent[0].text
     assert "https://rpg.example.test/app" in sent[0].html
@@ -110,7 +107,7 @@ def test_reserve_maps_cooldown_and_limit_errors(monkeypatch, configured) -> None
     real_client = httpx.AsyncClient
     for code, status in (("54001", 429), ("54000", 429), ("42501", 403), ("55000", 409), ("22023", 422)):
         transport = httpx.MockTransport(factory(code))
-        monkeypatch.setattr(route.httpx, "AsyncClient", lambda *a, _t=transport, **k: real_client(transport=_t, **k))
+        monkeypatch.setattr(httpx, "AsyncClient", lambda *a, _t=transport, **k: real_client(transport=_t, **k))
         response = _client().post(f"/api/v1/campaign-invites/{INVITE}/email", headers={"Authorization": TOKEN})
         assert response.status_code == status, code
 
@@ -121,16 +118,12 @@ def test_missing_session_is_refused(configured) -> None:
 
 
 def test_delivery_failure_is_502_and_logs_no_code(monkeypatch, configured, caplog) -> None:
-    async def reserve(*_args):
-        return dict(ROW)
-
     async def deliver(settings, message):
         raise invite_email.EmailDeliveryError("SMTPAuthenticationError")
 
-    monkeypatch.setattr(route, "reserve_send", reserve)
     monkeypatch.setattr(invite_email, "deliver", deliver)
     with caplog.at_level(logging.INFO):
-        response = _client().post(f"/api/v1/campaign-invites/{INVITE}/email", headers={"Authorization": TOKEN})
+        response = _client(FakeSupabase(on_rpc=lambda *_: dict(ROW))).post(f"/api/v1/campaign-invites/{INVITE}/email", headers={"Authorization": TOKEN})
     assert response.status_code == 502
     assert "ABCDEF123456" not in caplog.text and "ABCD-EF12" not in caplog.text
     assert "convidada@example.test" not in caplog.text

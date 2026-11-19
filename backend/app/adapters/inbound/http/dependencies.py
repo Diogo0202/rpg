@@ -7,14 +7,28 @@ from __future__ import annotations
 
 from fastapi import Depends, Header
 
+from app.adapters.outbound.email.invite_mailer import EnvironmentInviteMailer
 from app.adapters.outbound.supabase.advance_repository import SupabaseAdvanceRepository
+from app.adapters.outbound.supabase.chronicle_store import SupabaseChronicleStore
+from app.adapters.outbound.supabase.invite_reservations import SupabaseInviteReservations
+from app.adapters.outbound.supabase.marketplace import (
+    SupabaseMarketplaceCatalog,
+    SupabaseMarketplaceMember,
+    SupabaseMarketplaceServiceRole,
+)
 from app.adapters.outbound.supabase.rest_client import SupabaseRest, SupabaseRestClient
 from app.adapters.outbound.supabase.roll_activity import ChronicleRollRecorder
 from app.adapters.outbound.supabase.sanguine_store import SupabaseSanguineStore
 from app.adapters.outbound.supabase.sheet_repository import SupabaseSheetRepository
+from app.adapters.outbound.supabase.sync_gateway import SupabaseSyncGateway, SupabaseSyncTransport, SyncTransport
 from app.adapters.outbound.supabase.v5_repository import SupabaseV5Store
 from app.adapters.outbound.supabase.weapon_reader import SupabaseWeaponReader
+from app.application.chronicle.service import ChronicleService
 from app.application.experience.service import ExperienceService
+from app.application.invites.service import InviteEmailService, InviteMailer
+from app.application.marketplace.ports import MarketplaceCatalog, MarketplaceServiceRole
+from app.application.marketplace.service import MarketplaceService
+from app.application.mobile_sync.service import MobileSyncService
 from app.application.sheets.service import SheetService
 from app.application.v5.actions import V5ActionService
 from app.application.v5.blood import V5BloodService
@@ -52,6 +66,44 @@ def v5_blood_service(supabase: SupabaseRest = Depends(supabase_session)) -> V5Bl
 
 def v5_sanguine_service(supabase: SupabaseRest = Depends(supabase_session)) -> V5SanguineService:
     return V5SanguineService(SupabaseSanguineStore(supabase))
+
+
+def chronicle_service(supabase: SupabaseRest = Depends(supabase_session)) -> ChronicleService:
+    return ChronicleService(identity=supabase, store=SupabaseChronicleStore(supabase))
+
+
+def sync_transport(authorization: str | None = Header(default=None)) -> SyncTransport:
+    return SupabaseSyncTransport(authorization)
+
+
+def mobile_sync_service(transport: SyncTransport = Depends(sync_transport)) -> MobileSyncService:
+    return MobileSyncService(SupabaseSyncGateway(transport))
+
+
+def marketplace_catalog() -> MarketplaceCatalog:
+    return SupabaseMarketplaceCatalog()
+
+
+def marketplace_service_role() -> MarketplaceServiceRole:
+    return SupabaseMarketplaceServiceRole()
+
+
+def marketplace_service(
+    supabase: SupabaseRest = Depends(supabase_session),
+    catalog: MarketplaceCatalog = Depends(marketplace_catalog),
+    service_role: MarketplaceServiceRole = Depends(marketplace_service_role),
+) -> MarketplaceService:
+    return MarketplaceService(supabase, catalog, SupabaseMarketplaceMember(supabase), service_role)
+
+
+def invite_mailer() -> InviteMailer:
+    return EnvironmentInviteMailer()
+
+
+def invite_email_service(
+    supabase: SupabaseRest = Depends(supabase_session), mailer: InviteMailer = Depends(invite_mailer),
+) -> InviteEmailService:
+    return InviteEmailService(SupabaseInviteReservations(supabase), mailer)
 
 
 def weapon_reader(supabase: SupabaseRest = Depends(supabase_session)) -> WeaponReader:

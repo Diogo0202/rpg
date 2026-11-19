@@ -14,7 +14,9 @@ from app.domain.errors import (
     DomainError,
     Forbidden,
     InvalidInput,
+    LimitExceeded,
     NotFound,
+    RateLimited,
     ServiceUnavailable,
     Unauthenticated,
     UnexpectedUpstreamResponse,
@@ -25,7 +27,9 @@ HTTP_STATUS: dict[type[DomainError], int] = {
     Forbidden: 403,
     NotFound: 404,
     Conflict: 409,
+    LimitExceeded: 413,
     InvalidInput: 422,
+    RateLimited: 429,
     UnexpectedUpstreamResponse: 502,
     ServiceUnavailable: 503,
 }
@@ -39,7 +43,10 @@ def http_status(error: DomainError) -> int:
 
 
 def to_http_exception(error: DomainError) -> HTTPException:
-    return HTTPException(status_code=http_status(error), detail=error.message)
+    headers = None
+    if isinstance(error, RateLimited) and error.retry_after_seconds is not None:
+        headers = {"Retry-After": error.retry_after_seconds}
+    return HTTPException(status_code=http_status(error), detail=error.message, headers=headers)
 
 
 @contextmanager

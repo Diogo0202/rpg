@@ -40,6 +40,16 @@ class TableErrors:
     by_status: Mapping[int, ErrorSpec]
     otherwise: ErrorSpec
 
+
+@dataclass(frozen=True)
+class RpcErrors:
+    """Tradução completa de uma RPC: primeiro o SQLSTATE, depois o status HTTP, por fim o padrão."""
+
+    by_code: Mapping[str, ErrorSpec]
+    by_status: Mapping[int, ErrorSpec]
+    otherwise: ErrorSpec
+
+
 # Códigos SQLSTATE levantados pelas funções RPC de fichas; outras RPCs podem trazer a própria tabela.
 RPC_ERRORS: SqlStateErrors = {
     "42501": (Forbidden, "operação não permitida nesta ficha"),
@@ -66,7 +76,9 @@ class SupabaseRest(Protocol):
         errors: TableErrors | None = None,
     ) -> Any: ...
 
-    async def rpc(self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | None = None) -> Any: ...
+    async def rpc(
+        self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | RpcErrors | None = None,
+    ) -> Any: ...
 
 
 class SupabaseRestClient:
@@ -117,9 +129,16 @@ class SupabaseRestClient:
         elif response.status_code >= 400:
             error_type, message = errors.by_status.get(response.status_code, errors.otherwise)
             raise error_type(message)
-        return response.json() if response.content else []
+        if not response.content:
+            return []
+        try:
+            return response.json()
+        except ValueError as error:
+            raise ServiceUnavailable("resposta inválida do Supabase") from error
 
-    async def rpc(self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | None = None) -> Any:
+    async def rpc(
+        self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | RpcErrors | None = None,
+    ) -> Any:
         base_url, headers = self._session()
         headers["Content-Type"] = "application/json"
         try:
@@ -127,13 +146,15 @@ class SupabaseRestClient:
                 response = await client.post(f"{base_url}/rest/v1/rpc/{function}", headers=headers, json=payload)
         except httpx.HTTPError as error:
             raise ServiceUnavailable("Supabase indisponível") from error
-        if response.status_code == 401:
-            raise Unauthenticated("sessão inválida")
         if response.status_code >= 400:
-            table = RPC_ERRORS if errors is None else errors
-            error_type, message = table.get(_sqlstate(response) or "", (Forbidden, NOT_ALLOWED))
+            error_type, message = _rpc_error(response, errors)
             raise error_type(message)
-        return response.json()
+        if not response.content:
+            return None
+        try:
+            return response.json()
+        except ValueError as error:
+            raise ServiceUnavailable("resposta inválida do Supabase") from error
 
     def _session(self) -> tuple[str, dict[str, str]]:
         """Confere a configuração antes da sessão, como as rotas sempre fizeram."""
@@ -161,6 +182,18 @@ def _raise_for_table_status(response: httpx.Response, *, has_payload: bool) -> N
     if status == 400 and has_payload:
         raise InvalidInput("dados da ficha rejeitados pelo Supabase")
     raise Forbidden(NOT_ALLOWED)
+
+
+def _rpc_error(response: httpx.Response, errors: SqlStateErrors | RpcErrors | None) -> ErrorSpec:
+    code = _sqlstate(response) or ""
+    if isinstance(errors, RpcErrors):
+        if code in errors.by_code:
+            return errors.by_code[code]
+        return errors.by_status.get(response.status_code, errors.otherwise)
+    if response.status_code == 401:
+        return Unauthenticated, "sessão inválida"
+    table = RPC_ERRORS if errors is None else errors
+    return table.get(code, (Forbidden, NOT_ALLOWED))
 
 
 def _sqlstate(response: httpx.Response) -> str | None:
