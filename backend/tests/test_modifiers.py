@@ -5,8 +5,8 @@ from fastapi.testclient import TestClient
 import pytest
 from pydantic import ValidationError
 
-from app.routes.generators import require_signed_in_user
-from app.routes.modifiers import router as modifiers_router
+from app.adapters.inbound.http.auth import require_signed_in_user
+from app.adapters.inbound.http.modifiers import router as modifiers_router
 from app.services.modifiers import ModifierRequest, preview_modifiers
 
 
@@ -113,7 +113,7 @@ def test_roll_computes_pool_from_payload_and_rejects_zero_pool(monkeypatch: pyte
             calls.append(sides)
             return 2
 
-        monkeypatch.setattr("app.routes.modifiers.secrets.randbelow", fake_randbelow)
+        monkeypatch.setattr("app.application.modifiers.secrets.randbelow", fake_randbelow)
         payload = {
             "base_pool": 2,
             "effects": [effect("buff", delta=1)],

@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from app.adapters.inbound.http import campaign_invites as route
 from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
-from app.services import invite_email
+from app.adapters.outbound.email import invite_mailer as invite_email
 
 
 INVITE = "3e000000-0000-4000-8000-000000000001"

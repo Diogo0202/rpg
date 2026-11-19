@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.testclient import TestClient
 
-from app.routes import second_inquisition as route
+from app.adapters.inbound.http import second_inquisition as route
+from app.adapters.inbound.http.dependencies import supabase_session
+from app.application import second_inquisition as inquisition
+from app.domain.errors import Unauthenticated
+from tests.support.fake_supabase import FakeSupabase
 
 
 api_app = FastAPI()
@@ -21,26 +25,37 @@ EVENT_IDS = [
 NOW = "2026-10-15T12:00:00+00:00"
 
 
+FAKE = FakeSupabase(user_id=USER_ID)
+
+
+def _session(authorization: str | None = Header(default=None)) -> FakeSupabase:
+    """Só o token de teste abre a sessão, como faria o Supabase."""
+    if authorization != "Bearer valid-token":
+        raise Unauthenticated("sessão inválida")
+    return FAKE
+
+
+api_app.dependency_overrides[supabase_session] = _session
+
+
+def use_request(request) -> None:  # type: ignore[no-untyped-def]
+    async def adapted(method, path, params=None, payload=None):  # type: ignore[no-untyped-def]
+        return await request(method, path, None, params=params, payload=payload)
+
+    FAKE.on_request = adapted
+
+
 def install_auth(monkeypatch: pytest.MonkeyPatch, role: str = "master") -> None:
-    async def current_user(authorization: str | None) -> str:
-        if authorization != "Bearer valid-token":
-            from fastapi import HTTPException
-
-            raise HTTPException(status_code=401, detail="sessão inválida")
-        return USER_ID
-
-    monkeypatch.setattr(route, "_current_user_id", current_user)
-    monkeypatch.setattr(route, "_supabase_config", lambda: ("https://example.supabase.co", "public-test-key"))
-    original = route._supabase_request
-
-    async def request(method: str, path: str, authorization: str, *, params=None, payload=None):
+    async def request(method: str, path: str, authorization: str | None, *, params=None, payload=None):
         if path == "campaigns":
             return [{"id": CAMPAIGN_ID, "owner_id": OWNER_ID}]
         if path == "campaign_members":
             return [{"role": role}] if role else []
-        return await original(method, path, authorization, params=params, payload=payload)
+        if path == "second_inquisition_events" and method == "GET":
+            return []
+        raise AssertionError((method, path))
 
-    monkeypatch.setattr(route, "_supabase_request", request)
+    use_request(request)
 
 
 def event_row(event_id: str, kind: str) -> dict[str, object]:
@@ -89,7 +104,7 @@ def test_player_cannot_change_confirmed_events(monkeypatch: pytest.MonkeyPatch, 
 
 def test_get_reconstructs_all_event_pages_and_original_assessment(monkeypatch: pytest.MonkeyPatch) -> None:
     install_auth(monkeypatch)
-    monkeypatch.setattr(route, "PAGE_SIZE", 2)
+    monkeypatch.setattr(inquisition, "PAGE_SIZE", 2)
     rows = [
         event_row(EVENT_IDS[0], "public_discipline"),
         event_row(EVENT_IDS[1], "masquerade_breach"),
@@ -108,7 +123,7 @@ def test_get_reconstructs_all_event_pages_and_original_assessment(monkeypatch: p
             return rows[offset : offset + int(params["limit"])]
         raise AssertionError(path)
 
-    monkeypatch.setattr(route, "_supabase_request", request)
+    use_request(request)
     response = client.get(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/second-inquisition",
         headers={"Authorization": "Bearer valid-token"},
@@ -131,8 +146,8 @@ def test_get_reconstructs_all_event_pages_and_original_assessment(monkeypatch: p
 
 def test_get_returns_explicit_error_instead_of_truncating_over_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     install_auth(monkeypatch)
-    monkeypatch.setattr(route, "MAX_EVENTS", 2)
-    monkeypatch.setattr(route, "PAGE_SIZE", 2)
+    monkeypatch.setattr(inquisition, "MAX_EVENTS", 2)
+    monkeypatch.setattr(inquisition, "PAGE_SIZE", 2)
     rows = [event_row(EVENT_IDS[0], "public_discipline"), event_row(EVENT_IDS[1], "digital_trace"), event_row(EVENT_IDS[2], "masquerade_breach")]
 
     async def request(method: str, path: str, authorization: str, *, params=None, payload=None):
@@ -145,7 +160,7 @@ def test_get_returns_explicit_error_instead_of_truncating_over_limit(monkeypatch
             return rows[offset : offset + int(params["limit"])]
         raise AssertionError(path)
 
-    monkeypatch.setattr(route, "_supabase_request", request)
+    use_request(request)
     response = client.get(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/second-inquisition",
         headers={"Authorization": "Bearer valid-token"},
@@ -170,7 +185,7 @@ def test_master_confirms_server_stamped_event_and_cannot_choose_author(monkeypat
             return []
         raise AssertionError((method, path))
 
-    monkeypatch.setattr(route, "_supabase_request", request)
+    use_request(request)
     headers = {"Authorization": "Bearer valid-token"}
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/second-inquisition",
@@ -201,7 +216,7 @@ def test_event_revocation_uses_version_compare_and_swap(monkeypatch: pytest.Monk
             return [{"id": EVENT_IDS[0]}]
         raise AssertionError((method, path))
 
-    monkeypatch.setattr(route, "_supabase_request", request)
+    use_request(request)
     response = client.delete(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/second-inquisition/{EVENT_IDS[0]}?expected_version=1",
         headers={"Authorization": "Bearer valid-token"},
@@ -212,12 +227,18 @@ def test_event_revocation_uses_version_compare_and_swap(monkeypatch: pytest.Monk
 
 def test_create_refuses_to_make_the_assessment_unreadable_at_its_limit(monkeypatch: pytest.MonkeyPatch) -> None:
     install_auth(monkeypatch)
-    monkeypatch.setattr(route, "MAX_EVENTS", 1)
+    monkeypatch.setattr(inquisition, "MAX_EVENTS", 1)
 
-    async def existing_events(campaign_id, authorization):
-        return [event_row(EVENT_IDS[0], "digital_trace")]
+    async def request(method, path, authorization, *, params=None, payload=None):  # type: ignore[no-untyped-def]
+        if path == "campaigns":
+            return [{"id": CAMPAIGN_ID, "owner_id": OWNER_ID}]
+        if path == "campaign_members":
+            return [{"role": "master"}]
+        if path == "second_inquisition_events" and method == "GET":
+            return [event_row(EVENT_IDS[0], "digital_trace")]
+        raise AssertionError((method, path))
 
-    monkeypatch.setattr(route, "_read_all_events", existing_events)
+    use_request(request)
     response = client.post(
         f"/api/v1/campaigns/{CAMPAIGN_ID}/second-inquisition",
         headers={"Authorization": "Bearer valid-token"},

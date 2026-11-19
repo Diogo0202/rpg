@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_
 
 from app.services import hunter_traits as hunter_traits_service
 from app.services import one_ring
-from app.services.session_roll_activity import RollChronicleContext
+from app.application.roll_activity import RollChronicleContext
 
 
 # Hunter: regras de dados consultadas no infográfico oficial de mecânicas básicas

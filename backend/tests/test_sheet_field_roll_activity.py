@@ -1,4 +1,4 @@
-from fastapi import HTTPException
+from app.domain.errors import ServiceUnavailable
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -19,7 +19,7 @@ def test_dice_field_context_records_exact_expression_and_exposes_status(monkeypa
         return {"status": "recorded", "activity_id": SHEET}
 
     monkeypatch.setattr("app.security.verify_supabase_user", verify)
-    monkeypatch.setattr("app.services.session_roll_activity.call_rpc", rpc)
+    monkeypatch.setattr("app.adapters.outbound.supabase.roll_activity.call_rpc", rpc)
     response = TestClient(app).post("/api/v1/dice/roll", headers={"Authorization": "Bearer test", "Origin": "http://localhost:3000"}, json={
         "expression": "2d6 + 3", "chronicle": {"sheet_id": SHEET, "campaign_id": CAMPAIGN,
         "roll_field_id": "teste", "roll_key": "field:1", "trait_ids": ["forca"]},
@@ -38,10 +38,10 @@ def test_optional_context_and_failed_activity_do_not_break_dice(monkeypatch):
         return {"id": "13000000-0000-4000-8000-000000000092"}
 
     async def rpc(*args):
-        raise HTTPException(status_code=503, detail="unavailable")
+        raise ServiceUnavailable("unavailable")
 
     monkeypatch.setattr("app.security.verify_supabase_user", verify)
-    monkeypatch.setattr("app.services.session_roll_activity.call_rpc", rpc)
+    monkeypatch.setattr("app.adapters.outbound.supabase.roll_activity.call_rpc", rpc)
     client = TestClient(app)
     response = client.post("/api/v1/dice/roll", headers={"Authorization": "Bearer test"}, json={"expression": "1d6"})
     assert response.status_code == 200

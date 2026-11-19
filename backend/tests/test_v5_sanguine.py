@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from app.adapters.inbound.http import v5_sanguine as routes
 from app.domain.errors import Conflict, Forbidden
 from tests.support.fake_supabase import stub_supabase
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.services.sheet_values import validate_sheet_values
 from app.services.v5_sanguine import (
     CLAN_BANES, INTENSITIES, RESONANCE_DISCIPLINES, RESONANCES, bane_severity, bond_degree, hunger_after_hunt,

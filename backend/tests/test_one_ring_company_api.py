@@ -1,9 +1,8 @@
 from uuid import UUID
 
 import pytest
-from fastapi import HTTPException
-
-from app.routes.one_ring_company import CompanyCommand, _validate_payload
+from app.adapters.inbound.http.one_ring_company import CompanyCommand
+from app.domain.errors import InvalidInput
 
 
 def command(kind, payload, *, version=0):
@@ -12,10 +11,9 @@ def command(kind, payload, *, version=0):
 
 def test_create_payload_is_closed_and_bounded():
     item = command("create", {"name": "Companhia", "patron_id": "bilbo", "safe_havens": ["Rivendell"]})
-    assert _validate_payload(item)["name"] == "Companhia"
-    with pytest.raises(HTTPException) as error:
-        _validate_payload(command("create", {"name": "Companhia", "patron_id": "bilbo", "safe_havens": [], "extra": "private"}))
-    assert error.value.status_code == 422
+    assert item.validated_payload()["name"] == "Companhia"
+    with pytest.raises(InvalidInput):
+        command("create", {"name": "Companhia", "patron_id": "bilbo", "safe_havens": [], "extra": "private"}).validated_payload()
 
 
 @pytest.mark.parametrize("kind,payload", [
@@ -25,15 +23,14 @@ def test_create_payload_is_closed_and_bounded():
     ("set_focus", {"source_sheet_id": "not-a-uuid", "target_sheet_id": None}),
 ])
 def test_rejects_malformed_command_payload(kind, payload):
-    with pytest.raises(HTTPException) as error:
-        _validate_payload(command(kind, payload))
-    assert error.value.status_code == 422
+    with pytest.raises(InvalidInput):
+        command(kind, payload).validated_payload()
 
 
 def test_valid_focus_accepts_clear_command():
-    result = _validate_payload(command("set_focus", {
+    result = command("set_focus", {
         "source_sheet_id": "b1000000-0000-0000-0000-000000000002", "target_sheet_id": None,
-    }))
+    }).validated_payload()
     assert result["target_sheet_id"] is None
 
 
@@ -49,22 +46,21 @@ def test_expected_version_rejects_bool():
     {"name": "Companhia", "patron_id": None, "safe_havens": ["x" * 121]},
 ])
 def test_invalid_configuration_returns_422(payload):
-    with pytest.raises(HTTPException) as error:
-        _validate_payload(command("configure", payload))
-    assert error.value.status_code == 422
+    with pytest.raises(InvalidInput):
+        command("configure", payload).validated_payload()
 
 
 def test_patron_catalog_is_accepted():
     from app.services.one_ring_creation import catalog
     for patron in catalog()["patrons"]:
-        assert _validate_payload(command("create", {"name": "Companhia", "patron_id": patron["id"], "safe_havens": []}))["patron_id"] == patron["id"]
+        assert command("create", {"name": "Companhia", "patron_id": patron["id"], "safe_havens": []}).validated_payload()["patron_id"] == patron["id"]
 
 
 def make_client(monkeypatch, *, status=200, result=None):
     import httpx
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-    from app.routes import one_ring_company
+    from app.adapters.inbound.http import one_ring_company
 
     captured = []
     class StubClient:
@@ -79,7 +75,7 @@ def make_client(monkeypatch, *, status=200, result=None):
             return httpx.Response(status, json=result)
     monkeypatch.setenv("SUPABASE_URL", "https://unit.example.test")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "publishable-test")
-    monkeypatch.setattr(one_ring_company.httpx, "AsyncClient", StubClient)
+    monkeypatch.setattr(httpx, "AsyncClient", StubClient)
     app = FastAPI()
     app.include_router(one_ring_company.router)
     return TestClient(app), captured

@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from app.adapters.inbound.http.dependencies import v5_sanguine_service
 from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.application.v5.sanguine import Drink, Hunt, V5SanguineService
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 
 router = APIRouter(
     prefix="/api/v1/v5", tags=["vampire-v5-sanguine"], route_class=DomainErrorRoute,

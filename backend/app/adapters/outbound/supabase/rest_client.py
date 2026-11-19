@@ -22,6 +22,7 @@ from app.domain.errors import (
     NotFound,
     ServiceUnavailable,
     Unauthenticated,
+    UnexpectedUpstreamResponse,
 )
 
 REQUEST_TIMEOUT_SECONDS = 8
@@ -48,6 +49,8 @@ class RpcErrors:
     by_code: Mapping[str, ErrorSpec]
     by_status: Mapping[int, ErrorSpec]
     otherwise: ErrorSpec
+    # Códigos cujo texto vem de ``RAISE`` escrito por nós no banco e pode ir para a interface.
+    with_database_message: frozenset[str] = frozenset()
 
 
 # Códigos SQLSTATE levantados pelas funções RPC de fichas; outras RPCs podem trazer a própria tabela.
@@ -77,7 +80,12 @@ class SupabaseRest(Protocol):
     ) -> Any: ...
 
     async def rpc(
-        self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | RpcErrors | None = None,
+        self,
+        function: str,
+        payload: dict[str, Any],
+        *,
+        errors: SqlStateErrors | RpcErrors | None = None,
+        max_response_bytes: int | None = None,
     ) -> Any: ...
 
 
@@ -137,7 +145,12 @@ class SupabaseRestClient:
             raise ServiceUnavailable("resposta inválida do Supabase") from error
 
     async def rpc(
-        self, function: str, payload: dict[str, Any], *, errors: SqlStateErrors | RpcErrors | None = None,
+        self,
+        function: str,
+        payload: dict[str, Any],
+        *,
+        errors: SqlStateErrors | RpcErrors | None = None,
+        max_response_bytes: int | None = None,
     ) -> Any:
         base_url, headers = self._session()
         headers["Content-Type"] = "application/json"
@@ -149,6 +162,8 @@ class SupabaseRestClient:
         if response.status_code >= 400:
             error_type, message = _rpc_error(response, errors)
             raise error_type(message)
+        if max_response_bytes is not None and len(response.content) > max_response_bytes:
+            raise UnexpectedUpstreamResponse("resposta inválida do Supabase")
         if not response.content:
             return None
         try:
@@ -188,12 +203,23 @@ def _rpc_error(response: httpx.Response, errors: SqlStateErrors | RpcErrors | No
     code = _sqlstate(response) or ""
     if isinstance(errors, RpcErrors):
         if code in errors.by_code:
-            return errors.by_code[code]
+            error_type, detail = errors.by_code[code]
+            message = _database_message(response) if code in errors.with_database_message else None
+            return error_type, f"{detail} ({message})" if message else detail
         return errors.by_status.get(response.status_code, errors.otherwise)
     if response.status_code == 401:
         return Unauthenticated, "sessão inválida"
     table = RPC_ERRORS if errors is None else errors
     return table.get(code, (Forbidden, NOT_ALLOWED))
+
+
+def _database_message(response: httpx.Response) -> str | None:
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    message = body.get("message") if isinstance(body, dict) else None
+    return message if isinstance(message, str) and message else None
 
 
 def _sqlstate(response: httpx.Response) -> str | None:

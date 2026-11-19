@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from app.services.creation_rules import CollectionPoints, CreationRule, PowerPicks, PriorityPoints, SelectGrants, SelectRanges, SpecialtyPicks
 from app.services.modifiers import Effect, ModifierPreview, Tag
-from app.services.session_roll_activity import RollChronicleContext
+from app.application.roll_activity import RollChronicleContext
 
 
 FIELD_ID = re.compile(r"^[a-z][a-z0-9_]{1,63}$")

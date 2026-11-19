@@ -6,7 +6,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.adapters.inbound.http.dependencies import weapon_reader
 from app.adapters.inbound.http.v5_actions import router
 from tests.support.fake_supabase import stub_supabase

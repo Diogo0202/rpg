@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.domain.errors import Conflict
 from fastapi.testclient import TestClient
 
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.adapters.inbound.http.v5 import router as v5_router
 from tests.support.fake_supabase import stub_roll_activity, stub_supabase
 
@@ -243,7 +243,7 @@ def test_create_roll_records_chronicle_activity_when_requested(client, monkeypat
         return _row(pool=payload["p_pool"], hunger=payload["p_hunger"])
 
     async def fake_activity(context):
-        from app.services.session_roll_activity import RollActivityResult
+        from app.application.roll_activity import RollActivityResult
         recorded.append(context)
         return None if context is None else RollActivityResult(status="recorded")
 

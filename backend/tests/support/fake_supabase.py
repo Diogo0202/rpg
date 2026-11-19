@@ -51,7 +51,7 @@ class FakeSupabase:
         self.requests.append(RecordedRequest(method, path, params, payload))
         return await _resolved(self.on_request(method, path, params, payload))
 
-    async def rpc(self, function: str, payload: dict[str, Any], *, errors: Any = None) -> Any:
+    async def rpc(self, function: str, payload: dict[str, Any], **_: Any) -> Any:
         self.rpcs.append((function, payload))
         return await _resolved(self.on_rpc(function, payload))
 

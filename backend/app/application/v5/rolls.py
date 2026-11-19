@@ -26,7 +26,7 @@ from app.domain.errors import (
     UnexpectedUpstreamResponse,
 )
 from app.services.modifiers import Effect, ModifierPreview, Tag, preview_modifiers
-from app.services.session_roll_activity import RollChronicleContext
+from app.application.roll_activity import RollChronicleContext
 from app.services.v5_actions import DamageState, V5ActionRollRequest, build_v5_modifier_request
 from app.services.v5_blood import blood_state
 from app.services.v5_probability import estimate_curve, estimate_probabilities, recommend_reroll

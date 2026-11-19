@@ -3,13 +3,18 @@ from __future__ import annotations
 import uuid
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.adapters.inbound.http import v5_actions
-from app.routes import generators, modifiers, second_inquisition
-from app.routes.generators import require_signed_in_user
-from app.services import session_roll_activity, supabase_rpc
+from app.adapters.inbound.http import generators, modifiers, second_inquisition
+from app.domain.errors import Conflict, Forbidden, ServiceUnavailable
+from app.adapters.inbound.http.errors import http_status
+from app.domain.errors import DomainError
+from tests.support.fake_supabase import stub_supabase
+from app.adapters.inbound.http.auth import require_signed_in_user
+from app.adapters.outbound.supabase import campaign_rpc as supabase_rpc
+from app.adapters.outbound.supabase import roll_activity as session_roll_activity
 
 
 CAMPAIGN_ID = "00000000-0000-0000-0000-0000000000a1"
@@ -37,8 +42,7 @@ def rpc_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict]]:
             return {"status": "recorded", "activity_id": str(uuid.uuid4()), "used_trait_ids": payload["p_trait_ids"]}
         return {"application_id": str(uuid.uuid4()), "entity_id": str(uuid.uuid4()), "replayed": False}
 
-    monkeypatch.setattr(generators, "call_rpc", fake_rpc)
-    monkeypatch.setattr(second_inquisition, "call_rpc", fake_rpc)
+    stub_supabase(app, rpc=lambda name, payload: fake_rpc(name, "Bearer valid-token", payload))
     monkeypatch.setattr(session_roll_activity, "call_rpc", fake_rpc)
     return calls
 
@@ -81,9 +85,9 @@ def test_apply_rejects_client_stats_and_incoherent_targets(rpc_calls) -> None:
 
 def test_apply_maps_database_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     async def closed(*_args, **_kwargs):
-        raise HTTPException(status_code=409, detail="o combate já foi encerrado")
+        raise Conflict("o combate já foi encerrado")
 
-    monkeypatch.setattr(generators, "call_rpc", closed)
+    stub_supabase(app, rpc=closed)
     response = client.post(f"/api/v1/campaigns/{CAMPAIGN_ID}/content/apply", headers=HEADERS, json={
         "kind": "npc", "seed": 2, "combat_system": "v3", "combat_id": COMBAT_ID, "idempotency_key": str(uuid.uuid4()),
     })
@@ -91,20 +95,21 @@ def test_apply_maps_database_errors(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _install_si(monkeypatch: pytest.MonkeyPatch, kinds: list[str], role: str = "master") -> None:
-    async def manager(_campaign_id, authorization):
-        if role != "master":
-            raise HTTPException(status_code=403, detail="somente mestre")
-        return authorization, "user"
-
-    async def events(_campaign_id, _token):
-        return [{
+    owner = "00000000-0000-0000-0000-000000000003" if role == "master" else "someone-else"
+    rows = [{
             "id": f"10000000-0000-0000-0000-00000000000{index}", "campaign_id": CAMPAIGN_ID, "event_kind": kind,
             "area_id": "centro", "occurred_at": "2026-10-15T12:00:00+00:00", "verified_at": "2026-10-15T12:00:00+00:00",
             "created_by": "user", "version": 1,
         } for index, kind in enumerate(kinds)]
 
-    monkeypatch.setattr(second_inquisition, "_require_campaign_manager", manager)
-    monkeypatch.setattr(second_inquisition, "_read_all_events", events)
+    def request(_method, table, params=None, payload=None):
+        if table == "campaigns":
+            return [{"id": CAMPAIGN_ID, "owner_id": owner}]
+        if table == "campaign_members":
+            return [{"role": role}]
+        return rows
+
+    stub_supabase(app, request=request)
 
 
 def test_si_containment_team_enters_combat_with_panel_stats(monkeypatch: pytest.MonkeyPatch, rpc_calls) -> None:
@@ -170,7 +175,7 @@ def test_roll_without_context_skips_the_hook(rpc_calls) -> None:
 @pytest.mark.anyio
 async def test_hook_never_breaks_the_roll(monkeypatch: pytest.MonkeyPatch) -> None:
     async def failing(*_args, **_kwargs):
-        raise HTTPException(status_code=503, detail="Supabase indisponível")
+        raise ServiceUnavailable("Supabase indisponível")
 
     monkeypatch.setattr(session_roll_activity, "call_rpc", failing)
     result = await session_roll_activity.record_session_roll("Bearer x", sheet_id=SHEET_ID, trait_ids=["forca"])
@@ -202,10 +207,10 @@ async def test_rpc_helper_translates_sqlstate(monkeypatch: pytest.MonkeyPatch) -
         kwargs["transport"] = transport
         return original(*args, **kwargs)
 
-    monkeypatch.setattr(supabase_rpc.httpx, "AsyncClient", patched)
-    with pytest.raises(HTTPException) as error:
+    monkeypatch.setattr(httpx, "AsyncClient", patched)
+    with pytest.raises(DomainError) as error:
         await supabase_rpc.call_rpc("rpg_apply_generated_content", "Bearer x", {})
-    assert error.value.status_code == 409
-    with pytest.raises(HTTPException) as missing:
+    assert http_status(error.value) == 409
+    with pytest.raises(DomainError) as missing:
         await supabase_rpc.call_rpc("rpg_apply_generated_content", "", {})
-    assert missing.value.status_code == 401
+    assert http_status(missing.value) == 401

@@ -12,7 +12,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.domain.errors import ServiceUnavailable, UnexpectedUpstreamResponse
-from app.services.invite_email import EmailDeliveryError, EmailNotConfigured, EmailSettings, InviteEmail, build_invite_email
+from app.domain.invite_email import EmailDeliveryError, EmailNotConfigured, InviteEmail, build_invite_email
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,10 @@ class InviteReservations(Protocol):
 
 
 class InviteMailer(Protocol):
-    def settings(self) -> EmailSettings:
-        """Configuração do provedor; levanta ``EmailNotConfigured`` quando falta algo."""
+    def settings(self) -> Any:
+        """Configuração com ``provider`` e ``app_base_url``; levanta ``EmailNotConfigured`` quando falta algo."""
 
-    async def deliver(self, settings: EmailSettings, message: InviteEmail) -> None: ...
+    async def deliver(self, settings: Any, message: InviteEmail) -> None: ...
 
 
 class InviteEmailService:

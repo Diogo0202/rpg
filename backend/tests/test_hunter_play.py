@@ -7,13 +7,16 @@ import json
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import hunter as hunter_routes
+from app.adapters.inbound.http import hunter as hunter_routes
+from app.adapters.inbound.http.dependencies import roll_activity_recorder
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 from app.adapters.inbound.http import sheets as sheets_routes
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.services import hunter_traits
 from app.services.hunter_traits import (
     HUNTER_EDGES,
@@ -96,11 +99,8 @@ def test_python_and_typescript_catalogs_match() -> None:
 # --- Routes -----------------------------------------------------------------------------------
 
 @pytest.fixture
-def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    seen: list[tuple[str, dict[str, Any]]] = []
-
-    async def fake_rpc(function: str, authorization: str | None, payload: dict[str, Any]) -> Any:
-        seen.append((function, payload))
+def table() -> FakeSupabase:
+    def fake_rpc(function: str, payload: dict[str, Any]) -> Any:
         roll = {"id": ROLL, "normal_dice": [7, 8, 2], "desperation_dice": [1, 9], "difficulty": 2,
                 "outcome": {"successes": 3, "success": True, "critical_pairs": 0, "critical": False,
                             "desperation_ones": 1, "desperation_consequence": "table_choice"},
@@ -111,19 +111,26 @@ def calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
             roll = {**roll, "rerolled_at": "2026-10-29T00:00:00Z"}
         return {"roll": roll, "cell": {"id": "c", "name": "Vigília", "danger": 2, "desperation": 2}, "in_despair": False}
 
-    async def no_activity(authorization: str | None, context: Any) -> None:
-        return None
-
-    monkeypatch.setattr(hunter_routes, "_rpc", fake_rpc)
-    monkeypatch.setattr(hunter_routes, "record_from_context", no_activity)
-    return seen
+    return FakeSupabase(on_rpc=fake_rpc)
 
 
 @pytest.fixture
-def client():
+def calls(table: FakeSupabase) -> list[tuple[str, dict[str, Any]]]:
+    return table.rpcs
+
+
+class NoActivity:
+    async def record(self, context: Any) -> None:
+        return None
+
+
+@pytest.fixture
+def client(table: FakeSupabase):
     app = FastAPI()
     app.include_router(hunter_routes.router)
     app.dependency_overrides[require_signed_in_user] = lambda: None
+    app.dependency_overrides[roll_activity_recorder] = NoActivity
+    use_fake_supabase(app, table)
     with TestClient(app) as test_client:
         yield test_client
 
@@ -187,7 +194,7 @@ def test_database_errors_become_clear_statuses(monkeypatch: pytest.MonkeyPatch, 
 
     monkeypatch.setenv("SUPABASE_URL", "http://supabase.test")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "test-key")
-    monkeypatch.setattr(hunter_routes.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(httpx, "AsyncClient", FakeClient)
     app = FastAPI()
     app.include_router(hunter_routes.router)
     app.dependency_overrides[require_signed_in_user] = lambda: None

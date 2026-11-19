@@ -9,7 +9,7 @@ from enum import Enum
 from typing import Any, Protocol
 from uuid import UUID
 
-from app.services.session_roll_activity import RollActivityResult, RollChronicleContext
+from app.application.roll_activity import RollActivityRecorder
 from app.services.v5_actions import AttackContext, EquippedWeapon
 
 Row = dict[str, Any]
@@ -58,7 +58,4 @@ class WeaponReader(Protocol):
     async def equipped_weapon(self, attack: AttackContext) -> EquippedWeapon | None: ...
 
 
-class RollActivityRecorder(Protocol):
-    """Registra a rolagem na crônica; nunca derruba a rolagem em caso de falha."""
-
-    async def record(self, context: RollChronicleContext | None) -> RollActivityResult | None: ...
+__all__ = ["BloodAction", "RollActivityRecorder", "Row", "V5Store", "WeaponReader"]

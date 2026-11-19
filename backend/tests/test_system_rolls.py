@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.routes.generators import require_signed_in_user
-from app.routes.system_rolls import router
+from app.adapters.inbound.http.auth import require_signed_in_user
+from app.adapters.inbound.http.system_rolls import router
 from app.services import system_rolls
 from app.services.system_rolls import (
     HunterRollRequest,
@@ -212,8 +212,8 @@ def test_hunter_route_returns_separate_additional_dice(client, monkeypatch: pyte
 
 # --- Frente J: O Um Anel (Miserável, Ferido, Sombra, jornada, ficha) e Caçador (traços) ---
 
-from app.routes import system_rolls as system_rolls_routes
-from app.services.session_roll_activity import RollActivityResult
+from app.adapters.inbound.http.dependencies import roll_activity_recorder
+from app.application.roll_activity import RollActivityResult
 from app.services.system_rolls import (
     JourneyEventRequest,
     OneRingShadowTestRequest,
@@ -361,11 +361,15 @@ def test_frente_j_routes_return_results(client, monkeypatch: pytest.MonkeyPatch)
 def test_roll_routes_record_chronicle_activity_in_a_header(client, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[str | None, object]] = []
 
-    async def fake_record(authorization, context):
-        calls.append((authorization, context))
-        return None if context is None else RollActivityResult(status="recorded")
+    class FakeRecorder:
+        def __init__(self, authorization: str | None = Header(default=None)) -> None:
+            self.authorization = authorization
 
-    monkeypatch.setattr(system_rolls_routes, "record_from_context", fake_record)
+        async def record(self, context):
+            calls.append((self.authorization, context))
+            return None if context is None else RollActivityResult(status="recorded")
+
+    client.app.dependency_overrides[roll_activity_recorder] = FakeRecorder
     sheet_id = "11111111-1111-1111-1111-111111111111"
     for path, body in (("/api/v1/system-rolls/hunter", {"base_pool": 2, "difficulty": 1}),
                        ("/api/v1/system-rolls/one-ring", {"target": 5, "skill_dice": 1, "endurance": 9, "load": 0}),

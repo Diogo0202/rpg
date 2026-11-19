@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.domain.errors import Conflict, Forbidden, InvalidInput
 from fastapi.testclient import TestClient
 
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.adapters.inbound.http.v5 import router as v5_router
 from tests.support.fake_supabase import stub_roll_activity, stub_supabase
 

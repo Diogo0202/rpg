@@ -10,7 +10,7 @@ from app.adapters.inbound.http.dependencies import v5_action_service
 from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.adapters.inbound.http.v5 import CHRONICLE_ACTIVITY_HEADER
 from app.application.v5.actions import V5ActionService
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.services.v5_actions import StoredAttackRequest, StoredAttackResponse, V5ActionRollRequest, V5ActionRollResponse
 
 router = APIRouter(

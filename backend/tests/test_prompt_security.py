@@ -4,7 +4,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import rules
+from app.adapters.inbound.http import rules
 from app.models import ExtractionRequest
 from app.services.extraction import create_review_draft
 from app.services.prompt_security import (
@@ -107,9 +107,12 @@ def test_invalid_rpc_shape_fails_closed_as_bad_gateway(monkeypatch) -> None:
     async def malformed_rpc(function: str, payload: dict[str, object], authorization: str | None) -> list[object]:
         return [{"source_id": SOURCE, "source_title": "Título", "page_number": 1, "excerpt": "conteúdo", "rank": "alto"}]
 
-    monkeypatch.setattr(rules, "_authenticated_rpc", malformed_rpc)
+    from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
+
+    use_fake_supabase(app, FakeSupabase(on_rpc=lambda name, payload: malformed_rpc(name, payload, None)))
     response = client.get(
         f"/api/v1/campaigns/{CAMPAIGN}/rules/search?q=história",
         headers={"Authorization": "Bearer user-session"},
     )
     assert response.status_code == 502
+    app.dependency_overrides.clear()

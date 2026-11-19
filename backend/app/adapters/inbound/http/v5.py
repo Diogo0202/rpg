@@ -15,9 +15,9 @@ from app.application.v5.blood import V5BloodService
 from app.application.v5.models import BloodActionResult, Curve, ProbabilityComparison, StoredRoll, WillpowerReroll
 from app.application.v5.ports import BloodAction
 from app.application.v5.rolls import RollOrder, V5RollService, free_probabilities, probability_curve
-from app.routes.generators import require_signed_in_user
+from app.adapters.inbound.http.auth import require_signed_in_user
 from app.services.modifiers import Tag
-from app.services.session_roll_activity import RollChronicleContext
+from app.application.roll_activity import RollChronicleContext
 from app.services.v5_actions import V5ActionRollRequest
 from app.services.v5_blood import (
     BLOOD_POTENCY_TABLE,

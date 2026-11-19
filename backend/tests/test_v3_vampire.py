@@ -11,9 +11,11 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.routes import generators
-from app.routes import system_rolls as routes
-from app.services import supabase_rpc, v3_vampire
+from app.adapters.inbound.http import auth as generators
+from app.adapters.inbound.http import system_rolls as routes
+from app.domain.errors import InvalidInput
+from tests.support.fake_supabase import stub_supabase
+from app.services import v3_vampire
 from app.services.system_rolls import V3RollRequest, roll_v3, v3_outcome
 
 SHEET_ID = "00000000-0000-0000-0000-000000000031"
@@ -128,7 +130,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
     async def call_rpc(function: str, authorization: str, payload: dict[str, Any], **_: Any) -> Any:
         calls.append((function, payload))
         if payload.get("p_sheet_id") == "00000000-0000-0000-0000-000000000099":
-            raise HTTPException(status_code=422, detail="limite da ficha atingido")
+            raise InvalidInput("limite da ficha atingido")
         if function == "v3_life_state":
             return {"state": "active"}
         return {"sheet": {"values": {}}, "replayed": False}
@@ -136,7 +138,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[generators.require_signed_in_user] = lambda: None
-    monkeypatch.setattr(supabase_rpc, "call_rpc", call_rpc)
+    stub_supabase(app, rpc=lambda name, payload: call_rpc(name, "Bearer t", payload))
     return TestClient(app), calls
 
 
@@ -207,7 +209,7 @@ def test_saved_v3_roll_refuses_dormant_state_without_spending(monkeypatch, state
     app = FastAPI()
     app.include_router(routes.router)
     app.dependency_overrides[generators.require_signed_in_user] = lambda: None
-    monkeypatch.setattr(supabase_rpc, "call_rpc", call_rpc)
+    stub_supabase(app, rpc=lambda name, payload: call_rpc(name, "Bearer t", payload))
     with TestClient(app) as http:
         response = http.post("/api/v1/system-rolls/vampire-v3", json={
             "pool": 3, "difficulty": 6, "sheet_id": SHEET_ID,
