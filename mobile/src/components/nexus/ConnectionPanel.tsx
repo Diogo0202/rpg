@@ -69,7 +69,7 @@ export function ConnectionPanel() {
       <p className="text-sm text-ink-muted">Entre com uma conta já existente. Esta tela não cria contas.</p>
       <label className="block text-sm font-semibold text-ink">E-mail<input className="field-input mt-1" type="email" autoComplete="username" required maxLength={320} value={email} onChange={(event) => setEmail(event.target.value)} /></label>
       <label className="block text-sm font-semibold text-ink">Senha<input className="field-input mt-1" type="password" autoComplete="current-password" required maxLength={1024} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-      {!connectionConfigured && <p className="text-sm text-warning-foreground">{getSupabaseConfigProblem() ?? "Configure a API Nexus e o Supabase Auth para entrar."}</p>}
+      {!connectionConfigured && <p className="text-sm text-warning-foreground [.hunter_&]:text-warning">{getSupabaseConfigProblem() ?? "Configure a API Nexus e o Supabase Auth para entrar."}</p>}
       <Btn type="submit" disabled={busy || !connectionConfigured}><LogIn className="size-4" aria-hidden />{busy ? "Entrando…" : "Entrar"}</Btn>
     </form> : <div className="space-y-3">
       <p className="text-sm text-ink">Conta: <strong>{user.email ?? user.id}</strong></p>

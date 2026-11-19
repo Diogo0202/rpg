@@ -3,7 +3,7 @@ export type ThemeMode = "standard" | "hunter" | "demon-lord";
 const THEME_KEY = "rpg-atlas-theme-v1";
 const THEME_MODES: ThemeMode[] = ["standard", "hunter", "demon-lord"];
 /** Browser toolbar color per theme (meta theme-color). */
-const THEME_COLORS: Record<ThemeMode, string> = { standard: "#1c2b28", hunter: "#17191B", "demon-lord": "#15130f" };
+const THEME_COLORS: Record<ThemeMode, string> = { standard: "#1c2b28", hunter: "#070e27", "demon-lord": "#15130f" };
 
 export function readThemeMode(): ThemeMode {
   try {

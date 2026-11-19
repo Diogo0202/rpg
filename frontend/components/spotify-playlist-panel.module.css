@@ -159,8 +159,8 @@
 .playingTag {
   flex: none;
   padding: 2px 7px;
-  background: var(--ink);
-  color: #fff;
+  background: var(--primary-fill, var(--ink));
+  color: var(--on-accent, #fff);
   font-size: 12px;
   font-weight: 400;
   white-space: nowrap;
@@ -201,8 +201,8 @@
 
 .primaryButton {
   min-height: 44px;
-  background: var(--ink);
-  color: #fff;
+  background: var(--primary-fill, var(--ink));
+  color: var(--on-accent, #fff);
 }
 
 .secondaryButton {
@@ -211,8 +211,8 @@
 }
 
 .secondaryButton[aria-pressed="true"] {
-  background: var(--ink);
-  color: #fff;
+  background: var(--primary-fill, var(--ink));
+  color: var(--on-accent, #fff);
 }
 
 .textButton {

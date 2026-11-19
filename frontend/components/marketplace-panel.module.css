@@ -3,7 +3,7 @@
 .intro h1 { font:clamp(40px,6vw,66px)/1 Georgia,serif; letter-spacing:-.04em; margin:7px 0 13px; }
 .intro p:not(.eyebrow) { max-width:62ch; color:var(--muted); line-height:1.55; margin:0; }
 .eyebrow { color:var(--accent); font-size:11px; font-weight:700; letter-spacing:.15em; margin:0; }
-.publishToggle,.search button,.cardActions button,.report button,.clone button { min-height:42px; border:1px solid var(--ink); padding:9px 13px; background:var(--ink); color:white; }
+.publishToggle,.search button,.cardActions button,.report button,.clone button { min-height:42px; border:1px solid var(--ink); padding:9px 13px; background:var(--primary-fill, var(--ink)); color:var(--on-accent, white); }
 .publishToggle:disabled,.cardActions button:disabled,.report button:disabled,.clone button:disabled { opacity:.5; cursor:not-allowed; }
 .search select { width:100%; padding:11px; color:var(--ink); background:#fffef9; border:1px solid var(--line); font:inherit; }
 .search { display:grid; grid-template-columns:minmax(180px,1fr) minmax(180px,.7fr) minmax(150px,.5fr) auto; align-items:end; gap:12px; padding:18px; background:var(--panel); border:1px solid var(--line); margin:26px 0; }

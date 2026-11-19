@@ -217,8 +217,8 @@ textarea.input {
 
 .primaryButton {
   min-height: 44px;
-  background: var(--ink);
-  color: #fff;
+  background: var(--primary-fill, var(--ink));
+  color: var(--on-accent, #fff);
 }
 
 .secondaryButton {
@@ -228,8 +228,8 @@ textarea.input {
 }
 
 .secondaryButton[aria-pressed="true"] {
-  background: var(--ink);
-  color: #fff;
+  background: var(--primary-fill, var(--ink));
+  color: var(--on-accent, #fff);
 }
 
 .textButton {

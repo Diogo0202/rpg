@@ -247,35 +247,104 @@ button:disabled { cursor:not-allowed;opacity:.55; }
 .theme-switcher select { min-height:32px;padding:4px 26px 4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer; }
 .theme-switcher select:focus-visible { outline:3px solid var(--accent);outline-offset:2px; }
 
-:root[data-theme="hunter"] { --ink:#142a38;--paper:#f6f3ed;--panel:#fffdf8;--line:#a8a49e;--accent:#b53b18;--moss:#235463;--muted:#4d5961; }
-:root[data-theme="hunter"] body { background:#17191b; }
-:root[data-theme="hunter"] .landing { background:radial-gradient(circle at 78% 12%,#8e321e 0,#3d2220 22%,transparent 52%),#17191b;color:#f6f3ed; }
-:root[data-theme="hunter"] .landing .eyebrow,:root[data-theme="hunter"] .landing .quiet { color:#ff7b2c; }
-:root[data-theme="hunter"] .landing-copy,:root[data-theme="hunter"] .landing-grid p { color:#d1e5e9; }
-:root[data-theme="hunter"] .landing .primary { background:#ff7b2c;border-color:#ff7b2c;color:#151719; }
-:root[data-theme="hunter"] .landing .quiet { border-color:#ff7b2c; }
-:root[data-theme="hunter"] .rail { background:#17191b;color:#f6f3ed; }
-:root[data-theme="hunter"] .rail .nav { color:#f6f3ed; }
-:root[data-theme="hunter"] .rail .nav.active { background:#ff7b2c;border-left-color:#ff7b2c;color:#151719; }
-:root[data-theme="hunter"] .rail .nav.active small { color:#142a38; }
-:root[data-theme="hunter"] .rail .brand span { background:#ff7b2c;color:#151719; }
-:root[data-theme="hunter"] .rail .privacy { border-color:#62666a; }
-:root[data-theme="hunter"] .workspace { background:var(--paper); }
-:root[data-theme="hunter"] .hero-panel { background:linear-gradient(125deg,#fffdf8,#ece5da); }
-:root[data-theme="hunter"] .world-card { background:#142a38;color:#f6f3ed; }
-:root[data-theme="hunter"] .world-card p { color:#d1e5e9; }
-:root[data-theme="hunter"] .world-card .eyebrow { color:#ff7b2c; }
-:root[data-theme="hunter"] .auth-page { background:radial-gradient(circle at 83% 11%,#8e321e 0,transparent 35%),#17191b; }
-:root[data-theme="hunter"] .auth-card { background:var(--panel);box-shadow:14px 14px 0 #b53b18; }
-:root[data-theme="hunter"] .campaign-hub { background:radial-gradient(circle at 92% 0%,#8e321e 0,transparent 29%),#17191b;color:#f6f3ed; }
-:root[data-theme="hunter"] .hub-brand,:root[data-theme="hunter"] .hub-intro p:last-child { color:#f6f3ed; }
-:root[data-theme="hunter"] .campaign-hub .hub-header { border-color:#62666a; }
-:root[data-theme="hunter"] .campaign-hub .hub-header .quiet { border-color:#ff7b2c;color:#ff7b2c; }
-:root[data-theme="hunter"] .campaign-card { background:var(--panel);color:var(--ink); }
-:root[data-theme="hunter"] .campaign-hub .hub-intro .eyebrow { color:#ff7b2c; }
-:root[data-theme="hunter"] .campaign-hub .panel-title { border-color:#62666a; }
-:root[data-theme="hunter"] .theme-switcher { background:#17191b;border-color:#ff7b2c;color:#f6f3ed;box-shadow:0 6px 22px #0008; }
-:root[data-theme="hunter"] .theme-switcher select { background:#17191b;border-color:#ff7b2c;color:#f6f3ed; }
+:root[data-theme="hunter"] {
+  color-scheme: dark;
+  --ink: #ede8fc;
+  --paper: #070e27;
+  --panel: #101b3a;
+  --line: #53658f;
+  --accent: #b5a7f4;
+  --moss: #a1b8fc;
+  --muted: #bdc7e5;
+  --theme-text: var(--ink);
+  --theme-muted: var(--muted);
+  --theme-border: var(--line);
+  --theme-panel: var(--panel);
+  --theme-accent: var(--accent);
+  --theme-secondary-accent: var(--moss);
+  --field: #0b1532;
+  --field-border: #7182b3;
+  --surface-raised: #1b2853;
+  --primary-fill: var(--accent);
+  --on-accent: var(--paper);
+  --theme-shadow: #030616b3;
+  --theme-error: #ffb4bd;
+  --theme-error-surface: #361e39;
+  --theme-success: #9fdbcb;
+  --hunter-sky: radial-gradient(ellipse at 84% 0%, #252c67, #111f49 34%, transparent 70%);
+  --theme-panel-gradient: linear-gradient(145deg, var(--surface-raised), var(--panel));
+}
+
+:root[data-theme="hunter"] :is(.landing, .auth-page, .campaign-hub, .workspace) {
+  background: var(--hunter-sky), var(--paper);
+}
+
+:root[data-theme="hunter"] :is(.rail, .campaign-return, .theme-switcher, .theme-switcher select) {
+  background: var(--field);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] :is(.nav, .campaign-return a) { color: var(--ink); }
+:root[data-theme="hunter"] :is(.rail small, .privacy span, .landing-copy, .world-card p, .sheet-intro > p) { color: var(--muted); }
+:root[data-theme="hunter"] :is(.privacy, .book, .relation, .landing-grid article) { border-color: var(--line); }
+
+:root[data-theme="hunter"] .nav.active {
+  background: var(--surface-raised);
+  border-left-color: var(--accent);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] :is(.primary, .brand span, .token) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+:root[data-theme="hunter"] .token.player { background: var(--moss); }
+:root[data-theme="hunter"] .primary:hover:not(:disabled) { background: #cec2ff; }
+:root[data-theme="hunter"] .quiet { border-color: var(--field-border); color: var(--ink); }
+:root[data-theme="hunter"] .quiet:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+:root[data-theme="hunter"] :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+:root[data-theme="hunter"] :is(.hero-panel, .sheet-preview-card, .world-card, .sheet-intro) {
+  background: var(--theme-panel-gradient);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] .auth-card { background: var(--panel); box-shadow: 14px 14px 0 var(--theme-shadow); }
+:root[data-theme="hunter"] .sheet-preview-card { box-shadow: 7px 7px 0 var(--theme-shadow); }
+:root[data-theme="hunter"] .sheet-intro { border-left-color: var(--accent); }
+:root[data-theme="hunter"] :is(.sheet-intro .eyebrow, .world-card .eyebrow, .sheet-field-card legend, .sheet-dependency-case legend) { color: var(--accent); }
+
+:root[data-theme="hunter"] :is(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+  background: var(--field);
+  border-color: var(--field-border);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] :is(input, select, textarea)[aria-invalid="true"] { border-color: var(--theme-error); }
+:root[data-theme="hunter"] :is(input, textarea)::placeholder { color: var(--muted); opacity: 1; }
+:root[data-theme="hunter"] :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--accent); }
+
+:root[data-theme="hunter"] :is(.roll, .map-label, .combatant, .map-tools button) { color: var(--ink); }
+:root[data-theme="hunter"] :is(.roll, .map-label, code, .effect-roll, .sheet-field-card, .sheet-dependency-cases) {
+  background: var(--field);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] :is(.combatant.current, .chance-track, .sheet-fields-heading h3 span, .sheet-preview-value, .sheet-api-note, .homebrew-list li, .modifier-explanation, .inventory-comparison) {
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+:root[data-theme="hunter"] :is(.sheet-dependency-case, .sheet-preview-value) { border-color: var(--line); }
+:root[data-theme="hunter"] :is(.sheet-template-heading label, .sheet-field-grid > label, .sheet-preview-input, .sheet-preview-value small, .sheet-api-note p, .homebrew-intro, .homebrew-subtitle span) { color: var(--muted); }
+:root[data-theme="hunter"] :is(.sheet-dependency-cases > p, .sheet-preview-value strong, .sheet-api-note span, .relation span) { color: var(--moss); }
+:root[data-theme="hunter"] :is(.hub-error, .sheet-feedback, .sheet-remove) { color: var(--theme-error); }
+:root[data-theme="hunter"] .sheet-feedback.success { color: var(--theme-success); }
+:root[data-theme="hunter"] .theme-switcher { box-shadow: 0 6px 22px var(--theme-shadow); }
+
 /* Demon Lord: trincheira profana (lama e ferro, pergaminho queimado, sangue e ouro sacro). */
 :root[data-theme="demon-lord"] { --ink:#241c14;--paper:#ebe0c9;--panel:#f6efdf;--line:#b8a585;--accent:#8f1d14;--moss:#4f4a2c;--muted:#5c4e3d; }
 :root[data-theme="demon-lord"] body { background:#15130f; }

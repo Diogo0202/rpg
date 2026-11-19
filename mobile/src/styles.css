@@ -114,46 +114,47 @@
   --shadow-parchment: 0 1px 0 oklch(1 0 0 / 8%) inset, 0 10px 24px -14px oklch(0.05 0.02 160 / 85%);
 }
 
+
 :root.hunter {
-  --forest-deep: #17191b;
-  --background: #17191b;
-  --foreground: #f6f3ed;
-  --card: #f6f3ed;
-  --card-foreground: #142a38;
-  --ink: #142a38;
-  --ink-muted: #4d5961;
-  --parchment-deep: #e9e2d9;
-  --popover: #f6f3ed;
-  --popover-foreground: #142a38;
-  --primary: #ff7b2c;
-  --primary-foreground: #151719;
-  --gold: #ff7b2c;
-  --secondary: #27333b;
-  --secondary-foreground: #f6f3ed;
-  --muted: #27333b;
-  --muted-foreground: #d1e5e9;
-  --accent: #b53b18;
-  --accent-foreground: #fffdf8;
-  --destructive: #a63129;
-  --destructive-foreground: #fffdf8;
-  --warning: #ffd06a;
-  --warning-foreground: #17191b;
-  --success: #3e867b;
-  --border: #62666a;
-  --input: #a8a49e;
-  --ring: #ff7b2c;
-  --sidebar: #17191b;
-  --sidebar-foreground: #f6f3ed;
-  --sidebar-primary: #ff7b2c;
-  --sidebar-primary-foreground: #151719;
-  --sidebar-accent: #27333b;
-  --sidebar-accent-foreground: #f6f3ed;
-  --sidebar-border: #62666a;
-  --sidebar-ring: #ff7b2c;
-  --shadow-parchment: 0 1px 0 #fff8 inset, 0 10px 24px -14px #0009;
-  --gradient-forest: radial-gradient(100% 70% at 85% -10%, #71301e, #17191b 65%);
-  --parchment-border: #a8a49e;
-  --field-background: #fffdf8;
+  --forest-deep: #050a1c;
+  --background: #070e27;
+  --foreground: #ede8fc;
+  --card: #101b3a;
+  --card-foreground: var(--foreground);
+  --ink: var(--foreground);
+  --ink-muted: #bdc7e5;
+  --parchment-deep: #1b2853;
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --primary: #b5a7f4;
+  --primary-foreground: var(--background);
+  --gold: var(--primary);
+  --secondary: var(--parchment-deep);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--secondary);
+  --muted-foreground: var(--ink-muted);
+  --accent: #303d70;
+  --accent-foreground: var(--foreground);
+  --destructive: #ffb4bd;
+  --destructive-foreground: var(--background);
+  --warning: #f2ca86;
+  --warning-foreground: var(--background);
+  --success: #9fdbcb;
+  --border: #53658f;
+  --input: #7182b3;
+  --ring: var(--primary);
+  --sidebar: var(--field-background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+  --shadow-parchment: 0 1px 0 #b5a7f41a inset, 0 10px 24px -14px #030616b3;
+  --gradient-forest: radial-gradient(ellipse at 84% 0%, #252c67, #111f49 34%, var(--background) 70%, var(--forest-deep));
+  --parchment-border: var(--border);
+  --field-background: #0b1532;
 }
 
 /* Demon Lord: trincheira profana (lama e ferro, pergaminho queimado, sangue e ouro sacro). */

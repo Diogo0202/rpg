@@ -42,7 +42,7 @@ const DIE_TONES: Record<DieTone, string> = {
 
 const ROLL_TONES: Record<RollTone, string> = {
   neutral: "text-ink",
-  success: "text-forest-deep",
+  success: "text-forest-deep [.hunter_&]:text-success",
   fail: "text-destructive",
   crit: "text-ink underline decoration-gold decoration-4 underline-offset-4",
   messy: "text-destructive underline decoration-gold decoration-4 underline-offset-4",

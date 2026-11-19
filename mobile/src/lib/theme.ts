@@ -5,7 +5,7 @@ const THEME_MODES: ThemeMode[] = ["standard", "dark", "hunter", "demon-lord"];
 /** Classes a theme sets on <html>; "standard" sets none. */
 const THEME_CLASSES: ThemeMode[] = ["dark", "hunter", "demon-lord"];
 /** Browser toolbar color per theme (meta theme-color). */
-const THEME_COLORS: Record<ThemeMode, string> = { standard: "#1b3325", dark: "#1b3325", hunter: "#17191B", "demon-lord": "#15130f" };
+const THEME_COLORS: Record<ThemeMode, string> = { standard: "#1b3325", dark: "#1b3325", hunter: "#070e27", "demon-lord": "#15130f" };
 
 export function readThemeMode(): ThemeMode {
   if (typeof window === "undefined") return "standard";
@@ -20,7 +20,7 @@ export function readThemeMode(): ThemeMode {
 export function applyThemeMode(mode: ThemeMode): void {
   if (typeof document === "undefined") return;
   for (const name of THEME_CLASSES) document.documentElement.classList.toggle(name, mode === name);
-  document.documentElement.style.colorScheme = mode === "dark" ? "dark" : "light";
+  document.documentElement.style.colorScheme = mode === "dark" || mode === "hunter" ? "dark" : "light";
   document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", THEME_COLORS[mode]);
 }
 
