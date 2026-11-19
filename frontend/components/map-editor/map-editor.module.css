@@ -31,6 +31,7 @@
 .check { display: flex !important; align-items: center; justify-content: flex-start; gap: .5rem; }
 .check input { flex: none; width: auto; margin: 0; }
 .row { display: flex; flex-wrap: wrap; gap: .4rem; }
+.imageField { display: grid; gap: .35rem; color: #e4ddd3; font-size: .82rem; }
 .swatches { display: flex; flex-wrap: wrap; gap: .35rem; }
 .swatch { width: 2rem; height: 2rem; border: 2px solid transparent; border-radius: 50%; cursor: pointer; }
 .swatch[aria-pressed="true"] { border-color: #fff3dd; box-shadow: 0 0 0 2px #f0c77f; }

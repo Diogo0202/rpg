@@ -13,8 +13,8 @@ export type CanvasDraft =
   | { type: "polyline"; points: Point[]; cursor: Point | null; closed: boolean }
   | { type: "rect"; from: Point; to: Point }
   | null;
-export type LayerVisibility = { areas: boolean; shadows: boolean; walls: boolean; props: boolean; pins: boolean; grid: boolean; fog: boolean };
-export const ALL_LAYERS: LayerVisibility = { areas: true, shadows: true, walls: true, props: true, pins: true, grid: true, fog: true };
+export type LayerVisibility = { image: boolean; areas: boolean; shadows: boolean; walls: boolean; props: boolean; pins: boolean; grid: boolean; fog: boolean };
+export const ALL_LAYERS: LayerVisibility = { image: true, areas: true, shadows: true, walls: true, props: true, pins: true, grid: true, fog: true };
 /** Player-side masks: fog regions in order (null = no fog) and sight polygons from own pins. */
 export type CanvasVision = { fogRegions: FogRegion[] | null; sight: Point[][] | null };
 
@@ -264,6 +264,8 @@ export function MapCanvas(props: Props) {
       </pattern>
     </defs>
     <rect width={width} height={height} fill={`url(#${uid}-floor-${background.id})`} />
+    {layers.image && document.image && <image href={document.image.data} x="0" y="0" width={width} height={height}
+      preserveAspectRatio="xMidYMin meet" opacity={document.image.opacity} pointerEvents="none" aria-hidden="true" />}
     {legacy && <g aria-hidden="true">{legacy.terrain.map((cell) => {
       const cellWidth = width / legacy.width;
       const cellHeight = height / legacy.height;

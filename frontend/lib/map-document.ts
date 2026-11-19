@@ -52,6 +52,16 @@ export const MAX_FOG_PLAYERS = 100;
 export type FogRegion = { id: string; mode: "reveal" | "hide"; points: Point[]; players: string[] | null };
 export type MapFog = { enabled: boolean; line_of_sight: boolean; regions: FogRegion[] };
 
+/**
+ * Imported background picture, embedded as a data URL so it travels with the
+ * document (local vault, Supabase row and player copy alike). It always covers
+ * the whole map; importing adjusts the map height to the picture's proportion.
+ * The row limit (maps_document_size, 1 MiB) bounds the data URL size.
+ */
+export const MAX_IMAGE_CHARS = 700_000;
+export const MAX_DOCUMENT_BYTES = 1_048_576;
+export type MapImage = { data: string; width: number; height: number; opacity: number; name?: string };
+
 export type MapDocumentV2 = {
   version: 2;
   system_key: string | null;
@@ -63,12 +73,14 @@ export type MapDocumentV2 = {
   pins: MapPin[];
   legacy?: LegacyLayer;
   fog?: MapFog;
+  image?: MapImage;
 };
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const SLUG = /^[a-z_]{1,40}$/;
 const HEX = /^#[0-9a-fA-F]{6}$/;
+const IMAGE_DATA = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
 function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -216,6 +228,23 @@ function parseFog(value: unknown): MapFog | null | undefined {
   return { enabled: value.enabled === true, line_of_sight: value.line_of_sight === true, regions };
 }
 
+/** undefined when absent, null when present but malformed. */
+function parseImage(value: unknown): MapImage | null | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!record(value) || typeof value.data !== "string" || value.data.length > MAX_IMAGE_CHARS || !IMAGE_DATA.test(value.data)) return null;
+  if (!Number.isInteger(value.width) || !Number.isInteger(value.height)) return null;
+  const width = value.width as number, height = value.height as number;
+  if (width < 1 || width > 8192 || height < 1 || height > 8192) return null;
+  const opacity = typeof value.opacity === "number" && value.opacity >= 0.1 && value.opacity <= 1 ? value.opacity : 1;
+  const name = typeof value.name === "string" && value.name.length <= 160 ? { name: value.name } : {};
+  return { data: value.data, width, height, opacity, ...name };
+}
+
+/** Map height (in map units) that keeps the picture's proportion on the 10000-wide map. */
+export function heightForImage(width: number, height: number): number {
+  return Math.min(MAP_SIZE, Math.max(1000, Math.round((MAP_SIZE * height) / Math.max(1, width))));
+}
+
 /** Accepts v2 documents and converts generated v1 maps; never throws. */
 export function parseMapDocument(value: unknown, systemKey: string | null = null): { document: MapDocumentV2 | null; error: string } {
   if (!record(value)) return { document: null, error: "O documento do mapa não tem um formato reconhecido." };
@@ -235,6 +264,8 @@ export function parseMapDocument(value: unknown, systemKey: string | null = null
   }
   const fog = parseFog(value.fog);
   if (fog === null) return { document: null, error: "A névoa do mapa está fora do formato aceito." };
+  const image = parseImage(value.image);
+  if (image === null) return { document: null, error: "A imagem de fundo do mapa está fora do formato aceito." };
   const base = createEmptyDocument(typeof value.system_key === "string" ? value.system_key : systemKey);
   const grid = record(value.grid) ? value.grid : {};
   const legacy = record(value.legacy) && Number.isInteger(value.legacy.width) && Number.isInteger(value.legacy.height)
@@ -250,6 +281,7 @@ export function parseMapDocument(value: unknown, systemKey: string | null = null
       pins,
       ...(legacy ? { legacy } : {}),
       ...(fog ? { fog } : {}),
+      ...(image ? { image } : {}),
     },
     error: "",
   };
@@ -281,6 +313,8 @@ export function validateMapDocument(document: MapDocumentV2): string {
       ids.add(region.id);
     }
   }
+  if (document.image && !parseImage(document.image)) return "A imagem de fundo está fora do formato aceito (PNG, JPEG ou WebP, até ~500 KB).";
+  if (new TextEncoder().encode(JSON.stringify(document)).length > MAX_DOCUMENT_BYTES) return "O mapa passou de 1 MB. Use uma imagem de fundo menor ou remova elementos.";
   return "";
 }
 

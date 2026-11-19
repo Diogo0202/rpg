@@ -70,6 +70,47 @@ export async function rasterizeMapSvg(svg: SVGSVGElement, mapWidth: number, mapH
   }
 }
 
+const IMPORT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp", "image/avif"]);
+const IMPORT_MAX_FILE = 25 * 1024 * 1024;
+
+async function loadPicture(file: Blob): Promise<HTMLImageElement> {
+  const url = URL.createObjectURL(file);
+  try {
+    const picture = new Image();
+    picture.decoding = "async";
+    await new Promise<void>((resolve, reject) => { picture.onload = () => resolve(); picture.onerror = () => reject(new Error("O navegador não conseguiu abrir esta imagem.")); picture.src = url; });
+    return picture;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/**
+ * Reads a picture chosen by the user and re-encodes it (JPEG, shrinking side
+ * and quality as needed) until the data URL fits in `maxChars`.
+ */
+export async function importMapImage(file: File, maxChars: number): Promise<{ data: string; width: number; height: number; name: string }> {
+  if (!IMPORT_TYPES.has(file.type)) throw new Error("Escolha uma imagem PNG, JPEG, WebP, GIF, BMP ou AVIF.");
+  if (file.size > IMPORT_MAX_FILE) throw new Error("A imagem passa de 25 MB. Reduza o arquivo antes de importar.");
+  const picture = await loadPicture(file);
+  const sourceWidth = picture.naturalWidth, sourceHeight = picture.naturalHeight;
+  if (!sourceWidth || !sourceHeight) throw new Error("A imagem não tem dimensões válidas.");
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("O navegador não ofereceu um canvas 2D.");
+  for (const side of [2400, 2048, 1600, 1280, 1024, 800]) {
+    const scale = Math.min(1, side / Math.max(sourceWidth, sourceHeight));
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    context.fillStyle = "#0e0f12";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(picture, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.85, 0.72, 0.6]) {
+      const data = canvas.toDataURL("image/jpeg", quality);
+      if (data.length <= maxChars) return { data, width: canvas.width, height: canvas.height, name: file.name.slice(0, 160) };
+    }
+  }
+  throw new Error("Não foi possível reduzir a imagem ao limite do mapa.");
+}
+
 export async function blobToBase64(blob: Blob): Promise<string> {
   const bytes = new Uint8Array(await blob.arrayBuffer());
   let binary = "";

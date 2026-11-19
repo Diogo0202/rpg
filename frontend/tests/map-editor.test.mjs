@@ -150,3 +150,20 @@ test("generated v1 grid maps open as a legacy background", () => {
   assert.equal(parsed.document.background, "asphalt");
   assert.equal(redactForPlayers(parsed.document).legacy.markers.length, 0);
 });
+
+test("background images survive parsing, are bounded and travel to players", async () => {
+  const { heightForImage, MAX_IMAGE_CHARS } = await import("../lib/map-document.ts");
+  const pixel = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  const document = { ...createEmptyDocument("one-ring"), image: { data: pixel, width: 1, height: 1, opacity: 0.6, name: "masmorra.png" } };
+  const parsed = parseMapDocument(JSON.parse(JSON.stringify(document)));
+  assert.equal(parsed.error, "");
+  assert.deepEqual(parsed.document.image, document.image);
+  assert.equal(validateMapDocument(parsed.document), "");
+  assert.deepEqual(redactForPlayers(parsed.document).image, document.image, "players see the same background");
+  assert.match(parseMapDocument({ ...document, image: { ...document.image, data: "javascript:alert(1)" } }).error, /imagem/);
+  assert.match(parseMapDocument({ ...document, image: { ...document.image, data: `data:image/png;base64,${"A".repeat(MAX_IMAGE_CHARS)}` } }).error, /imagem/);
+  assert.equal(parseMapDocument({ ...document, image: undefined }).document.image, undefined);
+  assert.equal(heightForImage(2000, 1000), 5000);
+  assert.equal(heightForImage(1000, 4000), 10000, "tall pictures are capped at the square map");
+  assert.equal(heightForImage(4000, 100), 1000, "very wide pictures keep the minimum height");
+});

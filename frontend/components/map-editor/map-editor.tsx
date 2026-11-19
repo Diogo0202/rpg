@@ -14,8 +14,8 @@ import { findProp, kitForSystem, type MapKit } from "../../lib/map-kits";
 import { fogCellRect, redactForViewer, viewerMasks } from "../../lib/map-visibility";
 import { buildUniversalVtt, vttImageSize } from "../../lib/map-transfer";
 import { connectRooms, duplicateSelection, editRoomVertex, findRoom, moveSelection } from "../../lib/map-editing";
-import { blobToBase64, downloadBlob, rasterizeMapSvg } from "../../lib/map-raster";
-import { MAX_FOG_REGIONS, type FogRegion, type MapFog } from "../../lib/map-document";
+import { blobToBase64, downloadBlob, importMapImage, rasterizeMapSvg } from "../../lib/map-raster";
+import { heightForImage, MAX_FOG_REGIONS, MAX_IMAGE_CHARS, type FogRegion, type MapFog } from "../../lib/map-document";
 import { usePortraitUrls } from "../portrait-picker";
 import { ALL_LAYERS, MapCanvas, PIN_RADIUS, type CanvasDraft, type CanvasPointer, type LayerVisibility } from "./map-canvas";
 import { PinCreator, type EntityOption, type SheetOption } from "./pin-creator";
@@ -201,7 +201,9 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
   const [fogTarget, setFogTarget] = useState<string>("all");
   const [previewViewer, setPreviewViewer] = useState<string>("all");
   const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setDocument(initial.document); setPast([]); setFuture([]); setName(map.name); setShared(map.shared_with_players);
@@ -515,6 +517,38 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
     } finally { setExporting(false); }
   }
 
+  async function importImage(file: File | undefined) {
+    if (!file || !document || importing) return;
+    setImporting(true);
+    try {
+      const picture = await importMapImage(file, MAX_IMAGE_CHARS);
+      // Never cut off what is already drawn: the map only shrinks down to its lowest element.
+      const ys = [
+        ...document.pins.map((pin) => pin.y),
+        ...document.structures.flatMap((item) => item.type === "prop" ? [item.y] : item.type === "door" ? [] : item.points.map(([, y]) => y)),
+        ...(document.fog?.regions ?? []).flatMap((region) => region.points.map(([, y]) => y)),
+      ];
+      const height = Math.max(heightForImage(picture.width, picture.height), Math.ceil(Math.max(0, ...ys)));
+      commit({ ...document, height, image: { ...picture, opacity: document.image?.opacity ?? 1 } });
+      setLayers((current) => ({ ...current, image: true }));
+      setMessage(height === document.height
+        ? `Imagem “${picture.name}” aplicada como fundo (${picture.width}×${picture.height}).`
+        : `Imagem “${picture.name}” aplicada como fundo. A altura do mapa foi ajustada à proporção da imagem.`);
+    } catch (problem) {
+      setMessage(problem instanceof Error ? problem.message : "Não foi possível importar a imagem.");
+    } finally {
+      setImporting(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  }
+
+  function removeImage() {
+    if (!document?.image) return;
+    const { image: _image, ...rest } = document;
+    commit(rest);
+    setMessage("Imagem de fundo removida.");
+  }
+
   async function createEntity(kind: "npc" | "item", entityName: string): Promise<EntityOption> {
     const entity = await data.createEntity(campaignId, viewerId, kind, entityName);
     setEntities((items) => [...items, entity]);
@@ -585,6 +619,20 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
             {kit.floors.map((floor) => <option key={floor.id} value={floor.id}>{floor.label}</option>)}
           </select>
         </label>
+        <div className={styles.imageField}>
+          <span>Imagem de fundo</span>
+          <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif" hidden style={{ display: "none" }}
+            onChange={(event) => void importImage(event.target.files?.[0])} />
+          <div className={styles.row}>
+            <button type="button" className={styles.tool} disabled={importing || previewPlayers} onClick={() => imageInputRef.current?.click()}
+              title="PNG, JPEG, WebP, GIF, BMP ou AVIF. A imagem é reduzida para caber no mapa.">{importing ? "Importando…" : document.image ? "Trocar imagem" : "Importar imagem"}</button>
+            {document.image && <button type="button" className={`${styles.tool} ${styles.danger}`} disabled={importing || previewPlayers} onClick={removeImage}>Remover imagem</button>}
+          </div>
+          {document.image && <label>Opacidade ({Math.round(document.image.opacity * 100)}%)
+            <input type="range" min={10} max={100} value={Math.round(document.image.opacity * 100)}
+              onChange={(event) => commit({ ...document, image: { ...document.image!, opacity: Number(event.target.value) / 100 } })} />
+          </label>}
+        </div>
         <label className={styles.check}><input type="checkbox" checked={document.grid.visible} onChange={(event) => commit({ ...document, grid: { ...document.grid, visible: event.target.checked } })} />Grade visível</label>
         <label className={styles.check}><input type="checkbox" checked={snapGrid} onChange={(event) => setSnapGrid(event.target.checked)} />Ímã na grade</label>
         <label className={styles.check}><input type="checkbox" checked={shared} onChange={(event) => { setShared(event.target.checked); setDirty(true); }} />Compartilhar com os jogadores</label>
@@ -714,7 +762,7 @@ export function MapEditor({ campaignId, viewerId, map, onSaved, onDelete, data =
 
       <section className={styles.card} aria-label="Camadas">
         <h4>Camadas</h4>
-        {([["areas", "Pisos e casas"], ["shadows", "Sombras"], ["walls", "Muros e portas"], ["props", "Objetos"], ["pins", "Pins"], ["grid", "Grade"], ["fog", "Regiões de névoa"]] as const).map(([key, label]) =>
+        {([["image", "Imagem de fundo"], ["areas", "Pisos e casas"], ["shadows", "Sombras"], ["walls", "Muros e portas"], ["props", "Objetos"], ["pins", "Pins"], ["grid", "Grade"], ["fog", "Regiões de névoa"]] as const).map(([key, label]) =>
           <label key={key} className={styles.check}><input type="checkbox" checked={layers[key]} onChange={(event) => setLayers({ ...layers, [key]: event.target.checked })} />{label}</label>)}
         <p className={styles.hint}>{document.structures.length} estruturas · {document.pins.length} pins</p>
       </section>
