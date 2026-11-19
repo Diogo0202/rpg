@@ -37,12 +37,12 @@ from app.adapters.inbound.http.mobile_sync import router as mobile_sync_router
 from app.adapters.inbound.http.marketplace import router as marketplace_router
 from app.adapters.inbound.http.marketplace import maintenance_router as marketplace_maintenance_router
 from app.adapters.inbound.http.campaign_invites import router as campaign_invites_router
-from app.routes.voice_sessions import router as voice_sessions_router
+from app.adapters.inbound.http.voice_sessions import router as voice_sessions_router
 from app.adapters.inbound.http.experience import router as experience_router
 from app.routes.hunter import router as hunter_router
 from app.routes.one_ring_company import router as one_ring_company_router
 from app.adapters.inbound.http.v5_sanguine import router as v5_sanguine_router
-from app.routes.spotify import router as spotify_router
+from app.adapters.inbound.http.spotify import router as spotify_router
 
 app = FastAPI(title="RPG-Atlas API", version="0.1.0")
 app.include_router(generation_router)

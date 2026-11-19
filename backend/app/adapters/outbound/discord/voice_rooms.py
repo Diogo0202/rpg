@@ -20,8 +20,11 @@ from typing import Any
 
 import httpx
 
+from app.domain.errors import ServiceUnavailable
 
 logger = logging.getLogger(__name__)
+
+NOT_CONFIGURED = "A sala de voz no Discord não está configurada neste servidor."
 
 DISCORD_API = "https://discord.com/api/v10"
 VOICE_CHANNEL_TYPE = 2
@@ -226,6 +229,26 @@ async def broadcast_voice(client: httpx.AsyncClient, settings: VoiceSettings, ca
         return
     if response.status_code >= 400:
         logger.warning("voice broadcast failed campaign=%s status=%s", campaign_id, response.status_code)
+
+
+class DiscordVoiceRooms:
+    """Implementação da porta ``VoiceRooms``; lê a configuração do ambiente a cada pedido."""
+
+    def __init__(self) -> None:
+        self._settings: VoiceSettings | None = None
+
+    def is_configured(self) -> bool:
+        return voice_enabled()
+
+    def ensure_configured(self) -> None:
+        try:
+            self._settings = voice_settings()
+        except VoiceNotConfigured as error:
+            raise ServiceUnavailable(NOT_CONFIGURED) from error
+
+    async def provision(self, campaign_id: str, campaign_name: Any, channel_id: str | None) -> None:
+        settings = self._settings or voice_settings()
+        await provision_voice_room(settings, campaign_id, campaign_name, channel_id)
 
 
 async def provision_voice_room(settings: VoiceSettings, campaign_id: str, campaign_name: Any, channel_id: str | None) -> None:

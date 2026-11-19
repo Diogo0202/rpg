@@ -24,6 +24,7 @@ from urllib.parse import urlencode
 
 import httpx
 
+from app.domain.spotify import CONTEXT_URI, DEVICE_ID, PLAYLIST_ID, TRACK_URI
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,6 @@ REFRESH_MARGIN_SECONDS = 60
 RETURN_TO = re.compile(r"^/app(/campaign/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$")
 STATE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 CODE = re.compile(r"^[A-Za-z0-9._~-]{1,1024}$")
-PLAYLIST_ID = re.compile(r"^[A-Za-z0-9]{22}$")
-TRACK_URI = re.compile(r"^spotify:track:[0-9A-Za-z]{22}$")
-CONTEXT_URI = re.compile(r"^spotify:(playlist|album):[0-9A-Za-z]{22}$")
-DEVICE_ID = re.compile(r"^[A-Za-z0-9]{1,128}$")
 _SPOTIFY_USER = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 _PRODUCT = re.compile(r"^[a-z_]{1,32}$")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
@@ -380,7 +377,7 @@ async def player_call(settings: SpotifySettings, user_id: str, method: str, path
                                      forbidden=forbidden, not_found=not_found)
 
 
-def _count(value: Any) -> int:
+def count(value: Any) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else 0
 
 
@@ -432,7 +429,7 @@ def shape_playlist(value: Any) -> dict[str, Any] | None:
         "description": _text(value.get("description"), 300),
         "public": public if isinstance(public, bool) else None,
         "owner_id": owner_id if isinstance(owner_id, str) and _SPOTIFY_USER.fullmatch(owner_id) else None,
-        "tracks_total": _count(totals.get("total")) if isinstance(totals, dict) else 0,
+        "tracks_total": count(totals.get("total")) if isinstance(totals, dict) else 0,
         "uri": f"spotify:playlist:{playlist_id}",
     }
 

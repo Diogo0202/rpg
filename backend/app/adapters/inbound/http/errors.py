@@ -15,6 +15,7 @@ from app.domain.errors import (
     Forbidden,
     InvalidInput,
     LimitExceeded,
+    MalformedRequest,
     NotFound,
     RateLimited,
     ServiceUnavailable,
@@ -23,6 +24,7 @@ from app.domain.errors import (
 )
 
 HTTP_STATUS: dict[type[DomainError], int] = {
+    MalformedRequest: 400,
     Unauthenticated: 401,
     Forbidden: 403,
     NotFound: 404,

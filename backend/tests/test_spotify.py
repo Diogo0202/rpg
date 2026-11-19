@@ -11,8 +11,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import spotify as route
-from app.services import spotify
+from app.adapters.inbound.http import spotify as route
+from app.adapters.outbound.spotify import web_api as spotify
 
 
 USER = "3f000000-0000-4000-8000-000000000001"

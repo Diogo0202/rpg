@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import Depends, Header
 
+from app.adapters.outbound.discord.voice_rooms import DiscordVoiceRooms
 from app.adapters.outbound.email.invite_mailer import EnvironmentInviteMailer
 from app.adapters.outbound.supabase.advance_repository import SupabaseAdvanceRepository
 from app.adapters.outbound.supabase.chronicle_store import SupabaseChronicleStore
@@ -22,6 +23,7 @@ from app.adapters.outbound.supabase.sanguine_store import SupabaseSanguineStore
 from app.adapters.outbound.supabase.sheet_repository import SupabaseSheetRepository
 from app.adapters.outbound.supabase.sync_gateway import SupabaseSyncGateway, SupabaseSyncTransport, SyncTransport
 from app.adapters.outbound.supabase.v5_repository import SupabaseV5Store
+from app.adapters.outbound.supabase.voice_session_requests import SupabaseVoiceSessionRequests
 from app.adapters.outbound.supabase.weapon_reader import SupabaseWeaponReader
 from app.application.chronicle.service import ChronicleService
 from app.application.experience.service import ExperienceService
@@ -35,6 +37,7 @@ from app.application.v5.blood import V5BloodService
 from app.application.v5.ports import RollActivityRecorder, WeaponReader
 from app.application.v5.rolls import V5RollService
 from app.application.v5.sanguine import V5SanguineService
+from app.application.voice.service import VoiceRooms, VoiceSessionService
 
 
 def supabase_session(authorization: str | None = Header(default=None)) -> SupabaseRest:
@@ -94,6 +97,16 @@ def marketplace_service(
     service_role: MarketplaceServiceRole = Depends(marketplace_service_role),
 ) -> MarketplaceService:
     return MarketplaceService(supabase, catalog, SupabaseMarketplaceMember(supabase), service_role)
+
+
+def voice_rooms() -> VoiceRooms:
+    return DiscordVoiceRooms()
+
+
+def voice_session_service(
+    supabase: SupabaseRest = Depends(supabase_session), rooms: VoiceRooms = Depends(voice_rooms),
+) -> VoiceSessionService:
+    return VoiceSessionService(SupabaseVoiceSessionRequests(supabase), rooms)
 
 
 def invite_mailer() -> InviteMailer:

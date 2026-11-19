@@ -8,8 +8,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import voice_sessions as route
-from app.services import discord_voice
+from app.adapters.inbound.http import voice_sessions as route
+from app.adapters.outbound.discord import voice_rooms as discord_voice
 
 
 CAMPAIGN = "2e000000-0000-4000-8000-000000000001"

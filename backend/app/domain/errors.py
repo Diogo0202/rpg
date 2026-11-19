@@ -14,6 +14,10 @@ class DomainError(Exception):
         self.message = message
 
 
+class MalformedRequest(DomainError):
+    """O pedido chegou incompleto ou adulterado (por exemplo, um retorno de OAuth inválido)."""
+
+
 class Unauthenticated(DomainError):
     """A sessão está ausente ou não foi aceita."""
 
