@@ -6,7 +6,7 @@ Revisão de código em 17/10/2026. As alterações abaixo estão no checkout loc
 
 O importador local já valida os backups. A restauração cria uma nova ficha e exige um modelo aprovado, com os mesmos campos, na campanha de destino. Ela não sobrescreve uma ficha existente. O RLS permite ao jogador editar sua própria ficha, conforme as regras de participação da campanha.
 
-Foi confirmada uma diferença entre os limites do importador e a validação de gravação. A nova validação em `backend/app/services/sheet_values.py`, chamada pelas rotas de fichas, e o trigger em `20261017090000_sheet_value_limits.sql` passam a impor:
+Foi confirmada uma diferença entre os limites do importador e a validação de gravação. A nova validação em `backend/app/domain/sheet_values.py`, chamada pelas rotas de fichas, e o trigger em `20261017090000_sheet_value_limits.sql` passam a impor:
 
 - Objeto de até 200 campos e 32 KiB de JSON serializado. PostgreSQL e Python serializam JSON de formas diferentes; uma entrada próxima do teto pode ser recusada em uma das camadas.
 - Texto de até 10.000 caracteres e números finitos entre -1.000.000 e 1.000.000. Booleanos não contam como números.

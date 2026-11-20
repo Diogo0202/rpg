@@ -64,4 +64,21 @@ describe("InventoryEditor custom fields", () => {
       ]),
     ));
   });
+
+  it("lets weapons declare aggravated damage, defaulting older items to superficial", async () => {
+    render(<InventoryEditor sheetId="sheet" />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar Corda" }));
+    expect(screen.queryByLabelText("Tipo de dano")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Categoria"), { target: { value: "weapon" } });
+    const kind = screen.getByLabelText("Tipo de dano");
+    expect(kind).toHaveValue("superficial");
+    fireEvent.change(kind, { target: { value: "aggravated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar item" }));
+    await waitFor(() => expect(fixture.update).toHaveBeenCalledWith(
+      "character_inventory", "item", expect.arrayContaining([
+        { path: ["category"], value: "weapon" },
+        { path: ["damage_type"], value: "aggravated" },
+      ]),
+    ));
+  });
 });

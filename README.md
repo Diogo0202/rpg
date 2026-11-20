@@ -17,7 +17,9 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Geração procedural de mapas táticos e conteúdo original para personagens, inimigos e itens.
 - Painel da Segunda Inquisição com eventos confirmados pelo narrador, alerta reconstruído e respostas por nível. O diagnóstico da crônica lê fichas aprovadas e atividade estruturada, com acesso reservado ao narrador.
 - Editor de fichas modulares com base V5, fórmulas automáticas, modelos aprovados e fichas gravadas por campanha com controle de versão. A criação guiada acrescenta etapas, identidades em destaque, revisão e seleção do personagem após salvar.
-- Modelos iniciais editáveis de Vampiro V5, Caçador e O Um Anel. O V5 reúne 9 atributos e 27 habilidades; os demais seguem os recortes de campos do Atlas.
+- Modelos iniciais editáveis de Vampiro V5, Caçador, O Um Anel e Shadow of the Demon Lord. O V5 reúne 9 atributos e 27 habilidades; os demais seguem os recortes de campos do Atlas. O Shadow of the Demon Lord cria personagens de nível 0 por ancestralidade e traz as regras da campanha Trench Crusade (Fervor, fé, Último Alento); veja `docs/SOTDL_CRIACAO_GUIADA.md`.
+- Construtor de O Um Anel v3 em uma página, com catálogo de seis culturas e seis Chamados, cálculos e inventário transacional. Companhia compartilhada com Sociedade, Focos e comandos offline na web e no mobile. Validação hospedada pendente; veja [a entrega e seus testes](docs/UM_ANEL_V3_ENTREGA.md).
+- Rolador d20 de Shadow of the Demon Lord com dádivas e perdições e teste de destino, na web e no rolador local do mobile.
 - Rolador de Caçador com Desespero adicional opcional, dificuldade e resultados separados. O Um Anel tem um rolador inicial de d12/d6 e cansaço, ainda em revisão; Miserável, Sombra e eventos de jornada não são automatizados. Esses modelos e roladores não cobrem todas as regras dos sistemas.
 - Rolador V5 com atributos e habilidades, dados individuais de Fome e classificação do resultado. Trilhas de dano superficial e agravado aplicam penalidades ao contexto físico ou mental, também na previsão de risco.
 - Cofre local por conta, com cópias, busca, renomeação e duplicação. Importa e exporta JSON de backup validado, inclui inventário e efeitos, oferece impressão pelo navegador e restaura uma nova ficha usando modelo idêntico já aprovado.
@@ -25,8 +27,9 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Calculadora de XP e histórico local de estimativas. O cálculo não altera automaticamente os atributos nem o saldo da ficha.
 - Diário com sessões, eventos cronológicos e facções, incluindo relógio de tensão e exportação JSON ou Markdown.
 - Biblioteca do mundo com edição de entidades e relações. O conteúdo original gerado pode ser salvo nela.
-- Editor de mapas visto de cima (SVG, só 2D): muros com desenho livre, casas com piso e muros fechados, portas encaixadas no muro (aberta, fechada, trancada, secreta), sombras, objetos e pins de personagem, NPC e item. O kit segue o sistema: medieval no Um Anel, cidade moderna no Vampiro V5 e no Caçador. Mapas gerados abrem como fundo. Exportação em JSON.
-- Pins de personagem usam o retrato enviado na criação da ficha (obrigatório). A foto é recortada em 512×512 WebP no navegador, sem dados de localização, e fica no bucket privado `character-portraits`, legível pelos membros da campanha.
+- Temas de cor escolhidos por aparelho, no site e no celular: Padrão, Caçador e Demon Lord (trincheira profana, inspirado em Shadow of the Demon Lord).
+- Editor de mapas visto de cima (SVG, só 2D): muros com desenho livre, casas com piso e muros fechados, portas encaixadas no muro (aberta, fechada, trancada, secreta), sombras, objetos e pins de personagem, NPC e item. O kit segue o sistema: medieval no Um Anel e no Shadow of the Demon Lord, cidade moderna no Vampiro V5 e no Caçador. Mapas gerados abrem como fundo. Exportação em JSON.
+- Pins de personagem podem mostrar o retrato enviado na criação da ficha. O perfil O Um Anel v3 permite criar sem retrato; os perfis legados da API web exigem o envio. A foto é recortada em 512×512 WebP no navegador, sem dados de localização, e fica no bucket privado `character-portraits`, legível pelos membros da campanha.
 - Só o narrador edita mapas. Mapas compartilhados chegam aos jogadores pela RPC `get_player_map`, sem pins, sombras e notas marcados como "só Mestre"; cada jogador arrasta apenas o pin da própria ficha (`move_own_pin`).
 - Modo de cena com participantes, iniciativa, rodada e turno, pausa e registro de eventos. Inclui salvamento por versão e atualização manual.
 - Links de playlists do Spotify compartilhados na campanha. Mestre e dono administram os links; participantes podem abri-los no Spotify.
@@ -35,7 +38,7 @@ A [comparação com o inventário do RPG Atlas](COMPARACAO_RPG_ATLAS.md) registr
 - Painel do narrador com fichas ativas, Fome em alerta a partir de 4, Vontade disponível, Humanidade e Manchas. Inclui assinatura Supabase Realtime e atualização manual.
 - Motor de modificadores com condições ativáveis, tags de aplicação e exceção, duração em cenas e motivo visível. Os efeitos acompanham o personagem selecionado nas rolagens da ficha e na previsão V5.
 - Compêndio com Fuse.js, filtros por tipo, nível e tags, detalhes em modal e referências clicáveis na ficha. O acervo inicial contém quatro exemplos originais de homebrew.
-- Site PWA com acesso online e aplicativo complementar em `mobile/`, com IndexedDB, fila offline e sincronização autenticada. O site Next.js não oferece o mesmo modo offline do aplicativo complementar.
+- Site PWA com acesso online e aplicativo complementar em `mobile/`, com IndexedDB, fila offline e sincronização autenticada. O módulo de O Um Anel tem uma entrada offline própria em `/offline/one-ring`, preparada após acesso conectado; os demais painéis do site mantêm seu fluxo atual.
 
 O estado atual é um protótipo em desenvolvimento. Os fluxos de gravação têm código e migrations locais; as migrations desta entrega ainda não foram aplicadas ao Supabase de destino. A persistência e o isolamento precisam de testes com contas reais. Os links do Spotify abrem playlists; não há OAuth, controle de reprodução nem sincronização do player. A busca de regras ainda não gera resposta por IA e não há fluxo público de envio de PDFs.
 
@@ -129,6 +132,8 @@ Modelos aceitam o formato canônico `fields` ou as partições `primitives` e `c
 Leia a [comparação com a proposta e o procedimento de ativação](docs/NEXUS_LOCAL_FIRST_COMPARISON.md). Monetização e anúncios permanecem desativados por decisão do projeto.
 
 ## Supabase
+
+O [fluxo de modelos do Marketplace](docs/MARKETPLACE_MODELOS.md) inclui publicação a partir de modelo aprovado, cópia para a campanha e revisão pelo narrador em **Modelos importados**. A cópia só fica disponível para criar fichas após a aprovação no banco. A validação local está registrada no documento; a integração remota segue pendente.
 
 A [revisão de segurança de 17/10/2026](SEGURANCA.md) descreve os limites das fichas, a autenticação e as cotas da API, os sinais mínimos de Realtime e a proteção da impressão. Os testes locais de API e frontend foram executados em 18/10/2026; as migrations e os testes pgTAP ainda precisam de execução no banco. O frontend e a migration de notificações Realtime devem ser lançados juntos.
 

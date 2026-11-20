@@ -1,0 +1,17 @@
+.panel { display: grid; gap: .8rem; padding: 1rem; margin-top: 1rem; border: 1px solid #625747; border-radius: 12px; color: #eee4d5; background: #19181b; min-width: 0; }
+.panel h3,.panel h4,.panel p { margin: 0; }
+.header,.row { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; justify-content: space-between; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: .8rem; }
+.panel label { display: grid; gap: .35rem; font-size: .88rem; }
+.panel input,.panel select,.panel textarea { box-sizing: border-box; width: 100%; min-height: 44px; min-width: 0; padding: .5rem; border: 1px solid #8a7965; border-radius: 8px; background: #242126; color: inherit; font: inherit; }
+.panel textarea { min-height: 7rem; }
+.panel button { min-height: 44px; padding: .5rem .8rem; border: 1px solid #ac8c5d; border-radius: 8px; background: #3e3023; color: inherit; cursor: pointer; font: inherit; }
+.panel button:disabled { opacity: .5; cursor: not-allowed; }
+.panel :focus-visible { outline: 3px solid #f0c77f; outline-offset: 2px; }
+.panel fieldset { display: grid; gap: .6rem; min-width: 0; border: 1px solid #625747; }
+.item { display: grid; grid-template-columns: minmax(0, 1fr) 7rem auto; gap: .5rem; align-items: end; }
+.requests { display: grid; gap: .8rem; list-style: none; padding: 0; margin: 0; }
+.requests li { display: grid; gap: .4rem; padding: .8rem; border: 1px solid #625747; border-radius: 8px; overflow-wrap: anywhere; }
+.clue { white-space: pre-wrap; padding: .7rem; background: #292620; }
+.message { color: #ffdb9a; }
+@media(max-width: 600px) { .item { grid-template-columns: minmax(0, 1fr) 5rem; } .item button { grid-column: 1 / -1; } }

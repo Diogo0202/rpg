@@ -333,7 +333,8 @@ test("403 from pull clears confirmed cache and cursor while retaining denied edi
   await assert.rejects(() => revoked.pull(), (error) => error.status === 403);
   const state = await revoked.readState();
   assert.deepEqual(state.records, {}); assert.equal(state.cursor, null); assert.equal(state.outbox[0].state, "denied");
-  assert.equal((await revoked.getRecord("map_pins", id)).data.label, "Local draft");
+  assert.equal(state.accessRevoked, true);
+  assert.equal(await revoked.getRecord("map_pins", id), undefined);
 });
 
 test("403 during snapshot bootstrap clears partial cache and preserves the outbox draft", async () => {
@@ -348,7 +349,8 @@ test("403 during snapshot bootstrap clears partial cache and preserves the outbo
   await assert.rejects(() => revoked.bootstrap(["map_pins"]), (error) => error.status === 403);
   const state = await revoked.readState();
   assert.deepEqual(state.records, {}); assert.equal(state.cursor, null); assert.equal(state.outbox[0].state, "denied");
-  assert.equal((await revoked.getRecord("map_pins", id)).data.label, "Local draft");
+  assert.equal(state.accessRevoked, true);
+  assert.equal(await revoked.getRecord("map_pins", id), undefined);
 });
 
 test("403 clears confirmed cache and keeps denied drafts available for export", async () => {
@@ -360,7 +362,7 @@ test("403 clears confirmed cache and keeps denied drafts available for export", 
   const engine = new SyncEngine(config("acct-a", "camp-a", "device-a"), store, revoked);
   const report = await engine.sync(), state = await engine.readState();
   assert.equal(report.reason, "revoked"); assert.equal(Object.keys(state.records).length, 0); assert.equal(state.outbox[0].state, "denied");
-  assert.equal((await engine.getRecord("map_pins", record.id)).data.label, "Local draft");
+  assert.equal(await engine.getRecord("map_pins", record.id), undefined);
   assert.equal((await engine.exportPendingDrafts()).format, "rpg-nexus-mobile-v1-pending-drafts");
 });
 

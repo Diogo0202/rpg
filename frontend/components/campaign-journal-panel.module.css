@@ -234,3 +234,5 @@
 }
 
 .editingFields { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 1rem; }
+.entityLinks { display: grid; gap: .3rem; margin: .4rem 0; padding: 0; list-style: none; }
+.entityLinks li { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }

@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { CampaignInvitesInbox, type PendingInvite } from "../../components/campaign-invites-inbox";
 import { CreateCampaignForm } from "../../components/create-campaign-form";
 import { createClient, isSupabaseConfigured } from "../../lib/supabase/server";
+import { listMyCampaigns, listMyInvites } from "../../lib/data/campaign";
 
 export const metadata: Metadata = {
   title: "Minhas campanhas | RPG-Atlas",
@@ -28,16 +30,17 @@ export default async function CampaignPage() {
   const { data: userData, error: authError } = await supabase.auth.getUser();
   if (authError || !userData.user) redirect("/login");
 
-  const { data: campaigns, error } = await supabase
-    .from("campaigns")
-    .select("id, name, description, owner_id, updated_at")
-    .order("updated_at", { ascending: false });
+  const { data: campaigns, error } = await listMyCampaigns(supabase);
+  const { data: pendingInvites } = await listMyInvites(supabase);
 
   return (
     <main className="campaign-hub">
       <header className="hub-header">
         <Link className="brand hub-brand" href="/"><span>R</span><strong>RPG<br />ATLAS</strong></Link>
-        <form action="/auth/signout" method="post"><button className="quiet" type="submit">Sair</button></form>
+        <div className="actions" style={{ margin: 0 }}>
+          <Link className="quiet" href="/app/perfil">Perfil</Link>
+          <form action="/auth/signout" method="post"><button className="quiet" type="submit">Sair</button></form>
+        </div>
       </header>
       <div className="hub-intro">
         <p className="eyebrow">ÁREA PRIVADA / CAMPANHAS</p>
@@ -60,7 +63,10 @@ export default async function CampaignPage() {
             ))}
           </div>
         </section>
-        <CreateCampaignForm />
+        <div>
+          <CreateCampaignForm />
+          <CampaignInvitesInbox invites={(pendingInvites ?? []) as PendingInvite[]} />
+        </div>
       </div>
     </main>
   );

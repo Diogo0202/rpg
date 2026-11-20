@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 import { aiStatusLabel, buildPublicationFields, contextBinding, publicationFieldLabel, publicationFields } from "../lib/ai-assistance";
-import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sheet-creation";
-import { characterNameField, type FieldValue, type SheetTemplate } from "../lib/sheet-template";
+import { fieldOptions, isFieldActive, reconcileDependentValues } from "../../shared/rules/sheet-creation";
+import { characterNameField, type FieldValue, type SheetTemplate } from "../../shared/rules/sheet-template";
 import styles from "./ai-assistance-panel.module.css";
 import { MathTutor } from "./math-tutor";
 
@@ -16,22 +16,16 @@ type Config = { enabled: boolean; model: string; budget_monthly_usd: number; mod
 type Preview = { context: { items: ContextItem[] }; context_hash: string };
 type Operation = { signature: string; id: string } | null;
 
-async function request<T>(campaign: string, suffix: string, body?: unknown): Promise<T> {
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (!base) throw new Error("A API da campanha não está configurada.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para acessar a assistência.");
-  const response = await fetch(`${base.replace(/\/$/, "")}/api/v1/campaigns/${encodeURIComponent(campaign)}/ai/${suffix}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { Authorization: `Bearer ${data.session.access_token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  if (!response.ok) {
-    const detail = await response.json().catch(() => null);
-    const message = typeof detail?.detail === "string" ? detail.detail : "Não foi possível concluir o pedido. Seus dados foram preservados.";
-    throw new Error(message);
-  }
-  return response.json() as Promise<T>;
+const AI_MESSAGES = {
+  missingApi: "A API da campanha não está configurada.",
+  signedOut: "Entre na campanha para acessar a assistência.",
+  rejected: "Não foi possível concluir o pedido. Seus dados foram preservados.",
+};
+
+function request<T>(campaign: string, suffix: string, body?: unknown): Promise<T> {
+  return sessionJson<T>(`/api/v1/campaigns/${encodeURIComponent(campaign)}/ai/${suffix}`, {
+    method: body === undefined ? "GET" : "POST", body,
+  }, AI_MESSAGES);
 }
 
 function operation(ref: { current: Operation }, body: unknown) {

@@ -6,8 +6,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import ai_assistance as ai
-from app.services import ai_provider
+from app.adapters.inbound.http import ai_assistance as ai
+from app.adapters.outbound.ai import provider as ai_provider
+from app.adapters.outbound.supabase.ai_store import SupabaseAiPrivateStore
+from app.application.ai.ports import Actor
 
 C = "10000000-0000-4000-8000-000000000001"
 U = "20000000-0000-4000-8000-000000000001"
@@ -19,20 +21,30 @@ def client(monkeypatch):
     app = FastAPI()
     app.include_router(ai.router)
 
-    async def actor(*args):
-        return ai.Actor(U, "Bearer fixture", False, True)
-
-    monkeypatch.setattr(ai, "_actor", actor)
+    app.dependency_overrides[ai.campaign_actor] = lambda: Actor(U, False, True)
     monkeypatch.setenv("AI_ENABLED", "false")
     return TestClient(app)
+
+
+def use_paid_generation(client, run):
+    """Troca a chamada paga inteira por uma função com a assinatura (campanha, ator, tipo, contexto, modelo, operação)."""
+    class Paid:
+        async def run(self, *args, check=None):
+            return await run(*args[:6])
+
+    client.app.dependency_overrides[ai.paid_generation] = Paid
+
+
+def use_private_transport(client, transport):
+    client.app.dependency_overrides[ai.ai_private_store] = lambda: SupabaseAiPrivateStore(transport)
 
 
 def test_calculation_works_with_ai_disabled_and_no_database_write(client, monkeypatch):
     async def forbidden(*args, **kwargs):
         raise AssertionError("Cálculo não deve chamar o provedor nem gravar dados")
 
-    monkeypatch.setattr(ai, "_service", forbidden)
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", forbidden)
+    use_private_transport(client, forbidden)
+    monkeypatch.setattr(ai_provider, "generate_proposal", forbidden)
     response = client.post(f"/api/v1/campaigns/{C}/ai/tutor", json={"expression": "forca + vigor * 2", "values": {"forca": 3, "vigor": 2}})
     assert response.status_code == 200
     assert response.json()["result"] == 7
@@ -53,7 +65,7 @@ def test_invalid_arithmetic_never_generates(client, body, monkeypatch):
     async def forbidden(*args, **kwargs):
         raise AssertionError("Nenhuma chamada paga para entrada inválida")
 
-    monkeypatch.setattr(ai, "_paid_generation", forbidden)
+    use_paid_generation(client, forbidden)
     assert client.post(f"/api/v1/campaigns/{C}/ai/tutor", json={**body, "explain": True, "idempotency_key": OP}).status_code == 422
 
 
@@ -62,9 +74,9 @@ def test_explanation_receives_only_math_and_server_answer(client, monkeypatch):
 
     async def explain(campaign, actor, kind, context, template, operation):
         captured.update(campaign=campaign, user=actor.id, kind=kind, context=context, template=template, operation=operation)
-        return {"explanation": "Multiplique 2 por 3. O resultado é 6."}
+        return {"explanation": "- Multiplique 2 por 3.\n- O resultado é 6."}
 
-    monkeypatch.setattr(ai, "_paid_generation", explain)
+    use_paid_generation(client, explain)
     body = {"expression": "forca * 3", "values": {"forca": 2}, "explain": True, "idempotency_key": OP}
     response = client.post(f"/api/v1/campaigns/{C}/ai/tutor", json=body)
     assert response.status_code == 200

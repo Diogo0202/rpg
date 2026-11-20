@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { parseTags, useCharacterSession, type CharacterEffect, type SessionCharacter } from "../lib/character-session";
-import { createClient } from "../lib/supabase/client";
+import { buildChronicleContext, CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
+import { browserDb } from "../lib/data/browser";
+import { saveSheetEffects } from "../lib/data/sheets";
+import { ApiError, detailOf, retryAfterMessage } from "../lib/api/http";
+import { sessionSend } from "../lib/api/session";
 
 export type ModifierPreview = {
   base_pool: number;
@@ -14,22 +18,18 @@ export type ModifierPreview = {
   clipped: boolean;
 };
 
-export async function authenticatedPost(path: string, payload: unknown, signal?: AbortSignal) {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) throw new Error("A API não está configurada.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para calcular a rolagem.");
-  const response = await fetch(`${api}${path}`, {
-    method: "POST", signal,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-    body: JSON.stringify(payload),
-  });
-  if (response.status === 429) {
-    const seconds = Number(response.headers.get("Retry-After"));
-    throw new Error(Number.isFinite(seconds) && seconds > 0 ? `Limite de solicitações atingido. Tente em ${seconds} segundos.` : "Limite de solicitações atingido. Aguarde antes de tentar novamente.");
-  }
-  if (!response.ok) throw new Error("A API recusou os dados. Confira a sessão, a parada e os efeitos.");
-  return response.json();
+// Mantém o contrato anterior: response.json() devolvia `any` para os chamadores.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function authenticatedPost(path: string, payload: unknown, signal?: AbortSignal): Promise<any> {
+  return (await authenticatedPostWithChronicle(path, payload, signal)).data;
+}
+
+/** Igual a authenticatedPost, mas também lê o header DRA-05 X-Chronicle-Activity. */
+export async function authenticatedPostWithChronicle(path: string, payload: unknown, signal?: AbortSignal): Promise<{ data: unknown; chronicle: ChronicleActivityStatus | null }> {
+  const response = await sessionSend(path, { method: "POST", body: payload, signal }, { signedOut: "Entre na campanha para calcular a rolagem." });
+  if (response.status === 429) throw new ApiError(retryAfterMessage(response.headers), "http", 429);
+  if (!response.ok) throw new ApiError("A API recusou os dados. Confira a sessão, a parada e os efeitos.", "http", response.status, detailOf(response.body));
+  return { data: response.body, chronicle: parseChronicleActivity(response.headers.get(CHRONICLE_ACTIVITY_HEADER)) };
 }
 
 export function ModifierExplanation({ preview }: { preview: ModifierPreview }) {
@@ -57,7 +57,7 @@ export function CharacterEffectsPanel({ campaignId, canEdit }: { campaignId: str
   const [pool, setPool] = useState(6);
   const [sides, setSides] = useState(10);
   const [preview, setPreview] = useState<ModifierPreview | null>(null);
-  const [roll, setRoll] = useState<{ rolls: number[]; total: number } | null>(null);
+  const [roll, setRoll] = useState<{ rolls: number[]; total: number; chronicle: ChronicleActivityStatus | null } | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const effects = character?.effects;
@@ -86,9 +86,7 @@ export function CharacterEffectsPanel({ campaignId, canEdit }: { campaignId: str
     setBusy(true);
     setMessage("");
     try {
-      const { data, error } = await createClient().from("character_sheets")
-        .update({ effects: next }).eq("id", selected.id).eq("campaign_id", campaignId).eq("version", selected.version)
-        .select("id,name,version,values,effects").maybeSingle();
+      const { data, error } = await saveSheetEffects(browserDb(), { id: selected.id, campaignId, version: selected.version }, next);
       if (error || !data) throw new Error("Não foi possível salvar. Atualize a ficha se ela mudou em outra sessão.");
       acceptSavedCharacter(data as SessionCharacter);
       if (currentCharacterId.current === selected.id) setMessage("Efeitos salvos na ficha.");
@@ -117,8 +115,11 @@ export function CharacterEffectsPanel({ campaignId, canEdit }: { campaignId: str
     const selectedContext = rollContext.current;
     setBusy(true); setMessage(""); setRoll(null);
     try {
-      const result = await authenticatedPost("/api/v1/modifiers/roll", { base_pool: pool, die_sides: sides, context_tags: contextTags, effects: effects ?? [] }) as { preview: ModifierPreview; rolls: number[]; total: number };
-      if (currentCharacterId.current === selectedId && selectedContext === rollContext.current) { setPreview(result.preview); setRoll(result); }
+      // A parada aqui é numérica e livre: não há campo do modelo conhecido, então trait_ids vai vazio.
+      const chronicle = buildChronicleContext({ sheetId: selectedId, campaignId, traitIds: [], rollKey: newRollKey("modifiers") });
+      const response = await authenticatedPostWithChronicle("/api/v1/modifiers/roll", withChronicle({ base_pool: pool, die_sides: sides, context_tags: contextTags, effects: effects ?? [] }, chronicle));
+      const result = response.data as { preview: ModifierPreview; rolls: number[]; total: number };
+      if (currentCharacterId.current === selectedId && selectedContext === rollContext.current) { setPreview(result.preview); setRoll({ rolls: result.rolls, total: result.total, chronicle: response.chronicle }); }
     } catch (error) { if (currentCharacterId.current === selectedId && selectedContext === rollContext.current) setMessage(error instanceof Error ? error.message : "Falha na rolagem."); }
     finally { setBusy(false); }
   }
@@ -163,7 +164,7 @@ export function CharacterEffectsPanel({ campaignId, canEdit }: { campaignId: str
       {preview && <ModifierExplanation preview={preview} />}
       <button type="button" className="primary" disabled={busy || !contextValid || !preview || preview.adjusted_pool === 0} onClick={() => void rollPool()}>Rolar parada ajustada</button>
       <p className="notice">Rolagem comum por soma. Este rolador não classifica Dados de Fome, críticos sujos ou falhas bestiais.</p>
-      {roll && <p className="effect-roll" role="status">{roll.rolls.join(" + ")} = <b>{roll.total}</b></p>}
+      {roll && <p className="effect-roll" role="status">{roll.rolls.join(" + ")} = <b>{roll.total}</b>{chronicleActivityLabel(roll.chronicle) && <small className="chronicle-recorded"> · {chronicleActivityLabel(roll.chronicle)}</small>}</p>}
       <p role="status" aria-live="polite">{message}</p>
     </article>
   </section>;

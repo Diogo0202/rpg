@@ -2,7 +2,9 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { listBackupItems } from "../lib/data/inventory";
+import { listApprovedTemplates, listBackupSheets, restoreSheetBackup } from "../lib/data/sheets";
 import { printableSheetHtml } from "../lib/printable-sheet";
 import {
   createSheetBackup,
@@ -29,7 +31,7 @@ type RemoteSheet = { id: string; name: string; template_id: string; values: unkn
 type RemoteInventory = {
   custom_values?: unknown;
   sheet_id: string; name: string; category: string; quantity: number; resource_cost: number;
-  damage_bonus: number; protection: number; notes: string; acquired: boolean; equipped: boolean; sort_order: number;
+  damage_bonus: number; damage_type?: string; protection: number; notes: string; acquired: boolean; equipped: boolean; sort_order: number;
 };
 
 function vaultKey(viewerId: string): string {
@@ -71,7 +73,7 @@ function makeRemoteBackup(sheet: RemoteSheet, template: RemoteTemplate, inventor
     effects,
     inventory: inventory.map((item) => ({
       name: item.name, category: item.category, quantity: item.quantity,
-      resource_cost: item.resource_cost, damage_bonus: item.damage_bonus,
+      resource_cost: item.resource_cost, damage_bonus: item.damage_bonus, damage_type: item.damage_type ?? "superficial",
       protection: item.protection, notes: item.notes, acquired: item.acquired,
       equipped: item.equipped, sort_order: item.sort_order, ...(item.custom_values===undefined?{}:{custom_values:item.custom_values}),
     })),
@@ -166,10 +168,10 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
     async function loadRemote() {
       setBusy(true);
       try {
-        const supabase = createClient();
+        const db = browserDb();
         const [templateResult, sheetResult] = await Promise.all([
-          supabase.from("system_templates").select("id, name, version, schema").eq("campaign_id", campaignId).eq("status", "approved").order("name"),
-          supabase.from("character_sheets").select("id, name, template_id, values, effects").eq("campaign_id", campaignId).order("name"),
+          listApprovedTemplates(db, campaignId),
+          listBackupSheets(db, campaignId),
         ]);
         if (templateResult.error || sheetResult.error) throw new Error("O Supabase recusou a leitura conforme as permissões da campanha.");
         if (!active) return;
@@ -213,9 +215,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
     const template = templates.find((item) => item.id === sheet.template_id);
     if (!template) { setNotice("O modelo aprovado desta ficha não está disponível nesta campanha."); return; }
     try {
-      const inventoryResult = await createClient().from("character_inventory")
-        .select("sheet_id, name, category, quantity, resource_cost, damage_bonus, protection, notes, acquired, equipped, sort_order, custom_values")
-        .eq("sheet_id", sheet.id).eq("campaign_id",campaignId).order("sort_order");
+      const inventoryResult = await listBackupItems(browserDb(), sheet.id, campaignId);
       if(liveContext.current.key!==requestedKey||liveContext.current.campaignId!==campaignId)return;
       if (inventoryResult.error) throw new Error("Não foi possível ler o equipamento conforme as permissões da campanha.");
       const backup = makeRemoteBackup(sheet, template, (inventoryResult.data ?? []) as RemoteInventory[]);
@@ -281,7 +281,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
       const backup=validateBackup(input);
       const template=compatibleTemplate(backup);
       if(!template)throw new Error("A campanha precisa ter um modelo aprovado com os mesmos campos antes de restaurar esta cópia.");
-      const {data,error}=await createClient().rpc("restore_character_backup",{p_campaign_id:campaignId,p_template_id:template.id,p_backup:backup});
+      const {data,error}=await restoreSheetBackup(browserDb(),campaignId,template.id,backup);
       if(liveContext.current.key!==requestedKey||liveContext.current.campaignId!==campaignId)return;
       if(error||!data)throw new Error("A restauração foi recusada. Confira o modelo, as permissões e a migration de restauração.");
       const row=(Array.isArray(data)?data[0]:data)as RemoteSheet;

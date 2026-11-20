@@ -7,8 +7,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.routes import ai_assistance as ai
-from app.services import ai_provider
+from app.adapters.inbound.http import ai_assistance as ai
+from app.adapters.outbound.ai import provider as ai_provider
+from app.adapters.outbound.supabase.ai_store import SupabaseAiPrivateStore
+from app.application.ai.ports import Actor
 
 C = "10000000-0000-4000-8000-000000000001"
 U = "20000000-0000-4000-8000-000000000001"
@@ -25,8 +27,8 @@ def client(monkeypatch):
     app.include_router(ai.router)
     state = {"calls": [], "quota": True, "manager": True, "result": ENEMY}
 
-    async def actor(*args):
-        return ai.Actor(U, "Bearer test", state["manager"], True)
+    def actor():
+        return Actor(U, state["manager"], True)
 
     async def service(method, table, *, params=None, payload=None):
         state["calls"].append(table)
@@ -38,11 +40,11 @@ def client(monkeypatch):
         state["kind"], state["context"] = kind, context
         return ai_provider.ProviderResult(state["result"], 80, 40, "fake")
 
-    monkeypatch.setattr(ai, "_actor", actor)
-    monkeypatch.setattr(ai, "_service", service)
-    monkeypatch.setattr(ai.ai_provider, "provider_settings", lambda: SimpleNamespace(reserve_micro=1000, cost_micro=lambda i, o: i + o))
-    monkeypatch.setattr(ai.ai_provider, "build_request", lambda *args: {})
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", generate)
+    app.dependency_overrides[ai.campaign_actor] = actor
+    app.dependency_overrides[ai.ai_private_store] = lambda: SupabaseAiPrivateStore(service)
+    monkeypatch.setattr(ai_provider, "provider_settings", lambda: SimpleNamespace(reserve_micro=1000, cost_micro=lambda i, o: i + o))
+    monkeypatch.setattr(ai_provider, "build_request", lambda *args: {})
+    monkeypatch.setattr(ai_provider, "generate_proposal", generate)
     return TestClient(app), state
 
 

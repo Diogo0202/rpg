@@ -1,8 +1,11 @@
+import { prefGet } from "@/lib/nexus/prefs";
+import { normalizeQueue, type QueuedAction } from "@/lib/game/action-queue";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { outboxSummary, useNexus } from "@/lib/nexus/store";
+import { useTableApi } from "@/components/game/useTableApi";
 import type { JsonValue, OutboxEntry, SyncRecord } from "@/lib/mobile-sync";
 
 export const Route = createFileRoute("/sincronizacao")({
@@ -55,12 +58,24 @@ const STATUS: Record<string, string> = {
 };
 
 function SyncQueue() {
-  const { state, engine, refresh, mode, syncNow, connectionMessage } = useNexus();
+  const { state, engine, refresh, mode, syncNow, connectionMessage, user } = useNexus();
+  const gameApi = useTableApi();
+  const [legacyActions, setLegacyActions] = useState<QueuedAction[]>([]);
+  useEffect(() => {
+    let active = true;
+    setLegacyActions([]);
+    if (user?.id) void prefGet(`game-action-queue-v1:${user.id}`).then((value) => {
+      if (active) setLegacyActions(normalizeQueue(value));
+    }).catch(() => { if (active) toast.error("Falha ao ler pendencias da versao anterior."); });
+    return () => { active = false; };
+  }, [user?.id]);
   const [busy, setBusy] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const summary = outboxSummary(state);
   const entries = state?.outbox ?? [];
   const adjustments = state?.adjustments ?? [];
+  const gameQueued = gameApi.queued;
+  const gameFailed = gameQueued.filter((item) => item.state === "failed").length;
 
   const refreshFromServer = async () => {
     if (!engine) return;
@@ -124,6 +139,10 @@ function SyncQueue() {
 
   return (
     <>
+      {legacyActions.length > 0 && <Panel title="Pendencias da versao anterior">
+        <p>{legacyActions.length} operacoes sem campanha registrada. A fila permanece preservada e bloqueada para envio automatico. Exporte os recibos para conferir a campanha antes de recuperar os ajustes.</p>
+        <a download="pendencias-mesa-legado.json" href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(legacyActions, null, 2))}`}>Exportar pendencias preservadas</a>
+      </Panel>}
       <PageHeader
         title="Sincronização"
         subtitle="As operações ficam persistidas neste aparelho até haver conexão autenticada."
@@ -149,8 +168,8 @@ function SyncQueue() {
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone={mode === "connected" ? "forest" : "warn"}>{mode === "connected" ? "Campanha da conta autenticada" : "Modo local, sem envio ao servidor"}</Tag>
           <span className="text-sm text-ink">
-            {summary.total} operação(ões), {summary.queued} na fila, {summary.conflicts}{" "}
-            conflito(s), {summary.blocked} bloqueada(s).
+            {summary.total} operação(ões) de ficha, {summary.queued} na fila, {summary.conflicts}{" "}
+            conflito(s), {summary.blocked} bloqueada(s). Mesa: {gameQueued.length} ajuste(s), {gameFailed} com erro.
           </span>
         </div>
         <p className="mt-2 text-xs text-ink-muted">
@@ -158,7 +177,32 @@ function SyncQueue() {
         </p>
       </Panel>
       <div className="mt-4 space-y-3">
-        {!entries.length && !adjustments.length && <Empty>A fila local está vazia.</Empty>}
+        {gameQueued.map((item) => (
+          <Panel key={item.operation_id} title={`Mesa · ${item.label}`} actions={<Tag tone={item.state === "failed" ? "warn" : "ink"}>{item.state === "failed" ? "erro" : "na fila"}</Tag>}>
+            <dl className="grid gap-x-3 gap-y-1 text-xs text-ink-muted sm:grid-cols-2">
+              <dt>Ficha</dt><dd className="break-all font-mono">{item.sheet_id}</dd>
+              <dt>Criado</dt><dd>{new Date(item.created_at).toLocaleString()}</dd>
+              <dt>Tentativas</dt><dd>{item.attempts}</dd>
+            </dl>
+            {item.last_error && <p className="mt-2 text-sm text-destructive">{item.last_error}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Btn size="sm" disabled={!!busy || mode !== "connected" || !gameApi.online} onClick={async () => {
+                setBusy(item.operation_id);
+                try { await gameApi.retry(item.operation_id); toast.success("Ajuste reenviado."); }
+                catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao reenviar ajuste."); }
+                finally { setBusy(null); }
+              }}>Tentar de novo</Btn>
+              <Btn size="sm" variant="outline" disabled={!!busy} onClick={async () => {
+                if (!window.confirm(`Descartar o ajuste “${item.label}” desta fila local?`)) return;
+                setBusy(item.operation_id);
+                try { await gameApi.discard(item.operation_id); toast.success("Ajuste descartado."); }
+                catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao descartar ajuste."); }
+                finally { setBusy(null); }
+              }}>Descartar</Btn>
+            </div>
+          </Panel>
+        ))}
+        {!entries.length && !adjustments.length && !gameQueued.length && <Empty>A fila local está vazia.</Empty>}
         {entries.map((entry) => {
           const mutation = entry.mutation;
           const base = state?.records[recordKey(mutation.entity_type, mutation.entity_id)];

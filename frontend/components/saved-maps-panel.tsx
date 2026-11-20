@@ -2,32 +2,26 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as mapRepo from "../lib/data/maps";
+import { listApprovedTemplateSchemas } from "../lib/data/sheets";
+import { listEntityIds } from "../lib/data/world";
+import { listMemberIds } from "../lib/data/campaign";
 import { downloadText } from "../lib/download";
 import { createEmptyDocument, parseMapDocument } from "../lib/map-document";
-import { kitForSystem } from "../lib/map-kits";
-import { MapCanvas } from "./map-editor/map-canvas";
+import { webMapRpc } from "../lib/map-interactions-rpc";
+import { MAX_IMPORT_BYTES, prepareMapImport } from "../lib/map-transfer";
+import { MapInteractionsPanel } from "./map-interactions-panel";
 import { MapEditor, type EditableMap } from "./map-editor/map-editor";
-import editorStyles from "./map-editor/map-editor.module.css";
 import styles from "./saved-maps-panel.module.css";
 
-const MAP_COLUMNS = "id, campaign_id, name, document, version, system_key, shared_with_players, updated_at";
 const SYSTEM_OPTIONS = [
   { id: "one-ring", label: "O Um Anel · medieval" },
   { id: "vampire-v5", label: "Vampiro V5 · cidade moderna" },
+  { id: "vampire-v3", label: "Vampiro V3 · cidade moderna" },
   { id: "hunter", label: "Caçador · cidade moderna" },
+  { id: "shadow-demon-lord", label: "Shadow of the Demon Lord · medieval" },
 ];
-
-function ReadOnlyMap({ map }: { map: EditableMap }) {
-  const parsed = parseMapDocument(map.document, map.system_key);
-  if (!parsed.document) return <p className={styles.error} role="alert">{parsed.error}</p>;
-  return <div className={styles.readOnly}>
-    <p className={styles.intro}>O criador de mapas táticos é exclusivo da versão para computador. Aqui você consulta o mapa; para editar, abra a campanha numa tela maior.</p>
-    <div className={editorStyles.stage}>
-      <MapCanvas document={parsed.document} kit={kitForSystem(parsed.document.system_key)} portraitUrls={{}} mode="editor" label={`Mapa ${map.name}, visto de cima`} />
-    </div>
-  </div>;
-}
 
 function mapFilePart(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "mapa";
@@ -46,25 +40,16 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
   const [newName, setNewName] = useState("");
   const [newSystem, setNewSystem] = useState("vampire-v5");
   const [revision, setRevision] = useState(0);
-  // The tactical map creator is desktop-only; phones get a read-only view.
-  const [narrow, setNarrow] = useState(false);
-  useEffect(() => {
-    const query = window.matchMedia("(max-width: 767px)");
-    const apply = () => setNarrow(query.matches);
-    apply();
-    query.addEventListener("change", apply);
-    return () => query.removeEventListener("change", apply);
-  }, []);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setMessage("");
     if (!canManage) { setMaps([]); setLoading(false); return; }
-    const client = createClient();
+    const db = browserDb();
     void Promise.all([
-      client.from("maps").select(MAP_COLUMNS).eq("campaign_id", campaignId).order("updated_at", { ascending: false }),
-      client.from("system_templates").select("schema").eq("campaign_id", campaignId).eq("status", "approved"),
+      mapRepo.listMaps(db, campaignId),
+      listApprovedTemplateSchemas(db, campaignId),
     ]).then(([mapResult, templateResult]) => {
       if (!active) return;
       if (mapResult.error) { setMessage("Não foi possível carregar os mapas salvos desta campanha."); setLoading(false); return; }
@@ -86,9 +71,7 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     setBusy(true);
     const requestCampaign = campaignId;
     try {
-      const { data, error } = await createClient().from("maps")
-        .insert({ campaign_id: campaignId, name, created_by: viewerId, system_key: newSystem, document: createEmptyDocument(newSystem) })
-        .select(MAP_COLUMNS).single();
+      const { data, error } = await mapRepo.createMap(browserDb(), { campaignId, name, createdBy: viewerId, systemKey: newSystem, document: createEmptyDocument(newSystem) });
       if (campaignRef.current !== requestCampaign) return;
       if (error || !data) throw error ?? new Error("insert failed");
       setMaps((items) => [data as EditableMap, ...items]);
@@ -104,13 +87,44 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     if (!window.confirm(`Excluir o mapa ${map.name}? Esta ação não pode ser desfeita.`)) return;
     setBusy(true);
     try {
-      const { data, error } = await createClient().from("maps").delete().eq("id", map.id).eq("campaign_id", campaignId).eq("version", map.version).select("id").maybeSingle();
+      const { data, error } = await mapRepo.deleteMap(browserDb(), map, campaignId);
       if (error || !data) throw error ?? new Error("stale map");
       setMaps((items) => items.filter((item) => item.id !== map.id));
       setSelectedId(null);
       setMessage("Mapa excluído.");
     } catch {
       setMessage("Não foi possível excluir. O mapa pode ter sido alterado em outra sessão; atualize a lista.");
+    } finally { setBusy(false); }
+  }
+
+  async function importJson(file: File) {
+    if (file.size > MAX_IMPORT_BYTES) { setMessage("O arquivo passa de 5 MB."); return; }
+    setBusy(true);
+    const requestCampaign = campaignId;
+    try {
+      const db = browserDb();
+      const [text, sheetResult, entityResult, memberResult] = await Promise.all([
+        file.text(),
+        mapRepo.listSheetOwners(db, campaignId),
+        listEntityIds(db, campaignId),
+        listMemberIds(db, campaignId),
+      ]);
+      if (sheetResult.error || entityResult.error) throw new Error("Não foi possível conferir fichas e entidades da campanha.");
+      const sheets = (sheetResult.data ?? []) as { id: string; owner_id: string }[];
+      const prepared = prepareMapImport(text, file.name.replace(/\.json$/i, ""), {
+        sheetIds: new Set(sheets.map((row) => row.id)),
+        entityIds: new Set((entityResult.data ?? []).map((row) => row.id as string)),
+        playerIds: new Set([...sheets.map((row) => row.owner_id), ...((memberResult.data ?? []) as { user_id: string }[]).map((row) => row.user_id)]),
+      });
+      if (!prepared.ok) throw new Error(prepared.error);
+      const { data, error } = await mapRepo.createMap(db, { campaignId, name: prepared.name, createdBy: viewerId, systemKey: prepared.system_key, document: prepared.document });
+      if (campaignRef.current !== requestCampaign) return;
+      if (error || !data) throw new Error("O banco recusou o mapa importado. Confira estruturas, pins e névoa.");
+      setMaps((items) => [data as EditableMap, ...items]);
+      setSelectedId((data as EditableMap).id);
+      setMessage(["Mapa importado.", ...prepared.warnings].join(" "));
+    } catch (problem) {
+      if (campaignRef.current === requestCampaign) setMessage(problem instanceof Error ? problem.message : "Não foi possível importar o mapa.");
     } finally { setBusy(false); }
   }
 
@@ -138,6 +152,10 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
             {maps.map((item) => <option key={item.id} value={item.id}>{item.name}{item.shared_with_players ? " · compartilhado" : ""}</option>)}
           </select></label>}
         {selected && <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => exportJson(selected)}>Exportar JSON</button>}
+        <label className={styles.secondaryButton} htmlFor={`${uid}-import`}>Importar JSON
+          <input id={`${uid}-import`} type="file" accept="application/json,.json" disabled={busy} hidden
+            onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void importJson(file); }} />
+        </label>
       </div>
       <form className={styles.toolbar} onSubmit={createMap} aria-label="Novo mapa">
         <label htmlFor={`${uid}-new-name`}>Novo mapa<input id={`${uid}-new-name`} value={newName} maxLength={160} placeholder="Ex.: Taverna do Pônei" onChange={(event) => setNewName(event.target.value)} /></label>
@@ -146,11 +164,15 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
         </select></label>
         <button type="submit" className={styles.primaryButton} disabled={busy || !newName.trim()}>Criar mapa</button>
       </form>
-      {selected && narrow ? <ReadOnlyMap map={selected} />
-        : selected ? <MapEditor key={selected.id} campaignId={campaignId} viewerId={viewerId} map={selected}
+      {selected ? <MapEditor key={selected.id} campaignId={campaignId} viewerId={viewerId} map={selected}
         onSaved={(saved) => setMaps((items) => items.map((item) => item.id === saved.id ? saved : item))}
         onDelete={() => void deleteMap(selected)} />
         : <p className={styles.empty}>Nenhum mapa ainda. Crie um acima ou use o gerador procedural na aba Geração.</p>}
+      {selected && (() => {
+        const parsed = parseMapDocument(selected.document, selected.system_key);
+        return parsed.document ? <MapInteractionsPanel key={`${campaignId}/${viewerId}/${selected.id}`} mapId={selected.id} campaignId={campaignId}
+          viewerId={viewerId} canManage document={parsed.document} rpc={webMapRpc} sheets={[]} /> : null;
+      })()}
     </>}
   </section>;
 }

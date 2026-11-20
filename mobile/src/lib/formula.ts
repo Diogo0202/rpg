@@ -1,6 +1,6 @@
 /**
  * Bounded arithmetic parser for read-only sheet formulas. Syntax and numeric
- * limits match backend/app/services/sheet_calculations.py; no eval/Function.
+ * limits match backend/app/domain/sheet_calculations.py; no eval/Function.
  */
 export type FormulaResult = { ok: true; value: number } | { ok: false; error: string };
 

@@ -1,0 +1,204 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: end center;
+  padding: 0 16px calc(28px + env(safe-area-inset-bottom));
+  background: radial-gradient(circle at 50% 40%, #2a1a12cc, #0d0c0bf2 70%);
+  cursor: pointer;
+}
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.panel {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  width: min(34rem, 100%);
+  margin: 0 0 8px;
+}
+.summary {
+  margin: 0;
+  padding: 10px 16px;
+  border: 1px solid #c9a14a;
+  border-radius: 6px;
+  background: #15130fe6;
+  color: #ebe0c9;
+  font: 600 15px/1.4 Georgia, "Times New Roman", serif;
+  text-align: center;
+}
+
+/* Value of each die, pinned to its upper right corner once the dice rest. */
+.badge {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 7px;
+  border: 2px solid #c9a14a;
+  border-radius: 999px;
+  background: #15130f;
+  color: #f4ead2;
+  font: 700 17px/1 Georgia, "Times New Roman", serif;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 2px 8px #000a;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: pop 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+}
+.badge[data-role="hunger"], .badge[data-role="bane"] { border-color: #c2513f; }
+.badge[data-role="boon"] { border-color: #7fae6b; }
+.badge[data-role="desperation"] { border-color: #e2762a; }
+.badge[data-dropped] {
+  border-color: #6b665f;
+  color: #a39c8f;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.result {
+  --tone: #c9a14a;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 18px 12px;
+  border: 1px solid var(--tone);
+  border-radius: 10px;
+  background: #15130ff2;
+  color: #ebe0c9;
+  font-family: Georgia, "Times New Roman", serif;
+  text-align: center;
+  box-shadow: 0 10px 32px #000a;
+  animation: rise 0.3s ease-out both;
+}
+.result[data-tone="success"] { --tone: #7fae6b; }
+.result[data-tone="failure"] { --tone: #c2513f; }
+.result[data-tone="critical"] { --tone: #e9c25a; }
+.result[data-tone="warning"] { --tone: #d99a3d; }
+.verdict {
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: var(--tone);
+  color: #15130f;
+  font: 700 13px/1.4 Arial, Helvetica, sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px 10px;
+  margin: 0;
+}
+.number {
+  font-size: 56px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fbf3de;
+}
+.unit { font-size: 18px; }
+.against {
+  padding-left: 10px;
+  border-left: 1px solid #d8ccb455;
+  color: #d8ccb4;
+  font-size: 16px;
+}
+.parts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.parts li {
+  display: grid;
+  justify-items: center;
+  min-width: 58px;
+  padding: 5px 10px;
+  border: 1px solid #d8ccb433;
+  border-radius: 6px;
+  background: #221e18;
+  animation: rise 0.28s ease-out both;
+  animation-delay: calc(0.12s + var(--step, 0) * 0.11s);
+}
+.parts b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.parts span {
+  color: #bfb49d;
+  font: 11px/1.3 Arial, Helvetica, sans-serif;
+}
+.parts .sum {
+  border-color: var(--tone);
+  background: #2b241a;
+}
+.note, .detail {
+  margin: 0;
+  color: #bfb49d;
+  font: 12px/1.4 Arial, Helvetica, sans-serif;
+}
+.note { color: #e6c98a; }
+
+.hint {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top));
+  right: 16px;
+  color: #d8ccb4;
+  font: 12px Arial, Helvetica, sans-serif;
+}
+.overlay[data-interactive] {
+  touch-action: none;
+  user-select: none;
+}
+.overlay[data-interactive] .panel { margin-bottom: 68px; }
+.actions {
+  position: absolute;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+}
+.actions button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #c9a14a;
+  border-radius: 6px;
+  background: #15130fe6;
+  color: #ebe0c9;
+  font: 600 15px Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+.actions .secondary {
+  border-color: #d8ccb466;
+  color: #d8ccb4;
+  font-weight: 400;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@media (max-width: 480px) {
+  .number { font-size: 44px; }
+  .badge { min-width: 26px; height: 26px; font-size: 15px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .badge, .result, .parts li { animation: none; }
+}

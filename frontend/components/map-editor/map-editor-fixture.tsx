@@ -20,9 +20,9 @@ function portrait(initialsText: string, background: string, accent: string): str
 }
 
 const SHEETS: SheetOption[] = [
-  { id: "00000000-0000-4000-8000-000000000051", name: "Lia Vale", portrait_path: `${CAMPAIGN}/${MASTER}/00000000-0000-4000-8000-0000000000f1.webp` },
-  { id: "00000000-0000-4000-8000-000000000052", name: "Bram Ferro", portrait_path: `${CAMPAIGN}/${MASTER}/00000000-0000-4000-8000-0000000000f2.webp` },
-  { id: "00000000-0000-4000-8000-000000000053", name: "Sem Retrato", portrait_path: null },
+  { id: "00000000-0000-4000-8000-000000000051", name: "Lia Vale", portrait_path: `${CAMPAIGN}/${MASTER}/00000000-0000-4000-8000-0000000000f1.webp`, owner_id: "00000000-0000-4000-8000-0000000000b1" },
+  { id: "00000000-0000-4000-8000-000000000052", name: "Bram Ferro", portrait_path: `${CAMPAIGN}/${MASTER}/00000000-0000-4000-8000-0000000000f2.webp`, owner_id: "00000000-0000-4000-8000-0000000000b2" },
+  { id: "00000000-0000-4000-8000-000000000053", name: "Sem Retrato", portrait_path: null, owner_id: "00000000-0000-4000-8000-0000000000b2" },
 ];
 const PORTRAITS: Record<string, string> = {
   [SHEETS[0].portrait_path as string]: portrait("LV", "#3a2f4a", "#c9a24a"),

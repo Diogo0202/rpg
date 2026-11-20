@@ -1,0 +1,98 @@
+/* Reserved space prevents layout shift: the slot keeps its height before and after the ad loads. */
+.inline {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(100% - 32px, 970px);
+  height: var(--ad-h-mobile);
+  margin: 24px auto;
+  padding: 8px;
+  overflow: hidden;
+  color: var(--ink, #1c2b28);
+  background: var(--panel, #f4f1e8);
+  border: 1px dashed var(--line, #a7b5ac);
+  border-radius: 8px;
+  font: 14px/1.45 system-ui, sans-serif;
+}
+
+@media (min-width: 768px) {
+  .inline {
+    height: var(--ad-h-desktop);
+  }
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.label button,
+.actions button {
+  padding: 6px 10px;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.prompt p {
+  margin: 0 0 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.unit {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.sticky {
+  position: fixed;
+  z-index: 90;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  height: calc(var(--rpg-ad-sticky-h, 62px) + env(safe-area-inset-bottom));
+  padding: 6px 40px calc(6px + env(safe-area-inset-bottom)) 8px;
+  background: var(--panel, #f4f1e8);
+  border-top: 1px solid var(--line, #a7b5ac);
+  box-shadow: 0 -4px 16px #0002;
+}
+
+.sticky .unit {
+  max-width: 728px;
+  height: 100%;
+}
+
+.close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 32px;
+  height: 32px;
+  color: var(--ink, #1c2b28);
+  background: transparent;
+  border: 1px solid var(--line, #a7b5ac);
+  border-radius: 50%;
+  cursor: pointer;
+  font: 600 18px/1 system-ui, sans-serif;
+}

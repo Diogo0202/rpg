@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import HTTPException
+import httpx
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import rules
+from app.adapters.inbound.http import rules
 
 
 rules_app = FastAPI()
 rules_app.include_router(rules.router)
 client = TestClient(rules_app)
+def use_rulebook_rpc(app, rpc):
+    """Troca as RPCs de regras por uma função ``(função, payload, autorização)``."""
+    from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
+
+    use_fake_supabase(app, FakeSupabase(on_rpc=lambda name, payload: rpc(name, payload, None)))
+
+
 CAMPAIGN = "00000000-0000-0000-0000-000000000001"
 SOURCE = "00000000-0000-0000-0000-000000000002"
 
@@ -52,15 +59,15 @@ def test_search_forwards_user_jwt_and_calls_scoped_rpc(monkeypatch) -> None:
         async def __aexit__(self, *_: object) -> None:
             return None
 
-        async def get(self, url: str, *, headers: dict[str, str]) -> Response:
+        async def get(self, url: str, *, headers: dict[str, str]) -> httpx.Response:
             calls.append({"method": "GET", "url": url, "headers": headers})
-            return Response()
+            return httpx.Response(200, json={"id": "00000000-0000-0000-0000-000000000009"})
 
         async def post(self, url: str, *, headers: dict[str, str], json: dict[str, Any]) -> Response:
             calls.append({"method": "POST", "url": url, "headers": headers, "json": json})
             return Response()
 
-    monkeypatch.setattr(rules.httpx, "AsyncClient", lambda **_: FakeClient())
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: FakeClient())
     response = client.get(
         f"/api/v1/campaigns/{CAMPAIGN}/rules/search?q=  initiative  &limit=4",
         headers={"Authorization": "Bearer user-session"},
@@ -79,12 +86,13 @@ def test_page_returns_not_found_for_rpc_with_no_authorized_content(monkeypatch) 
         assert function == "get_campaign_rule_page"
         return []
 
-    monkeypatch.setattr(rules, "_authenticated_rpc", empty_result)
+    use_rulebook_rpc(rules_app, empty_result)
     response = client.get(
         f"/api/v1/campaigns/{CAMPAIGN}/sources/{SOURCE}/pages/12",
         headers={"Authorization": "Bearer user-session"},
     )
     assert response.status_code == 404
+    rules_app.dependency_overrides.clear()
 
 
 def test_page_rejects_non_positive_page_number() -> None:

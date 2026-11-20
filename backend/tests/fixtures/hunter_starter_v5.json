@@ -1,0 +1,1196 @@
+{
+  "name": "Caçador modular",
+  "version": 5,
+  "fields": [
+    {
+      "id": "sistema",
+      "label": "Sistema",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "ativo_na_sessao",
+      "label": "Ativo na sessão",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "nome",
+      "label": "Nome",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "character_name": true
+    },
+    {
+      "id": "conceito",
+      "label": "Conceito",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "credo",
+      "label": "Credo",
+      "kind": "select",
+      "options": [
+        "Empreendedor",
+        "Devoto",
+        "Inquisitivo",
+        "Marcial",
+        "Clandestino"
+      ],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity",
+      "identity_kind": "creed"
+    },
+    {
+      "id": "impulso",
+      "label": "Ímpeto",
+      "kind": "select",
+      "options": [
+        "Curiosidade",
+        "Expiação",
+        "Ganância",
+        "Inveja",
+        "Juramento",
+        "Orgulho",
+        "Vingança"
+      ],
+      "expression": null,
+      "required": true,
+      "creation_step": "identity"
+    },
+    {
+      "id": "celula",
+      "label": "Célula",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "max_length": 120,
+      "creation_step": "identity"
+    },
+    {
+      "id": "ambicao",
+      "label": "Ambição",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "desejo",
+      "label": "Desejo",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "pilares",
+      "label": "Pilares",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "max_items": 3,
+      "max_length": 160,
+      "creation_step": "story"
+    },
+    {
+      "id": "redencao",
+      "label": "Redenção",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "max_length": 240,
+      "creation_step": "story"
+    },
+    {
+      "id": "em_desespero",
+      "label": "Em Desespero (Despair)",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "forca",
+      "label": "Força",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "destreza",
+      "label": "Destreza",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "vigor",
+      "label": "Vigor",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "carisma",
+      "label": "Carisma",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "manipulacao",
+      "label": "Manipulação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "autocontrole",
+      "label": "Autocontrole",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "inteligencia",
+      "label": "Inteligência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "raciocinio",
+      "label": "Raciocínio",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "resolucao",
+      "label": "Determinação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": true,
+      "min": 1,
+      "max": 5,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "armas_brancas",
+      "label": "Armas Brancas",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "armas_de_fogo",
+      "label": "Armas de Fogo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "atletismo",
+      "label": "Atletismo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "briga",
+      "label": "Briga",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ciencia",
+      "label": "Ciência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "conducao",
+      "label": "Condução",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "trato_com_animais",
+      "label": "Empatia com Animais",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "academicos",
+      "label": "Erudição",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "etiqueta",
+      "label": "Etiqueta",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "financas",
+      "label": "Finanças",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "furtividade",
+      "label": "Furtividade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "intimidacao",
+      "label": "Intimidação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "investigacao",
+      "label": "Investigação",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ladroagem",
+      "label": "Ladroagem",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "lideranca",
+      "label": "Liderança",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "manha",
+      "label": "Manha",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "medicina",
+      "label": "Medicina",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "ocultismo",
+      "label": "Ocultismo",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "oficios",
+      "label": "Ofícios",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "percepcao",
+      "label": "Percepção",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "performance",
+      "label": "Performance",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "persuasao",
+      "label": "Persuasão",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "politica",
+      "label": "Política",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "empatia",
+      "label": "Sagacidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "sobrevivencia",
+      "label": "Sobrevivência",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "subterfugio",
+      "label": "Subterfúgio",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "tecnologia",
+      "label": "Tecnologia",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "skills"
+    },
+    {
+      "id": "saude_max",
+      "label": "Vitalidade máxima",
+      "kind": "formula",
+      "options": [],
+      "expression": "vigor + 3",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_max",
+      "label": "Força de Vontade máxima",
+      "kind": "formula",
+      "options": [],
+      "expression": "autocontrole + resolucao",
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "recursos",
+      "label": "Recursos",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "min": 0,
+      "max": 5,
+      "creation_step": "resources"
+    },
+    {
+      "id": "saude_superficial",
+      "label": "Dano superficial na Vitalidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "saude_agravada",
+      "label": "Dano agravado na Vitalidade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_superficial",
+      "label": "Dano superficial na Vontade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vontade_agravada",
+      "label": "Dano agravado na Vontade",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    },
+    {
+      "id": "arquetipos",
+      "label": "Arquétipos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "identity"
+    },
+    {
+      "id": "vantagens",
+      "label": "Vantagens",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "especialidades",
+      "label": "Especialidades",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "defeitos",
+      "label": "Defeitos",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "triunfos",
+      "label": "Triunfos (Edges)",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "item_options": [
+        "Acesso Global",
+        "Equipamento Improvisado",
+        "Encantador de Feras",
+        "Jóquei de Drones",
+        "Arsenal",
+        "Artilharia",
+        "Biblioteca",
+        "Frota",
+        "Artefato",
+        "Frustrar o Sobrenatural",
+        "Repelir o Sobrenatural",
+        "Sentir o Sobrenatural"
+      ],
+      "creation_step": "traits"
+    },
+    {
+      "id": "distincoes",
+      "label": "Distinções (Perks)",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "item_options": [
+        "Acesso Global: Grande Irmão Vigilante",
+        "Acesso Global: Passe Universal",
+        "Acesso Global: Hack Financeiro",
+        "Acesso Global: A Letra da Lei",
+        "Equipamento Improvisado: Frugal",
+        "Equipamento Improvisado: Produção em Massa",
+        "Equipamento Improvisado: Especialização",
+        "Equipamento Improvisado: Criação Veloz",
+        "Encantador de Feras: Incorruptível",
+        "Encantador de Feras: Zoológico",
+        "Encantador de Feras: Comandos Complexos",
+        "Encantador de Feras: Incógnito",
+        "Jóquei de Drones: Autônomo",
+        "Jóquei de Drones: Variantes",
+        "Jóquei de Drones: Habilidade Especializada",
+        "Jóquei de Drones: Armamentos",
+        "Jóquei de Drones: Carga",
+        "Arsenal: Requisição Coletiva",
+        "Arsenal: Características Especiais",
+        "Arsenal: Exóticas",
+        "Arsenal: Irrastreável",
+        "Artilharia: Cargas Múltiplas",
+        "Artilharia: Munição Não Letal",
+        "Artilharia: Exóticas",
+        "Artilharia: Entrega Disfarçada",
+        "Biblioteca: Onde Eles Se Escondem",
+        "Biblioteca: Quem Eles São",
+        "Biblioteca: Como Detê-los",
+        "Biblioteca: Como Ferí-los",
+        "Frota: Armadura",
+        "Frota: Desempenho",
+        "Frota: Vigilância",
+        "Frota: Irrastreável",
+        "Artefato: Fortalecer",
+        "Artefato: Atração",
+        "Artefato: Detecção",
+        "Artefato: Escudo",
+        "Frustrar o Sobrenatural: Especialização em Criatura",
+        "Frustrar o Sobrenatural: Guardar",
+        "Frustrar o Sobrenatural: Reconhecimento",
+        "Frustrar o Sobrenatural: Mãos Livres",
+        "Repelir o Sobrenatural: Guardar",
+        "Repelir o Sobrenatural: Ferir",
+        "Repelir o Sobrenatural: Especialização em Criatura",
+        "Repelir o Sobrenatural: Mãos Livres",
+        "Sentir o Sobrenatural: Especialização em Criatura",
+        "Sentir o Sobrenatural: Alcance",
+        "Sentir o Sobrenatural: Precisão",
+        "Sentir o Sobrenatural: Mãos Livres"
+      ],
+      "creation_step": "traits"
+    },
+    {
+      "id": "equipamento",
+      "label": "Equipamento",
+      "kind": "collection",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "traits"
+    },
+    {
+      "id": "notas",
+      "label": "Notas",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "story"
+    },
+    {
+      "id": "experiencia",
+      "label": "Experiência disponível",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    }
+  ],
+  "experience_field": "experiencia",
+  "meta_currencies": [
+    {
+      "id": "vontade",
+      "label": "Força de Vontade",
+      "field": "vontade_superficial",
+      "mode": "track",
+      "max_field": "vontade_max"
+    }
+  ],
+  "creation_rules": [
+    {
+      "type": "group_distribution",
+      "id": "atributos",
+      "label": "Atributos",
+      "fields": [
+        "forca",
+        "destreza",
+        "vigor",
+        "carisma",
+        "manipulacao",
+        "autocontrole",
+        "inteligencia",
+        "raciocinio",
+        "resolucao"
+      ],
+      "options": [
+        {
+          "label": "Distribuição de atributos",
+          "counts": {
+            "1": 1,
+            "2": 4,
+            "3": 3,
+            "4": 1
+          }
+        }
+      ]
+    },
+    {
+      "type": "group_distribution",
+      "id": "habilidades",
+      "label": "Habilidades",
+      "fields": [
+        "armas_brancas",
+        "armas_de_fogo",
+        "atletismo",
+        "briga",
+        "ciencia",
+        "conducao",
+        "trato_com_animais",
+        "academicos",
+        "etiqueta",
+        "financas",
+        "furtividade",
+        "intimidacao",
+        "investigacao",
+        "ladroagem",
+        "lideranca",
+        "manha",
+        "medicina",
+        "ocultismo",
+        "oficios",
+        "percepcao",
+        "performance",
+        "persuasao",
+        "politica",
+        "empatia",
+        "sobrevivencia",
+        "subterfugio",
+        "tecnologia"
+      ],
+      "options": [
+        {
+          "label": "Especialista",
+          "counts": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 1
+          },
+          "rest": 0
+        },
+        {
+          "label": "Pau para toda obra",
+          "counts": {
+            "1": 10,
+            "2": 8,
+            "3": 1
+          },
+          "rest": 0
+        },
+        {
+          "label": "Equilibrado",
+          "counts": {
+            "1": 7,
+            "2": 5,
+            "3": 3
+          },
+          "rest": 0
+        }
+      ]
+    },
+    {
+      "type": "specialty_picks",
+      "id": "especializacoes",
+      "label": "Especializações",
+      "collection": "especialidades",
+      "skills": [
+        {
+          "field": "armas_brancas",
+          "label": "Armas Brancas"
+        },
+        {
+          "field": "armas_de_fogo",
+          "label": "Armas de Fogo"
+        },
+        {
+          "field": "atletismo",
+          "label": "Atletismo"
+        },
+        {
+          "field": "briga",
+          "label": "Briga"
+        },
+        {
+          "field": "ciencia",
+          "label": "Ciência"
+        },
+        {
+          "field": "conducao",
+          "label": "Condução"
+        },
+        {
+          "field": "trato_com_animais",
+          "label": "Empatia com Animais"
+        },
+        {
+          "field": "academicos",
+          "label": "Erudição"
+        },
+        {
+          "field": "etiqueta",
+          "label": "Etiqueta"
+        },
+        {
+          "field": "financas",
+          "label": "Finanças"
+        },
+        {
+          "field": "furtividade",
+          "label": "Furtividade"
+        },
+        {
+          "field": "intimidacao",
+          "label": "Intimidação"
+        },
+        {
+          "field": "investigacao",
+          "label": "Investigação"
+        },
+        {
+          "field": "ladroagem",
+          "label": "Ladroagem"
+        },
+        {
+          "field": "lideranca",
+          "label": "Liderança"
+        },
+        {
+          "field": "manha",
+          "label": "Manha"
+        },
+        {
+          "field": "medicina",
+          "label": "Medicina"
+        },
+        {
+          "field": "ocultismo",
+          "label": "Ocultismo"
+        },
+        {
+          "field": "oficios",
+          "label": "Ofícios"
+        },
+        {
+          "field": "percepcao",
+          "label": "Percepção"
+        },
+        {
+          "field": "performance",
+          "label": "Performance"
+        },
+        {
+          "field": "persuasao",
+          "label": "Persuasão"
+        },
+        {
+          "field": "politica",
+          "label": "Política"
+        },
+        {
+          "field": "empatia",
+          "label": "Sagacidade"
+        },
+        {
+          "field": "sobrevivencia",
+          "label": "Sobrevivência"
+        },
+        {
+          "field": "subterfugio",
+          "label": "Subterfúgio"
+        },
+        {
+          "field": "tecnologia",
+          "label": "Tecnologia"
+        }
+      ],
+      "required": [
+        "ciencia",
+        "academicos",
+        "oficios",
+        "performance"
+      ],
+      "free": 1,
+      "fields": []
+    },
+    {
+      "type": "collection_points",
+      "id": "vantagens_pontos",
+      "label": "Vantagens",
+      "collection": "vantagens",
+      "fields": [
+        "recursos"
+      ],
+      "points": 7,
+      "catalog": [
+        {
+          "name": "Aliados",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Contatos",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Fama",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Influência",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Máscara",
+          "costs": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "Lacaios",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Refúgio",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Status",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Linguística",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Bela",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Deslumbrante",
+          "costs": [
+            4
+          ]
+        }
+      ],
+      "allow_homebrew": false
+    },
+    {
+      "type": "collection_points",
+      "id": "defeitos_pontos",
+      "label": "Defeitos",
+      "collection": "defeitos",
+      "fields": [],
+      "points": 2,
+      "catalog": [
+        {
+          "name": "Inimigo",
+          "costs": [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        },
+        {
+          "name": "Infame",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Antipatizado",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Desprezado",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Rejeitado",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Segredo Sombrio",
+          "costs": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "Analfabeto",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Feio",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Repulsivo",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Vício",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Vício Irremediável",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Destituído",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Perseguidores",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Suspeito",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Sem Refúgio",
+          "costs": [
+            1
+          ]
+        },
+        {
+          "name": "Refúgio Comprometido",
+          "costs": [
+            2
+          ]
+        },
+        {
+          "name": "Farol do Profano",
+          "costs": [
+            1
+          ]
+        }
+      ],
+      "allow_homebrew": false
+    }
+  ],
+  "system_key": "hunter"
+}

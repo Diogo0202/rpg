@@ -1,3 +1,4 @@
+import type { SyncPartition } from "../../../../shared/sync/core.ts";
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 export type Path = string[];
@@ -21,7 +22,7 @@ export interface SyncChangeEvent {
   revision: number; version: number; entity_type: string; entity_id: string; action: "create" | "update" | "delete";
   record?: SyncRecord | null; tombstone?: true;
 }
-export interface SyncPartition { accountId: string; campaignId: string; deviceId: string }
+export type { SyncPartition } from "../../../../shared/sync/core.ts";
 export interface SyncConfig extends SyncPartition {
   entityFields: Record<string, string[]>;
   now?: () => number;
@@ -42,6 +43,7 @@ export interface SheetAdjustmentIntent {
   last_error?: string;
 }
 export interface SyncState {
+  accessRevoked?: boolean;
   schema: "rpg-nexus-mobile-v1"; partition: SyncPartition; cursor: string | null;
   records: Record<string, SyncRecord>; outbox: OutboxEntry[]; adjustments?: SheetAdjustmentIntent[]; lease?: { owner: string; until: number }; updatedAt: number;
 }

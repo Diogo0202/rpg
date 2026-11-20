@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { SYSTEM_STARTERS } from "../system-starters.ts";
+import { SYSTEM_STARTERS } from "../../../../shared/rules/system-starters.ts";
 import { parseBackupText } from "../sheet-backup.ts";
-import type { SheetField, SheetTemplate } from "../sheet-template.ts";
-import { computeFormulas, exportSheet, prepareSheetValues, sheetFromBackup, wizardTransition } from "./sheets";
+import type { SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
+import { templateFor, computeFormulas, exportSheet, prepareSheetValues, sheetFromBackup, wizardTransition } from "./sheets";
 
 const field = (id: string, kind: SheetField["kind"], expression: string | null = null): SheetField => ({ id, kind, label: id, required: true, options: [], expression });
 
@@ -49,4 +49,12 @@ describe("calculation preview", () => {
     const template: SheetTemplate = { name: "Custom", version: 1, fields: [field("attack", "roll", "2d10")] };
     expect(computeFormulas(template, {}).attack).toMatchObject({ ok: false });
   });
+});
+
+
+describe("One Ring version compatibility",()=>{
+  const sheet={name:"Herói",system_key:"one-ring",template_name:"Modelo antigo",template_version:2,values:{nome:"Herói",corpo:7},effects:[]};
+  it("keeps local v2 fields instead of changing to the v3 starter",()=>{const template=templateFor(sheet);expect(template.version).toBe(2);expect(template.fields.some(f=>f.id==="anel_atributos")).toBe(false);expect(template.fields.find(f=>f.id==="pericias_favorecidas")?.max_items).toBe(3);});
+  it("prefers the saved approved schema and preserves its profile",()=>{const template={name:"Aprovado",version:3,system_key:"one-ring",rules_profile_version:3,fields:[field("custom","text")]};expect(templateFor({...sheet,template_version:3,template_schema:template}).fields).toEqual(template.fields);});
+  it("keeps v1 identifiers when only original values survived",()=>{const template=templateFor({...sheet,template_version:1,values:{forca:4,espirito:5}});expect(template.fields.map(f=>f.id)).toEqual(["forca","espirito"]);});
 });

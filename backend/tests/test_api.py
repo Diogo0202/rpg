@@ -55,6 +55,8 @@ def test_private_narrator_routes_are_mounted_and_require_a_session(monkeypatch) 
     for system, payload in (
         ("hunter", {"base_pool": 1, "difficulty": 1}),
         ("one-ring", {"target": 1, "skill_dice": 0, "endurance": 1, "load": 0}),
+        ("shadow-demon-lord", {"attribute": 10}),
+        ("shadow-demon-lord/fate", {}),
     ):
         assert client.post(f"/api/v1/system-rolls/{system}", json=payload).status_code == 401
 

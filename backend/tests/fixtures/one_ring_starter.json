@@ -1,0 +1,856 @@
+{
+  "name": "O Um Anel 2ª edição",
+  "version": 2,
+  "fields": [
+    {
+      "id": "sistema",
+      "label": "Sistema",
+      "kind": "text",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "ativo_na_sessao",
+      "label": "Ativo na sessão",
+      "kind": "checkbox",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "other"
+    },
+    {
+      "id": "nome",
+      "label": "Nome",
+      "kind": "text",
+      "required": true,
+      "options": [],
+      "expression": null,
+      "creation_step": "identity",
+      "character_name": true
+    },
+    {
+      "id": "conceito",
+      "label": "Conceito",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 160,
+      "creation_step": "identity"
+    },
+    {
+      "id": "linhagem",
+      "label": "Cultura",
+      "kind": "select",
+      "required": true,
+      "options": [
+        "Anões do Povo de Durin",
+        "Bardeses",
+        "Elfos de Lindon",
+        "Hobbits do Condado",
+        "Homens de Bri",
+        "Patrulheiros do Norte"
+      ],
+      "expression": null,
+      "creation_step": "identity",
+      "identity_kind": "lineage"
+    },
+    {
+      "id": "vocacao",
+      "label": "Vocação",
+      "kind": "select",
+      "required": false,
+      "options": [
+        "Capitão",
+        "Campeão",
+        "Mensageiro",
+        "Erudito",
+        "Caçador de Tesouros",
+        "Guardião"
+      ],
+      "expression": null,
+      "creation_step": "identity"
+    },
+    {
+      "id": "corpo",
+      "label": "Corpo",
+      "kind": "number",
+      "required": true,
+      "options": [],
+      "expression": null,
+      "min": 2,
+      "max": 7,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "coracao",
+      "label": "Coração",
+      "kind": "number",
+      "required": true,
+      "options": [],
+      "expression": null,
+      "min": 2,
+      "max": 7,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "astucia",
+      "label": "Astúcia",
+      "kind": "number",
+      "required": true,
+      "options": [],
+      "expression": null,
+      "min": 2,
+      "max": 7,
+      "creation_step": "attributes"
+    },
+    {
+      "id": "tn_corpo",
+      "label": "TN de Corpo",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "20 - corpo",
+      "creation_step": "attributes"
+    },
+    {
+      "id": "tn_coracao",
+      "label": "TN de Coração",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "20 - coracao",
+      "creation_step": "attributes"
+    },
+    {
+      "id": "tn_astucia",
+      "label": "TN de Astúcia",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "20 - astucia",
+      "creation_step": "attributes"
+    },
+    {
+      "id": "awe",
+      "label": "Presença",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "athletics",
+      "label": "Atletismo",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "awareness",
+      "label": "Percepção",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "hunting",
+      "label": "Caçada",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "song",
+      "label": "Canção",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "craft",
+      "label": "Ofício",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "enhearten",
+      "label": "Encorajar",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "travel",
+      "label": "Viagem",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "insight",
+      "label": "Intuição",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "healing",
+      "label": "Cura",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "courtesy",
+      "label": "Cortesia",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "battle",
+      "label": "Batalha",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "persuade",
+      "label": "Persuasão",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "stealth",
+      "label": "Furtividade",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "scan",
+      "label": "Busca",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "explore",
+      "label": "Exploração",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "riddle",
+      "label": "Enigmas",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "lore",
+      "label": "Conhecimento",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "pericias_favorecidas",
+      "label": "Perícias favorecidas",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 3,
+      "max_length": 40,
+      "item_options": [
+        "Presença",
+        "Atletismo",
+        "Percepção",
+        "Caçada",
+        "Canção",
+        "Ofício",
+        "Encorajar",
+        "Viagem",
+        "Intuição",
+        "Cura",
+        "Cortesia",
+        "Batalha",
+        "Persuasão",
+        "Furtividade",
+        "Busca",
+        "Exploração",
+        "Enigmas",
+        "Conhecimento"
+      ],
+      "creation_step": "skills"
+    },
+    {
+      "id": "machados",
+      "label": "Machados",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "arcos",
+      "label": "Arcos",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "lancas",
+      "label": "Lanças",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "espadas",
+      "label": "Espadas",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "skills"
+    },
+    {
+      "id": "valor",
+      "label": "Valor",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 1,
+      "max": 6,
+      "creation_step": "traits"
+    },
+    {
+      "id": "sabedoria",
+      "label": "Sabedoria",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 1,
+      "max": 6,
+      "creation_step": "traits"
+    },
+    {
+      "id": "virtudes",
+      "label": "Virtudes",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 12,
+      "max_length": 120,
+      "creation_step": "traits"
+    },
+    {
+      "id": "recompensas",
+      "label": "Recompensas",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 12,
+      "max_length": 120,
+      "creation_step": "traits"
+    },
+    {
+      "id": "tracos_distintivos",
+      "label": "Traços distintivos",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 4,
+      "max_length": 80,
+      "creation_step": "traits"
+    },
+    {
+      "id": "defeitos_sombra",
+      "label": "Defeitos da Sombra",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 4,
+      "max_length": 80,
+      "creation_step": "traits"
+    },
+    {
+      "id": "caminho_sombra",
+      "label": "Caminho da Sombra",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 120,
+      "creation_step": "traits"
+    },
+    {
+      "id": "base_vigor",
+      "label": "Base de Vigor da cultura",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 30,
+      "creation_step": "resources"
+    },
+    {
+      "id": "base_esperanca",
+      "label": "Base de Esperança da cultura",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "base_aparar",
+      "label": "Base de Aparar da cultura",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "vigor_max",
+      "label": "Vigor máximo",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "corpo + base_vigor",
+      "creation_step": "resources"
+    },
+    {
+      "id": "vigor_marcha",
+      "label": "Vigor atual",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 40,
+      "creation_step": "resources"
+    },
+    {
+      "id": "esperanca_max",
+      "label": "Esperança máxima",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "coracao + base_esperanca",
+      "creation_step": "resources"
+    },
+    {
+      "id": "esperanca",
+      "label": "Esperança atual",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 40,
+      "creation_step": "resources"
+    },
+    {
+      "id": "bonus_escudo",
+      "label": "Bônus de escudo",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "resources"
+    },
+    {
+      "id": "aparar",
+      "label": "Aparar",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "astucia + base_aparar + bonus_escudo",
+      "creation_step": "resources"
+    },
+    {
+      "id": "armadura",
+      "label": "Armadura (dados de proteção)",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 6,
+      "creation_step": "resources"
+    },
+    {
+      "id": "carga",
+      "label": "Carga",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 60,
+      "creation_step": "resources"
+    },
+    {
+      "id": "cansaco",
+      "label": "Cansaço",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "carga_total",
+      "label": "Carga com Cansaço",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "carga + cansaco",
+      "creation_step": "resources"
+    },
+    {
+      "id": "sombra",
+      "label": "Pontos de Sombra",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 40,
+      "creation_step": "resources"
+    },
+    {
+      "id": "cicatrizes",
+      "label": "Cicatrizes de Sombra",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 20,
+      "creation_step": "resources"
+    },
+    {
+      "id": "sombra_total",
+      "label": "Sombra total",
+      "kind": "formula",
+      "required": false,
+      "options": [],
+      "expression": "sombra + cicatrizes",
+      "creation_step": "resources"
+    },
+    {
+      "id": "ferido",
+      "label": "Ferido",
+      "kind": "checkbox",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "creation_step": "resources"
+    },
+    {
+      "id": "ferimento_dias",
+      "label": "Dias de ferimento",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 30,
+      "creation_step": "resources"
+    },
+    {
+      "id": "pontos_aventura",
+      "label": "Pontos de aventura",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 999,
+      "creation_step": "resources"
+    },
+    {
+      "id": "pontos_habilidade",
+      "label": "Pontos de perícia",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 999,
+      "creation_step": "resources"
+    },
+    {
+      "id": "tesouro",
+      "label": "Tesouro",
+      "kind": "number",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "min": 0,
+      "max": 9999,
+      "creation_step": "resources"
+    },
+    {
+      "id": "padrao_vida",
+      "label": "Padrão de vida",
+      "kind": "select",
+      "required": false,
+      "options": [
+        "Pobre",
+        "Frugal",
+        "Comum",
+        "Próspero",
+        "Rico",
+        "Muito rico"
+      ],
+      "expression": null,
+      "creation_step": "resources"
+    },
+    {
+      "id": "equipamento",
+      "label": "Equipamento",
+      "kind": "collection",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_items": 40,
+      "max_length": 120,
+      "creation_step": "resources"
+    },
+    {
+      "id": "ambicao",
+      "label": "Ambição",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 240,
+      "creation_step": "story"
+    },
+    {
+      "id": "desejo",
+      "label": "Desejo",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "max_length": 240,
+      "creation_step": "story"
+    },
+    {
+      "id": "notas",
+      "label": "Notas",
+      "kind": "text",
+      "required": false,
+      "options": [],
+      "expression": null,
+      "creation_step": "story"
+    },
+    {
+      "id": "experiencia",
+      "label": "Experiência disponível",
+      "kind": "number",
+      "options": [],
+      "expression": null,
+      "required": false,
+      "creation_step": "resources"
+    }
+  ],
+  "experience_field": "experiencia",
+  "meta_currencies": [
+    {
+      "id": "esperanca",
+      "label": "Esperança",
+      "field": "esperanca",
+      "mode": "pool",
+      "max_field": "esperanca_max"
+    }
+  ],
+  "creation_rules": [
+    {
+      "type": "group_sum",
+      "id": "atributos",
+      "label": "Corpo, Coração e Astúcia",
+      "fields": [
+        "corpo",
+        "coracao",
+        "astucia"
+      ],
+      "min": 14,
+      "max": 14
+    },
+    {
+      "type": "select_grants",
+      "id": "cultura",
+      "label": "Cultura",
+      "field": "linhagem",
+      "fields": [
+        "base_vigor",
+        "base_esperanca",
+        "base_aparar"
+      ],
+      "cases": [
+        {
+          "equals": "Anões do Povo de Durin",
+          "add": {
+            "base_vigor": 22,
+            "base_esperanca": 8,
+            "base_aparar": 10
+          }
+        },
+        {
+          "equals": "Bardeses",
+          "add": {
+            "base_vigor": 20,
+            "base_esperanca": 8,
+            "base_aparar": 12
+          }
+        },
+        {
+          "equals": "Elfos de Lindon",
+          "add": {
+            "base_vigor": 20,
+            "base_esperanca": 8,
+            "base_aparar": 12
+          }
+        },
+        {
+          "equals": "Hobbits do Condado",
+          "add": {
+            "base_vigor": 18,
+            "base_esperanca": 10,
+            "base_aparar": 12
+          }
+        },
+        {
+          "equals": "Homens de Bri",
+          "add": {
+            "base_vigor": 20,
+            "base_esperanca": 10,
+            "base_aparar": 10
+          }
+        },
+        {
+          "equals": "Patrulheiros do Norte",
+          "add": {
+            "base_vigor": 20,
+            "base_esperanca": 6,
+            "base_aparar": 14
+          }
+        }
+      ]
+    }
+  ],
+  "system_key": "one-ring"
+}

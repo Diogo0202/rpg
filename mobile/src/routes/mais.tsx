@@ -1,13 +1,14 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import * as AlertDialog from "@radix-ui/react-alert-dialog";
-import { BookOpen, Bot, Library, Music2, Settings } from "lucide-react";
+import { BookOpen, Bot, Library, Music2, Settings, Users } from "lucide-react";
 import { toast } from "sonner";
 import { SheetImport } from "@/components/nexus/SheetImport";
+import { OneRingCompanyPanel } from "@/components/nexus/OneRingCompanyPanel";
 import { ConnectionPanel } from "@/components/nexus/ConnectionPanel";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { useNexus, outboxSummary } from "@/lib/nexus/store";
-import { SYSTEM_STARTERS } from "@/lib/system-starters";
+import { SYSTEM_STARTERS } from "../../../shared/rules/system-starters";
 import type { JsonValue } from "@/lib/mobile-sync";
 import { readThemeMode, saveThemeMode, type ThemeMode } from "@/lib/theme";
 
@@ -24,13 +25,14 @@ export const Route = createFileRoute("/mais")({
 });
 
 type MusicLink = { title: string; url: string };
-type Section = "inicio" | "music" | "library" | "assistant" | "settings";
+type Section = "inicio" | "music" | "library" | "assistant" | "settings" | "one-ring";
 const NAV_ITEMS: { id: Section; label: string; icon: typeof BookOpen }[] = [
   { id: "inicio", label: "Mais", icon: BookOpen },
   { id: "music", label: "Música", icon: Music2 },
   { id: "library", label: "Biblioteca", icon: Library },
   { id: "assistant", label: "Assistente", icon: Bot },
   { id: "settings", label: "Configurações", icon: Settings },
+  { id: "one-ring", label: "O Um Anel", icon: Users },
 ];
 const SPOTIFY_HOSTS = new Set(["open.spotify.com", "spotify.link"]);
 
@@ -68,7 +70,7 @@ function MaisHome() {
           <Btn
             key={id}
             variant={section === id ? "ink" : "outline"}
-            className={section === id ? undefined : "parchment text-ink"}
+            className={section === id ? undefined : "bg-card text-card-foreground"}
             onClick={() => setSection(id)}
           >
             <Icon className="size-4" aria-hidden />
@@ -143,6 +145,7 @@ function MaisHome() {
         </Panel>
       )}
       {section === "settings" && <SettingsPanel />}
+      {section === "one-ring" && <OneRingCompanyPanel />}
     </LocalGate>
   );
 }
@@ -407,7 +410,7 @@ export function SettingsPanel() {
         <ConnectionPanel />
         <Panel title="Aparência">
           <p className="mb-3 text-sm text-ink-muted">
-            Escolha a iluminação das fichas neste aparelho.
+            Escolha as cores do aplicativo neste aparelho.
           </p>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Tema do aplicativo">
             <Btn
@@ -423,6 +426,20 @@ export function SettingsPanel() {
               onClick={() => changeTheme("dark")}
             >
               Escuro
+            </Btn>
+            <Btn
+              variant={themeMode === "hunter" ? "forest" : "outline"}
+              aria-pressed={themeMode === "hunter"}
+              onClick={() => changeTheme("hunter")}
+            >
+              Caçador
+            </Btn>
+            <Btn
+              variant={themeMode === "demon-lord" ? "forest" : "outline"}
+              aria-pressed={themeMode === "demon-lord"}
+              onClick={() => changeTheme("demon-lord")}
+            >
+              Demon Lord
             </Btn>
           </div>
         </Panel>

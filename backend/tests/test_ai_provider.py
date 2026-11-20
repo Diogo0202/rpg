@@ -6,7 +6,7 @@ import math
 import httpx
 import pytest
 
-from app.services import ai_provider as provider
+from app.adapters.outbound.ai import provider
 
 
 def _config(monkeypatch, *, enabled="true", model=provider.MODEL, input_price="0.75", output_price="4.50"):
@@ -151,7 +151,7 @@ def test_bad_provider_responses_fail_closed(monkeypatch, payload, code):
 def test_success_returns_validated_result_and_usage(monkeypatch):
     _config(monkeypatch)
     payload = {"status": "completed", "usage": {"input_tokens": 5, "output_tokens": 7}, "output": [
-        {"content": [{"type": "output_text", "text": json.dumps({"explanation": "Somar 2 e 2 resulta em 4."})}]}
+        {"content": [{"type": "output_text", "text": json.dumps({"explanation": "- Somar 2 e 2 resulta em 4."})}]}
     ]}
     captured = {}
     monkeypatch.setattr(provider.httpx, "AsyncClient", lambda **_: _Client(payload, captured))

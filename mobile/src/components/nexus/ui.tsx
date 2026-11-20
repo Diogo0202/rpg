@@ -49,7 +49,8 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
         <h1 className="text-3xl font-semibold text-foreground">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {/* The header sits on the page background, not on parchment: ink-based buttons use the light foreground. */}
+      {actions && <div className="flex flex-wrap gap-2 [--ink:var(--foreground)] [--parchment-deep:var(--secondary)]">{actions}</div>}
     </header>
   );
 }

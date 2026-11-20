@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import mobile_sync
-from app.services.mobile_sync import SyncPushRequest
+import httpx
+
+from app.adapters.inbound.http import mobile_sync
+from app.adapters.inbound.http.dependencies import sync_transport
+from app.domain.mobile_sync import SyncPushRequest
 
 
 USER_ID = "10000000-0000-0000-0000-000000000001"
@@ -52,6 +54,22 @@ def mutation(*, action="create", changes=None, entity_type="campaign_factions", 
     }
 
 
+class FakeTransport:
+    def __init__(self, respond):
+        self.respond = respond
+
+    async def call(self, method, path, *, params=None, payload=None):
+        return await self.respond(method, path, params=params, payload=payload)
+
+
+@pytest.fixture
+def fake_transport():
+    def install(respond):
+        app.dependency_overrides[sync_transport] = lambda: FakeTransport(respond)
+    yield install
+    app.dependency_overrides.pop(sync_transport, None)
+
+
 def push_payload(mutations=None):
     return {"protocol_version": 1, "device_id": DEVICE_ID, "mutations": mutations or [mutation()]}
 
@@ -79,7 +97,7 @@ def stub_upstream(monkeypatch, *, status=200, body=None, content=None, headers=N
     response.json = lambda: json.loads(response.content)
     monkeypatch.setenv("SUPABASE_URL", "https://unit-test.supabase.co")
     monkeypatch.setenv("SUPABASE_PUBLISHABLE_KEY", "publishable-only")
-    monkeypatch.setattr(mobile_sync.httpx, "AsyncClient", lambda **kwargs: StubClient(response, captured))
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: StubClient(response, captured))
     return captured
 
 
@@ -173,6 +191,52 @@ def test_maps_record_accepts_all_server_columns(monkeypatch):
     assert response.status_code == 200, response.text
 
 
+def inventory_snapshot(**overrides):
+    data = {
+        "id": ENTITY_ID, "sheet_id": "60000000-0000-0000-0000-000000000001", "campaign_id": CAMPAIGN_ID,
+        "name": "Estaca", "category": "weapon", "quantity": 1, "resource_cost": 0, "damage_bonus": 1,
+        "damage_type": "aggravated", "protection": 0, "notes": "", "acquired": True, "equipped": True,
+        "sort_order": 0, "custom_values": {}, "version": 2, "updated_at": "2026-10-27T00:00:00Z",
+    }
+    data.update(overrides)
+    return {
+        "protocol_version": 1, "campaign_id": CAMPAIGN_ID, "cursor": 1, "has_more": False,
+        "records": [{"entity_type": "character_inventory", "entity_id": ENTITY_ID, "version": 2, "data": {k: v for k, v in data.items() if v is not ...}}],
+        "next_after_id": ENTITY_ID,
+    }
+
+
+def test_inventory_snapshot_carries_weapon_damage_type(monkeypatch):
+    stub_upstream(monkeypatch, body=inventory_snapshot())
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/snapshot?entity_type=character_inventory", headers={"Authorization": JWT})
+    assert response.status_code == 200, response.text
+    assert response.json()["records"][0]["data"]["damage_type"] == "aggravated"
+
+
+def test_inventory_snapshot_without_damage_type_is_rejected_as_stale_dto(monkeypatch):
+    stub_upstream(monkeypatch, body=inventory_snapshot(damage_type=...))
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/snapshot?entity_type=character_inventory", headers={"Authorization": JWT})
+    assert response.status_code == 502
+
+
+def test_inventory_damage_type_is_writable_and_advertised(fake_transport):
+    change = [{"path": ["damage_type"], "before": {"exists": True, "value": "superficial"}, "after": {"exists": True, "value": "aggravated"}}]
+    parsed = SyncPushRequest.model_validate(push_payload([mutation(action="update", entity_type="character_inventory", base_version=1, changes=change)]))
+    assert parsed.mutations[0].changes[0].path == ["damage_type"]
+    calls = []
+
+    async def fake_upstream(method, path, *, params=None, payload=None):
+        calls.append(path)
+        if path == "campaigns":
+            return [{"id": CAMPAIGN_ID, "owner_id": "10000000-0000-0000-0000-000000000009"}]
+        return [{"role": "player"}]
+
+    fake_transport(fake_upstream)
+    response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/capabilities", headers={"Authorization": JWT})
+    assert response.status_code == 200, response.text
+    assert "damage_type" in response.json()["entity_fields"]["character_inventory"]
+
+
 @pytest.mark.parametrize(("event_version", "current_version", "expected_status"), [(2, 3, 200), (3, 2, 502)])
 def test_change_accepts_newer_current_record_but_never_older(monkeypatch, event_version, current_version, expected_status):
     body = {
@@ -212,35 +276,34 @@ def test_malformed_change_dtos_map_to_502(monkeypatch, change):
     assert response.status_code == 502
 
 
-def test_capabilities_uses_rls_visible_campaign_and_role(monkeypatch):
+def test_capabilities_uses_rls_visible_campaign_and_role(fake_transport):
     calls = []
 
-    async def fake_upstream(method, path, authorization, *, params=None, payload=None):
-        calls.append((path, authorization, params))
+    async def fake_upstream(method, path, *, params=None, payload=None):
+        calls.append((path, params))
         if path == "campaigns":
             return [{"id": CAMPAIGN_ID, "owner_id": "90000000-0000-0000-0000-000000000001"}]
         if path == "campaign_members":
             return [{"role": "master"}]
         raise AssertionError(path)
 
-    monkeypatch.setattr(mobile_sync, "_upstream", fake_upstream)
+    fake_transport(fake_upstream)
     response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/capabilities", headers={"Authorization": JWT})
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["role"] == "master"
     assert body["entity_fields"]["maps"] == sorted(mobile_sync.ENTITY_FIELDS["maps"])
     assert "campaigns" not in body["entity_fields"]
-    assert calls[0][1] == JWT and calls[1][1] == JWT
-    assert calls[1][2]["user_id"] == f"eq.{USER_ID}"
+    assert calls[1][1]["user_id"] == f"eq.{USER_ID}"
 
 
-def test_capabilities_rejects_unknown_membership_role_as_bad_upstream(monkeypatch):
-    async def fake_upstream(method, path, authorization, *, params=None, payload=None):
+def test_capabilities_rejects_unknown_membership_role_as_bad_upstream(fake_transport):
+    async def fake_upstream(method, path, *, params=None, payload=None):
         if path == "campaigns":
             return [{"id": CAMPAIGN_ID, "owner_id": "90000000-0000-0000-0000-000000000001"}]
         return [{"role": "superuser"}]
 
-    monkeypatch.setattr(mobile_sync, "_upstream", fake_upstream)
+    fake_transport(fake_upstream)
     response = client.get(f"/api/v1/campaigns/{CAMPAIGN_ID}/sync/capabilities", headers={"Authorization": JWT})
     assert response.status_code == 502
 

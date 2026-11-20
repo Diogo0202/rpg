@@ -4,10 +4,16 @@ from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes import ai_assistance as ai
+from app.adapters.inbound.http import ai_assistance as ai
+from app.adapters.outbound.ai import provider
+from app.adapters.outbound.supabase.ai_store import SupabaseAiPrivateStore
+from app.application.ai.ports import Actor
+from app.application.ai.service import content_hash, template_hash
+from app.domain.errors import ServiceUnavailable
+from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 C = "10000000-0000-4000-8000-000000000001"
 U = "20000000-0000-4000-8000-000000000001"
@@ -31,20 +37,22 @@ def app():
 
 
 @pytest.fixture
-def actor(monkeypatch):
-    who = ai.Actor(U, "Bearer test-user", False, True)
-    async def current(*args):
-        return who
-    monkeypatch.setattr(ai, "_actor", current)
+def actor(app):
+    who = Actor(U, False, True)
+    app.dependency_overrides[ai.campaign_actor] = lambda: who
     return who
 
 
 @pytest.fixture
 def settings(monkeypatch):
     config = SimpleNamespace(reserve_micro=318432, cost_micro=lambda i, o: i + o)
-    monkeypatch.setattr(ai.ai_provider, "provider_settings", lambda: config)
-    monkeypatch.setattr(ai.ai_provider, "build_request", lambda *args: {})
+    monkeypatch.setattr(provider, "provider_settings", lambda: config)
+    monkeypatch.setattr(provider, "build_request", lambda *args: {})
     return config
+
+
+def use_private_transport(app, transport):
+    app.dependency_overrides[ai.ai_private_store] = lambda: SupabaseAiPrivateStore(transport)
 
 
 def row(**changes):
@@ -53,10 +61,12 @@ def row(**changes):
 
 
 @pytest.fixture
-def store(monkeypatch):
-    data = {"request": None, "content": {"context": {"template_hash": ai._template_hash(TEMPLATE)}}, "calls": [], "paid": 0, "quota": True}
-    async def query(method, table, authorization, *, params=None, payload=None):
+def store(app, monkeypatch):
+    data = {"request": None, "content": {"context": {"template_hash": template_hash(TEMPLATE)}}, "calls": [], "paid": 0, "quota": True}
+    async def query(method, table, params=None, payload=None):
         data["calls"].append((method, table, params, payload))
+        if table == "system_templates":
+            return [TEMPLATE]
         if table == "ai_requests":
             return [data["request"]] if data["request"] else []
         if table == "ai_proposal_contents":
@@ -82,15 +92,13 @@ def store(monkeypatch):
             data["content"] = {**(data["content"] or {}), **payload}
             return [data["content"]]
         raise AssertionError(table)
-    async def template(*args):
-        return TEMPLATE
     async def generate(*args):
         data["paid"] += 1
-        return ai.ai_provider.ProviderResult(SHEET, 100, 20, "fake")
-    monkeypatch.setattr(ai, "_request", query)
-    monkeypatch.setattr(ai, "_service", service)
-    monkeypatch.setattr(ai, "_get_template", template)
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", generate)
+        return provider.ProviderResult(SHEET, 100, 20, "fake")
+    use_fake_supabase(app, FakeSupabase(user_id=U, on_request=query))
+    use_private_transport(app, service)
+    data["service"] = service
+    monkeypatch.setattr(provider, "generate_proposal", generate)
     return data
 
 
@@ -144,8 +152,8 @@ def test_budget_rejection_prevents_provider(app, actor, store, settings):
 
 def test_provider_timeout_keeps_financial_reservation(app, actor, store, settings, monkeypatch):
     async def failed(*args):
-        raise ai.ai_provider.AIProviderError("provider_error")
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", failed)
+        raise provider.AIProviderError("provider_error")
+    monkeypatch.setattr(provider, "generate_proposal", failed)
     response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json={"kind": "sheet", "brief": "Uma personagem", "template_id": T, "idempotency_key": OP})
     assert response.status_code == 502
     paths = [call[1] for call in store["calls"]]
@@ -156,8 +164,8 @@ def test_provider_timeout_keeps_financial_reservation(app, actor, store, setting
 
 def test_known_usage_on_refusal_is_settled(app, actor, store, settings, monkeypatch):
     async def refusal(*args):
-        raise ai.ai_provider.AIProviderError("refusal", {"input_tokens": 10, "output_tokens": 5})
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", refusal)
+        raise provider.AIProviderError("refusal", {"input_tokens": 10, "output_tokens": 5})
+    monkeypatch.setattr(provider, "generate_proposal", refusal)
     response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json={"kind": "sheet", "brief": "Uma personagem", "template_id": T, "idempotency_key": OP})
     assert response.status_code == 502
     settlement = next(call[3] for call in store["calls"] if call[1] == "rpc/ai_budget_settle")
@@ -177,9 +185,9 @@ def test_known_usage_survives_local_validation_failure(app, actor, store, settin
 
     async def generated(*args):
         store["paid"] += 1
-        return ai.ai_provider.ProviderResult(result, 100, 20, "fake")
+        return provider.ProviderResult(result, 100, 20, "fake")
 
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", generated)
+    monkeypatch.setattr(provider, "generate_proposal", generated)
     body = {"kind": kind, "brief": "Uma personagem", "idempotency_key": OP}
     if kind == "sheet":
         body["template_id"] = T
@@ -198,14 +206,14 @@ def test_known_usage_survives_local_validation_failure(app, actor, store, settin
 
 
 def test_persistence_failure_does_not_settle_known_usage_twice(app, actor, store, settings, monkeypatch):
-    service = ai._service
+    service = store["service"]
 
     async def failed_write(method, table, **kwargs):
         if table == "ai_proposal_contents" and method == "PATCH":
-            raise HTTPException(503, "Banco indisponível")
+            raise ServiceUnavailable("Banco indisponível")
         return await service(method, table, **kwargs)
 
-    monkeypatch.setattr(ai, "_service", failed_write)
+    use_private_transport(app, failed_write)
     response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals", json={
         "kind": "sheet", "brief": "Uma personagem", "template_id": T, "idempotency_key": OP})
     assert response.status_code == 503
@@ -266,7 +274,7 @@ def test_changed_or_foreign_context_never_reaches_provider(app, actor, store, se
 def test_refinement_replay_does_not_regenerate(app, actor, store, settings):
     actor.manager = True
     payload = ai.ProposalRefine(expected_version=1, instruction="Melhore o conceito", idempotency_key=UUID(OP))
-    store["request"] = row(version=2, last_operation_id=OP, last_operation_hash=ai._hash(payload.model_dump(mode="json")))
+    store["request"] = row(version=2, last_operation_id=OP, last_operation_hash=content_hash(payload.model_dump(mode="json")))
     response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals/{P}/refine", json=payload.model_dump(mode="json"))
     assert response.status_code == 200
     assert store["paid"] == 0
@@ -281,12 +289,12 @@ def test_disabled_configuration_never_creates_proposal(app, actor, store, monkey
 
 def test_refinement_keeps_manager_edits_as_generation_input(app, actor, store, settings, monkeypatch):
     actor.manager = True
-    store.update(request=row(), content={"result": SHEET, "context": {"original": None, "template_hash": ai._template_hash(TEMPLATE)}})
+    store.update(request=row(), content={"result": SHEET, "context": {"original": None, "template_hash": template_hash(TEMPLATE)}})
     captured = {}
     async def generate(kind, context, template):
         captured.update(context)
-        return ai.ai_provider.ProviderResult(SHEET, 100, 20, "fake")
-    monkeypatch.setattr(ai.ai_provider, "generate_proposal", generate)
+        return provider.ProviderResult(SHEET, 100, 20, "fake")
+    monkeypatch.setattr(provider, "generate_proposal", generate)
     edited = {**SHEET, "narrative": "Revisão manual importante"}
     response = TestClient(app).post(f"/api/v1/campaigns/{C}/ai/proposals/{P}/refine", json={"expected_version": 1, "instruction": "Mantenha minha revisão", "result": edited, "idempotency_key": OP})
     assert response.status_code == 200

@@ -1,13 +1,11 @@
+import { createSyncId } from "../../../../shared/sync/core.ts";
 import { fieldValuesEqual, projectRecord, validateChanges } from "./merge.ts";
 import { pendingEntries } from "./store.ts";
 import type { EnqueueInput, JsonValue, OutboxEntry, SheetAdjustmentIntent, SyncChange, SyncConfig, SyncMutation, SyncPartition, SyncRecord, SyncResult, SyncState, SyncStore, SyncTransport } from "./types.ts";
 
 const entityKey = (type: string, id: string) => JSON.stringify([type, id]);
 const copy = <T>(value: T): T => structuredClone(value);
-const uuid = (): string => {
-  if (!globalThis.crypto?.randomUUID) throw new Error("crypto.randomUUID is required for sync IDs");
-  return globalThis.crypto.randomUUID();
-};
+const uuid = createSyncId;
 export const createOperationId = uuid;
 export const createDeviceId = uuid;
 export const createEntityId = uuid;
@@ -86,6 +84,7 @@ export class SyncEngine {
     const state = await this.store.read(this.partition), key = entityKey(entityType, entityId);
     let record = state.records[key] ? copy(state.records[key]) : undefined;
     for (const entry of state.outbox) {
+      if (entry.state === "denied") continue;
       const mutation = entry.mutation;
       if (mutation.entity_type !== entityType || mutation.entity_id !== entityId) continue;
       record = projectMutation(record, mutation);
@@ -108,6 +107,7 @@ export class SyncEngine {
     const opId = this.makeId();
     if (!isUuid(opId)) throw new Error("operationId generator must return a UUID");
     return this.store.update(this.partition, (state) => {
+      if (state.accessRevoked) throw new Error("campaign access revoked");
       const key = entityKey("character_sheets", sheetId), record = state.records[key];
       if (!record || record.deleted) throw new Error("sheet is not in the local campaign cache");
       const intent: SheetAdjustmentIntent = { operation_id: opId, sheet_id: sheetId, field_id: fieldId, delta, ...(reason ? { reason } : {}), created_at: this.now(), state: "queued" };
@@ -177,7 +177,7 @@ export class SyncEngine {
             item.state = status === 403 ? "denied" : status === 401 ? "queued" : status === 422 || status === 409 ? "invalid" : "queued";
             item.last_error = message;
           }
-          if (status === 403) { state.records = {}; state.cursor = null; }
+          if (status === 403) { state.accessRevoked = true; state.records = {}; state.cursor = null; }
           return { result: undefined, state };
         });
         if (status === 403) await this.markRevoked(message);
@@ -207,6 +207,7 @@ export class SyncEngine {
     const opId = this.makeId();
     if (!isUuid(opId)) throw new Error("operationId generator must return a UUID");
     return this.store.update(this.partition, (state) => {
+      if (state.accessRevoked) throw new Error("campaign access revoked");
       const key = entityKey(input.entityType, entityId);
       let projected = state.records[key] ? copy(state.records[key]) : undefined;
       const prior = state.outbox.filter((entry) => entry.mutation.entity_type === input.entityType && entry.mutation.entity_id === entityId);
@@ -273,6 +274,7 @@ export class SyncEngine {
 
   private async markRevoked(message = "campaign access revoked"): Promise<void> {
     await this.store.update(this.partition, (state) => {
+      state.accessRevoked = true;
       state.records = {};
       state.cursor = null;
       state.lease = undefined;
@@ -300,7 +302,7 @@ export class SyncEngine {
         applied++;
       }
       state = await this.store.update(this.partition, (current) => {
-        current.cursor = page.cursor; current.updatedAt = this.now();
+        current.accessRevoked = false; current.cursor = page.cursor; current.updatedAt = this.now();
         current.outbox = current.outbox.filter((entry) => entry.state !== "accepted" || !cursorAtOrPast(page.cursor, entry.acceptedCursor));
         return { result: copy(current), state: current };
       });
@@ -383,7 +385,7 @@ export class SyncEngine {
           entry.nextAttemptAt = this.now() + delay;
         }
         current.lease = undefined;
-        if (http.status === 403) { current.records = {}; current.cursor = null; }
+        if (http.status === 403) { current.accessRevoked = true; current.records = {}; current.cursor = null; }
         return { result: Math.max(...current.outbox.filter((e) => ids.has(e.mutation.operation_id)).map((e) => e.nextAttemptAt), 0), state: current };
       });
       const reason = http.status === 403 ? "revoked" : http.status === 401 ? "reauth_required" : http.status === 429 || http.status === 503 ? "retry_later" : "network";

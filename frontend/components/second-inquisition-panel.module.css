@@ -49,3 +49,7 @@
   .form,.metrics { grid-template-columns: 1fr; }
   .results dl { grid-template-columns: 1fr; }
 }
+
+.applyActions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+.applyActions select { max-width: 100%; }
+

@@ -57,7 +57,7 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
     if (typeof data.template_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.template_id)) throw new Error("A ficha precisa usar o ID de um modelo aprovado da campanha.");
     if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 120 || !data.values || typeof data.values !== "object" || Array.isArray(data.values)) throw new Error("Nome ou valores de ficha inválidos.");
   } else if (entityType === "character_inventory") {
-    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], "Inventário");
+    assertOnlyKeys(data, ["sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"], "Inventário");
   } else if (entityType === "world_entities") {
     assertOnlyKeys(data, ["kind", "name", "description", "tags", "body"], "Entidade");
     const body = object(data.body);
@@ -69,6 +69,11 @@ export function toRemoteCreate(type: string, input: Record<string, JsonValue>): 
   } else if (entityType === "maps") {
     assertOnlyKeys(data, ["name", "columns", "rows", "description", "document", "grid_kind", "isometric"], "Mapa");
     const document = object(data.document);
+    if (document.version === 2) {
+      if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 160) throw new Error("O mapa precisa ter um nome válido.");
+      if (!data.document || typeof data.document !== "object" || Array.isArray(data.document)) throw new Error("O documento do mapa é inválido.");
+      return { entityType, data: { name: data.name, document: data.document } };
+    }
     const columns = data.columns ?? document.width, rows = data.rows ?? document.height;
     const description = data.description ?? document.description;
     if (columns !== undefined && (!Number.isInteger(columns) || Number(columns) < 1 || Number(columns) > 128)) throw new Error("A largura do mapa precisa ser um inteiro entre 1 e 128.");
@@ -123,16 +128,27 @@ export function toRemotePath(type: string, path: string[], value: JsonValue | un
 
 export function makeSheetStarter(template: { id: string; name: string; version: number; schema: JsonValue }) {
   const schema = object(template.schema);
-  if (schema.rules_profile_version != null) return null;
+  if (schema.rules_profile_version != null && !(schema.system_key === "one-ring" && schema.rules_profile_version === 3 && template.version === 3)) return null;
   if (!Array.isArray(schema.fields) || schema.fields.length < 1 || schema.fields.length > 200) return null;
   const fields = schema.fields as Record<string, unknown>[];
   if (fields.some((field) => !field || typeof field.id !== "string" || typeof field.label !== "string" || !["text", "number", "select", "checkbox", "collection", "formula", "roll"].includes(String(field.kind)))) return null;
   const normalized = fields.map((field) => ({
     required: false, options: [], expression: null, ...field,
   }));
+  // Creation rules travel with the template: the database checks them when the sheet is created.
+  const rules = Array.isArray(schema.creation_rules) ? { creation_rules: schema.creation_rules } : {};
+  // XP and meta currencies too: the wizard keeps master-granted resources at zero, as the database demands.
+  const experience = typeof schema.experience_field === "string" ? { experience_field: schema.experience_field } : {};
+  const currencies = Array.isArray(schema.meta_currencies) ? { meta_currencies: schema.meta_currencies.filter((item) => {
+    const currency = object(item);
+    return typeof currency.id === "string" && typeof currency.field === "string" && (currency.mode === "pool" || currency.mode === "track");
+  }) } : {};
   return {
-    id: template.id, label: template.name, templateId: template.id, systemKey: template.id,
-    template: { name: template.name, version: template.version, fields: normalized } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
+    id: template.id, label: template.name, templateId: template.id, systemKey: typeof schema.system_key === "string" ? schema.system_key : template.id,
+    template: { name: template.name, version: template.version, fields: normalized, ...rules, ...experience, ...currencies,
+      ...(typeof schema.system_key === "string" ? { system_key: schema.system_key } : {}),
+        ...(schema.rules_profile_version === 3 ? { rules_profile_version: 3 } : {}),
+    } as unknown as import("../../../../shared/rules/sheet-template.ts").SheetTemplate,
     values: {} as Record<string, string | number | boolean | string[]>,
   };
 }

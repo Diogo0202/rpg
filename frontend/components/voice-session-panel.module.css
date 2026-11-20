@@ -1,0 +1,8 @@
+.voice { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; margin-top: .7rem; }
+.join, .create { display: inline-flex; align-items: center; min-height: 2.4rem; padding: .45rem .75rem; border: 0; font: inherit; font-size: .73rem; font-weight: 750; text-decoration: none; cursor: pointer; }
+.join { background: #6f86d6; color: #101211; }
+.create { background: #b55b32; color: #101211; }
+.create:disabled { opacity: .56; cursor: not-allowed; }
+.state { color: #b8b3a8; font-size: .75rem; overflow-wrap: anywhere; }
+.notice { flex-basis: 100%; margin: 0; color: #ffd7c2; font-size: .78rem; }
+.join:focus-visible, .create:focus-visible { outline: 3px solid #d27648; outline-offset: 2px; }

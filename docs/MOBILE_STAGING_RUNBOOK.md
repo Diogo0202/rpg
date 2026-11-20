@@ -4,6 +4,8 @@ Este roteiro liga o app local do RPG-Atlas Mobile à API FastAPI e ao Supabase d
 
 ## Estado verificado neste checkout
 
+Atualização de 12/11/2026: a rodada de conclusão das oito áreas está registrada em [CONCLUSAO_OITO_AREAS_20261112.md](CONCLUSAO_OITO_AREAS_20261112.md). Os resultados abaixo descrevem rodadas anteriores. O aceite atual exige Android físico e staging separado, com a sequência completa de migrations do checkout validado.
+
 Em 20/10/2026, o SDK Supabase e o adaptador da API estão ligados no código local. Uma fixture de navegador com Auth falso, API FastAPI real local e PGlite local aceitou login de teste, leu campanha e modelo aprovados, criou ficha com Vida 6 e Vigor 3 e um item dependente. Resultado: duas operações aceitas, zero pendentes. A fixture não acessa Supabase hospedado.
 
 Em 21/10/2026, `test:db` passou com 23 migrations e 263 assertions pgTAP em PGlite, incluindo 50 da migration de sync; `test:mobile` passou com 21 testes e `test:mobile:integration` com sete verificações. Os 27 testes da API/adaptador são evidência anterior. Essas contagens locais não equivalem a migrations, Auth, RLS ou CORS validados no projeto remoto.
@@ -14,7 +16,7 @@ A fonte local veio do commit `dce7685898f1a1fca310b4b899dbc81881c311a5` e tem mu
 
 ## 1. Preparar o projeto de staging
 
-Use um projeto Supabase separado de produção e confirme o ref do projeto na equipe antes de ligar a CLI. Crie quatro contas de teste distintas: owner, master, player e outsider. O outsider não deve ser membro da campanha. Não use dados de jogadores reais.
+Use um projeto Supabase separado de produção e confirme o ref do projeto na equipe antes de ligar a CLI. Prepare seis contas de teste distintas: dono, dois mestres, jogador, convidado e participante externo. A conta externa não deve ser membro da campanha. Não use dados de jogadores reais.
 
 Faça um backup verificável antes da mudança. Registre o horário, projeto e versão, confirme que o arquivo ou ponto de restauração existe e que a equipe sabe como restaurá-lo. Se o plano oferece PITR, confirme sua janela e teste a restauração em um projeto isolado. Não conte uma cópia local sem teste como backup recuperável.
 
@@ -68,6 +70,11 @@ Deixe IA desativada durante o teste de sync. A configuração atual usa `AI_ENAB
 6. Remova o player da campanha sem encerrar sua sessão. Na reconexão, pull e push devem ser negados. O cliente deve limpar os registros confirmados da campanha revogada e preservar a pendência local para resolução explícita. Confirme que outro usuário e outra campanha continuam isolados.
 7. Instale a PWA em telefone e computador, faça um primeiro carregamento online, desligue a rede e abra novamente as rotas públicas. Registre o dispositivo, navegador, hora e rotas conferidas. Este caso ainda não tem resultado documentado.
 8. Em Dados, selecione uma ficha V5 conectada com Fome e um efeito ativo. Compare a resposta de `POST /api/v1/v5/sheets/{sheet_id}/probabilities` com a ficha confirmada no servidor. Como outsider, tente o mesmo ID e confirme resposta sem dados da ficha. Envie `effects` ou `hunger` no corpo e confirme HTTP 422. Repita após mudar o efeito e sincronizar a ficha.
+
+9. Como mestre, convide outro mestre e exercite promoção, rebaixamento e remoção de outro mestre. Tente alterar o próprio papel por RPC e gravação direta; ambas devem recusar. Tente alterar ou remover o dono por todos os caminhos. O convidado não pode administrar membros.
+10. Em duas abas do mesmo aparelho, acrescente ações da Mesa enquanto a outra aba aguarda resposta do servidor. Confirme que a confirmação de uma ação não apaga as operações acrescentadas pela outra aba. Repita com descarte explícito. Saia da conta e confirme a limpeza dos dados dessa conta, preservando os dados das demais.
+11. Abra uma ficha V3 em dois clientes. Registre dano que cause Torpor e confira o estado no segundo cliente após atualizar a ficha. A rolagem autenticada deve recusar o estado inativo mesmo sem gasto de Vontade. Registre alimentação e confirme Despertar após resolver o repouso e o teste na mesa; valide o gasto de sangue. Registre Morte Final somente em personagem descartável de teste e confira que o estado não pode ser desfeito por Despertar.
+12. Faça dois pedidos de avanço que disputem o mesmo XP. Confirme a reserva, a liberação por recusa ou cancelamento e o consumo na aprovação. Tente reduzir o saldo por ajuste genérico e gravação direta enquanto houver reserva; o banco deve impedir saldo inferior ao reservado.
 
 Guarde IDs de request, horário, status e resultado observado. Remova JWTs, cookies, cabeçalhos `Authorization` e valores de campos pessoais dos registros anexados ao relatório.
 

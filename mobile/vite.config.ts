@@ -5,6 +5,7 @@
 //     React/TanStack dedupe, error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import path from "node:path";
 import { pwaBuildPlugin } from "./pwa-build";
 
 const localBuild = process.env.RPG_MOBILE_LOCAL_BUILD === "1";
@@ -15,6 +16,8 @@ export default defineConfig({
   nitro: localBuild ? false : undefined,
   vite: {
     plugins: [pwaBuildPlugin()],
+    resolve: { alias: { "@dice3d": path.resolve(__dirname, "../shared/dice3d") } },
+    server: { fs: { allow: [path.resolve(__dirname, "..")] } },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).

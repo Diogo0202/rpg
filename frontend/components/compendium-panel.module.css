@@ -40,6 +40,22 @@
 .details dt { color: #d4b17d; font-size: .8rem; font-weight: 700; }
 .details dd { margin: .25rem 0 0; color: #f2eee8; line-height: 1.45; }
 .reference { display: inline-flex; align-items: center; background:#242023; }
+.origin { display: inline-block; padding: .15rem .5rem; border: 1px solid #5b4d3a; border-radius: 999px; color: #e5d6c3; font-size: .72rem; }
+.originCampaign { border-color: #7f9a6a; color: #cfe3bf; }
+.notice { margin: 0; color: #e8c88f; }
+.workflow { display: grid; gap: .85rem; padding: 1rem; border: 1px solid #454047; border-radius: 13px; background: rgba(12, 12, 15, .32); }
+.workflow summary { cursor: pointer; font-weight: 700; color: #f0d6ad; }
+.workflow h3 { margin: 0; font-size: 1rem; }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .75rem; margin-top: .85rem; }
+.form label { display: grid; gap: .35rem; color: #e4ddd3; font-size: .85rem; }
+.form input, .form select, .form textarea, .reviewNote { width: 100%; min-height: 2.5rem; padding: .55rem .65rem; border: 1px solid #625747; border-radius: 9px; background: #19181b; color: inherit; font: inherit; box-sizing: border-box; }
+.form textarea { min-height: 6rem; resize: vertical; }
+.wide { grid-column: 1 / -1; }
+.queue { display: grid; gap: .65rem; margin: 0; padding: 0; list-style: none; }
+.queue li { display: grid; gap: .5rem; padding: .75rem; border: 1px solid #454047; border-radius: 10px; }
+.queue p { margin: 0; color: #c7c0b7; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.form input:focus-visible, .form select:focus-visible, .form textarea:focus-visible, .reviewNote:focus-visible, .workflow summary:focus-visible { outline: 3px solid #f0c77f; outline-offset: 2px; }
 
 @media (max-width: 640px) {
   .heading, .cardTop { flex-direction: column; }

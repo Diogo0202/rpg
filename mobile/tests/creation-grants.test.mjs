@@ -1,0 +1,203 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+import { activeGrants, applyGrants, creationRuleViolations, grantChoiceFieldIds, grantProblems, grantedItems, powerRules, powerStatus, ruleMessage, staleGrantChoices } from "../../shared/rules/creation-grants.ts";
+import { reconcileDependentValues } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { poolBase, priorityPatch, priorityRules } from "../../shared/rules/priority-points.ts";
+
+const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
+const template = v5.template;
+// The web V5 starter as the server stores it (shared/rules/system-starters.ts).
+const fixture = JSON.parse(await readFile(new URL("../../backend/tests/fixtures/v5_starter.json", import.meta.url), "utf8"));
+
+test("a criação local de Demônio confere prioridades e recalcula Vontade", () => {
+  const demon = SYSTEM_STARTERS.find((item) => item.id === "demon-the-fallen");
+  const rule = priorityRules(demon.template)[0];
+  const willpower = rule.pools.find((pool) => pool.id === "vontade");
+  const initial = { ...demon.values, consciencia: 3, conviccao: 2, coragem: 1, vontade_max: 5 };
+  assert.equal(poolBase(willpower, initial), 5);
+  assert.equal(priorityPatch(demon.template, initial, { ...initial, coragem: 4 }).vontade_max, 7);
+  assert.deepEqual(creationRuleViolations(demon.template, demon.values).map((item) => item.id), ["criacao_demonio"]);
+});
+const base = () => ({ ...v5.values });
+/** One wizard change: dependent selects reconcile, grants apply, stale picks drop. */
+const pick = (values, changes, on = template) => {
+  const after = reconcileDependentValues(on, { ...values, ...changes }).values;
+  const granted = { ...after, ...applyGrants(on, values, after) };
+  for (const id of staleGrantChoices(on, granted)) delete granted[id];
+  return granted;
+};
+const violations = (on, values) => creationRuleViolations(on, values).map((rule) => rule.id).sort();
+
+/** Brujah Blood Leech with valid attribute and skill spreads; the same build backend/tests/test_creation_grants.py accepts. */
+function brujah(on = template, start = base()) {
+  let values = { ...start };
+  Object.assign(values, Object.fromEntries(["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"]
+    .map((id, index) => [id, [4, 3, 3, 3, 2, 2, 2, 2, 1][index]])));
+  Object.assign(values, Object.fromEntries(["atletismo", "briga", "conducao", "furtividade", "ladroagem", "oficios", "sobrevivencia", "armas_brancas", "armas_de_fogo", "etiqueta"]
+    .map((id, index) => [id, [4, 3, 3, 3, 2, 2, 2, 1, 1, 1][index]])));
+  values = pick(values, { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" }, on);
+  values = pick(values, { predador: "Sanguessuga" }, on);
+  values = pick(values, { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" }, on);
+  // 7 points of own advantages and 2 of own flaws besides the predator's, from the catalogs;
+  // free specialties: one in Ofícios (it has dots) plus one more, besides the predator's.
+  return pick(values, { disciplinas: ["Potência: Corpo Letal", "Potência: Proeza", "Presença: Fascínio", "Rapidez: Graça Felina"],
+    vantagens: ["Aliados •••", "Refúgio ••", "Contatos ••"], defeitos: [...values.defeitos, "Vício Irremediável ••"],
+    especialidades: [...values.especialidades, "Ofícios (Marcenaria)", "Atletismo (Corrida)"] }, on);
+}
+
+test("the mobile V5 starter carries the same grant and power rules as the web starter", () => {
+  const ids = ["cla_disciplinas", "predador_bonus", "poderes", "rituais_iniciais", "atributos", "habilidades"];
+  for (const id of ids) {
+    assert.deepEqual(template.creation_rules.find((rule) => rule.id === id), fixture.template.creation_rules.find((rule) => rule.id === id), `rule ${id} drifted from the web starter`);
+  }
+  for (const field of ["disciplina_inicial", "predador_disciplina", "predador_especialidade", "disc_rapidez", "rituais"]) {
+    const mine = template.fields.find((item) => item.id === field);
+    const web = fixture.template.fields.find((item) => item.id === field);
+    assert.deepEqual({ ...mine, min: undefined, max: undefined }, { ...web, min: undefined, max: undefined }, `field ${field} drifted from the web starter`);
+  }
+});
+
+test("V2 grants the chosen 2+1 pair and swapping clears the old clan", () => {
+  const brujahValues = pick(base(), { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" });
+  assert.deepEqual([brujahValues.disc_potencia, brujahValues.disc_presenca, brujahValues.disc_rapidez], [2, 1, 0]);
+  const gangrel = pick(brujahValues, { cla: "Gangrel", disciplina_inicial: "Animalismo 2, Fortitude 1" });
+  assert.deepEqual([gangrel.disc_potencia, gangrel.disc_presenca, gangrel.disc_rapidez], [0, 0, 0]);
+  assert.deepEqual([gangrel.disc_animalismo, gangrel.disc_fortitude, gangrel.disc_metamorfose], [2, 1, 0]);
+});
+
+test("a predator applies humanity, potency and items, and its discipline pick stacks on the clan", () => {
+  let values = pick(base(), { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1", potencia_sangue: 1 });
+  values = pick(values, { predador: "Sanguessuga" });
+  assert.equal(values.humanidade, 6);
+  assert.equal(values.potencia_sangue, 2);
+  assert.ok(values.defeitos.includes("Exclusão de Presa: mortais ••"));
+  assert.deepEqual(activeGrants(template, values).find((item) => item.rule.id === "predador_bonus").missing.map((choice) => choice.field), ["predador_disciplina", "predador_especialidade"]);
+  values = pick(values, { predador_disciplina: "Rapidez", predador_especialidade: "Briga (Membros)" });
+  assert.equal(values.disc_rapidez, 1);
+  assert.ok(values.especialidades.includes("Briga (Membros)"));
+  values = pick(values, { predador: "Consensualista" });
+  assert.equal(values.predador_disciplina, undefined, "the old predator's pick is cleared with its dependent select");
+  assert.equal(values.humanidade, 8);
+  assert.equal(values.potencia_sangue, 1);
+  assert.equal(values.disc_rapidez, 0);
+  assert.equal(values.defeitos.includes("Exclusão de Presa: mortais ••"), false);
+  assert.equal(values.especialidades.includes("Briga (Membros)"), false);
+});
+
+test("granted items stay listed while the player's own items are kept", () => {
+  const values = pick(pick(base(), { cla: "Brujah", vantagens: ["Refúgio •"] }), { predador: "Gato de Beco" });
+  assert.deepEqual(values.vantagens, ["Refúgio •", "Contatos criminosos •••"]);
+  assert.deepEqual(grantedItems(template, values).get("vantagens"), ["Contatos criminosos •••"]);
+});
+
+test("clan-only predator disciplines need the right clan, and changing clan drops the stale pick", () => {
+  const values = pick(base(), { cla: "Brujah", predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue" });
+  assert.equal(values.disc_feiticaria, 0, "a Brujah cannot take Blood Sorcery from Bagger");
+  assert.equal(values.predador_disciplina, undefined);
+  const tremere = pick(base(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1", predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue" });
+  assert.equal(tremere.disc_feiticaria, 2);
+  const moved = pick(tremere, { cla: "Brujah", disciplina_inicial: "Potência 2, Presença 1" });
+  assert.equal(moved.predador_disciplina, undefined);
+  assert.equal(moved.disc_feiticaria, 0);
+});
+
+test("powers: one per dot, level up to the dots, amalgams need the other discipline", () => {
+  const values = pick(pick(base(), { cla: "Nosferatu", disciplina_inicial: "Animalismo 2, Ofuscação 1" }), { predador: "Homem-Areia", predador_disciplina: "Ofuscação" });
+  const rule = powerRules(template).find((item) => item.id === "poderes");
+  const obfuscate = powerStatus(rule, values).find((status) => status.source.label === "Ofuscação");
+  assert.deepEqual([obfuscate.dots, obfuscate.allowed, obfuscate.maxLevel], [2, 2, 2]);
+  assert.ok(obfuscate.available.every((power) => power.level <= 2));
+  const animalism = powerStatus(rule, values).find((status) => status.source.label === "Animalismo");
+  assert.equal(animalism.available.some((power) => power.name === "Colmeia Morta-Viva"), false);
+  const labels = new Map(template.fields.map((field) => [field.id, field.label]));
+  assert.ok(grantProblems(template, values, new Set(["disciplinas"]), labels).some((problem) => problem.includes("Ofuscação pede 2 escolhas")));
+});
+
+test("losing dots drops powers that are no longer allowed", () => {
+  const values = pick(pick(base(), { cla: "Brujah", disciplinas: ["Potência: Corpo Letal", "Rapidez: Graça Felina"] }), { cla: "Gangrel", disciplina_inicial: "Animalismo 2, Fortitude 1" });
+  assert.deepEqual(values.disciplinas, []);
+});
+
+test("the sorcerer gets exactly one level-1 ritual", () => {
+  const rituals = powerStatus(powerRules(template).find((item) => item.id === "rituais_iniciais"), pick(base(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1" }))[0];
+  assert.deepEqual([rituals.allowed, rituals.maxLevel], [1, 1]);
+  assert.ok(rituals.available.every((ritual) => ritual.level === 1));
+});
+
+test("Caitiff pick a distinct 2+1 pair and the choice fields leave the grid", () => {
+  const values = pick(base(), { cla: "Caitiff", disciplina_inicial: "Fortitude 2, Auspícios 1" });
+  assert.deepEqual([values.disc_fortitude, values.disc_auspicios, values.disc_rapidez], [2, 1, 0]);
+  assert.ok(grantChoiceFieldIds(template).has("disciplina_inicial"));
+  assert.ok(grantChoiceFieldIds(template).has("predador_disciplina"));
+});
+
+test("a Brujah built through the mobile wizard passes the server's V5 template", () => {
+  const values = brujah();
+  assert.deepEqual(violations(template, values), []);
+  assert.deepEqual(violations(fixture.template, values), [], "the web starter stored on the server accepts the mobile build");
+  // A server template starts with no values; the wizard's first applyGrants fills the base.
+  const empty = pick({}, {}, fixture.template);
+  assert.equal(empty.humanidade, 7);
+  assert.deepEqual(violations(fixture.template, brujah(fixture.template, { ...fixture.values })), []);
+});
+
+test("tampered values break the same rules the database names", () => {
+  const cases = [
+    [{ disc_dominacao: 1 }, ["cla_disciplinas", "poderes", "predador_bonus"]],
+    [{ disc_rapidez: 3 }, ["cla_disciplinas", "poderes", "predador_bonus"]],
+    [{ humanidade: 7 }, ["predador_bonus"]],
+    // Not a Blood Leech option: the bonus dot is unaccounted for in every rule listing Rapidez.
+    [{ predador_disciplina: "Dominação" }, ["cla_disciplinas", "predador_bonus"]],
+    // Without the pick its specialty is no longer granted, so it counts as one of the player's.
+    [{ predador_especialidade: undefined }, ["especializacoes", "predador_bonus"]],
+    [{ defeitos: [] }, ["defeitos_pontos", "predador_bonus"]],
+    [{ disciplinas: ["Potência: Corpo Letal", "Presença: Fascínio", "Rapidez: Graça Felina"] }, ["poderes"]],
+    [{ disciplinas: ["Potência: Proeza", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] }, ["poderes"]],
+    [{ disciplinas: ["Potência: Inventado", "Presença: Fascínio", "Rapidez: Graça Felina", "Rapidez: Ligeireza"] }, ["poderes"]],
+    [{ forca: 5 }, ["atributos"]],
+    // Losing the skill also orphans its free specialty.
+    [{ atletismo: 0 }, ["especializacoes", "habilidades"]],
+    [{ defeitos: ["Exclusão de Presa: mortais ••", "Segredo Sombrio: Diablerista •• ou Rejeitado ••", "Vício ••"] }, ["defeitos_pontos"]],
+    [{ vantagens: ["Aliados •••", "Refúgio ••", "Pacto Antigo ••"] }, ["vantagens_pontos"]],
+    [{ especialidades: ["Briga (Membros)", "Atletismo (Corrida)"] }, ["especializacoes"]],
+    [{ especialidades: ["Briga (Membros)", "Ofícios (Marcenaria)", "Medicina (Cirurgia)"] }, ["especializacoes"]],
+    [{ geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
+    [{ cla: "Sangue-Ralo", disc_potencia: 0, disc_presenca: 0, disc_rapidez: 1, disc_alquimia: 0, disciplina_inicial: undefined, disciplinas: ["Rapidez: Graça Felina"], geracao: 14, potencia_sangue: 1 }, ["cla_geracao"]],
+  ];
+  for (const [change, expected] of cases) {
+    const values = { ...brujah(), ...change };
+    for (const [id, value] of Object.entries(change)) if (value === undefined) delete values[id];
+    assert.deepEqual(violations(fixture.template, values), expected, JSON.stringify(change));
+  }
+});
+
+test("a Tremere needs one level-1 ritual and a clan-gated pick on the wrong clan is refused", () => {
+  let values = pick(brujah(), { cla: "Tremere", disciplina_inicial: "Auspícios 2, Feitiçaria do Sangue 1" });
+  values = pick(values, { predador_disciplina: "Rapidez", disciplinas: ["Auspícios: Sentidos Aguçados", "Auspícios: Premonição", "Feitiçaria do Sangue: Vitae Corrosiva", "Rapidez: Graça Felina"] });
+  assert.equal(values.disc_rapidez, 1);
+  assert.deepEqual(violations(fixture.template, values), ["rituais_iniciais"]);
+  values = pick(values, { rituais: ["Feitiçaria do Sangue: Caminhada de Sangue"] });
+  assert.deepEqual(violations(fixture.template, values), []);
+  const forged = { ...values, cla: "Brujah" };
+  assert.ok(violations(fixture.template, { ...brujah(), predador: "Ensacador", predador_disciplina: "Feitiçaria do Sangue", disc_feiticaria: 1 }).includes("predador_bonus"));
+  assert.ok(violations(fixture.template, forged).includes("cla_disciplinas"));
+});
+
+test("the mobile V5 starter carries the web catalog, clan-generation and specialty rules", () => {
+  for (const id of ["vantagens_pontos", "defeitos_pontos", "cla_geracao", "especializacoes"]) {
+    assert.deepEqual(template.creation_rules.find((rule) => rule.id === id), fixture.template.creation_rules.find((rule) => rule.id === id), `rule ${id} drifted from the web starter`);
+  }
+  const labels = new Map(template.fields.map((field) => [field.id, field.label]));
+  const thin = pick(base(), { cla: "Sangue-Ralo" });
+  assert.ok(grantProblems(template, thin, new Set(["cla"]), labels).some((problem) => problem.includes("Geração deve ficar entre 14 e 16 para Sangue-Ralo")));
+  const homebrew = { ...fixture.template, creation_rules: fixture.template.creation_rules.map((rule) => rule.id === "vantagens_pontos" ? { ...rule, allow_homebrew: true } : rule) };
+  assert.deepEqual(violations(homebrew, { ...brujah(), vantagens: ["Aliados •••", "Refúgio ••", "Pacto Antigo ••"] }), [], "the narrator's homebrew switch accepts other names");
+  assert.match(ruleMessage(template.creation_rules.find((rule) => rule.id === "especializacoes")), /Habilidade \(especialização\)/);
+});
+
+test("violations read as Portuguese guidance", () => {
+  const rule = fixture.template.creation_rules.find((item) => item.id === "atributos");
+  assert.equal(ruleMessage(rule), "Atributos: distribua como Distribuição de atributos (1 em 4, 3 em 3, 4 em 2, 1 em 1).");
+});

@@ -5,9 +5,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from app.routes import sheets
-from app.routes.sheets import SheetCreate, SheetUpdate, _template_fields, _validate_values
-from fastapi import HTTPException
+from app.adapters.inbound.http import sheets
+from app.adapters.inbound.http.sheets import SheetCreate, SheetUpdate
+from app.application.sheets.service import template_fields as _template_fields
+from app.application.sheets.service import validate_values as _validate_values
+from app.domain.errors import InvalidInput
 
 
 sheets_app = FastAPI()
@@ -50,14 +52,13 @@ def test_modular_sheet_payload_and_field_validation() -> None:
     ],
 )
 def test_modular_sheet_rejects_unknown_or_mistyped_fields(values: dict[str, object]) -> None:
-    with pytest.raises(HTTPException) as error:
+    with pytest.raises(InvalidInput):
         _validate_values(values, _template_fields({"schema": TEMPLATE_SCHEMA}))
-    assert error.value.status_code == 422
 
 
 def test_modular_sheet_requires_non_calculated_required_fields() -> None:
     fields = _template_fields({"schema": {"fields": [{"id": "character_name", "label": "Nome", "kind": "text", "required": True}]}})
-    with pytest.raises(HTTPException, match="campo obrigatório ausente"):
+    with pytest.raises(InvalidInput, match="campo obrigatório ausente"):
         _validate_values({}, fields)
 
 

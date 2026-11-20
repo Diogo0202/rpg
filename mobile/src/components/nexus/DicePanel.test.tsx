@@ -46,7 +46,8 @@ describe("DicePanel", () => {
         ]),
       ),
     );
-    expect(await screen.findByText(/Ataque/)).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector("ol")?.textContent).toContain("Ataque"));
+    expect(screen.getByTestId("dice-stage-live")).toHaveTextContent(/Ataque: Total \d+/);
     expect(await screen.findByRole("status")).toHaveTextContent("Rolagem local registrada");
   });
 

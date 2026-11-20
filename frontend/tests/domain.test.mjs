@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { validateBackup,parseBackupText,createVaultBackup } from "../lib/sheet-backup.ts";
-import { calculateExperienceCost } from "../lib/experience-math.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { calculateExperienceCost } from "../../shared/rules/experience-math.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 function backup(){return {format:"rpg-nexus-sheet",format_version:1,name:"Lia",template:{name:"Modelo de teste",version:1,fields:[{id:"nome",label:"Nome",kind:"text",required:true,options:[],expression:null},{id:"vigor",label:"Vigor",kind:"number",required:true,options:[],expression:null}]},values:{nome:"Lia",vigor:0},effects:[],inventory:[]};}
 function item(patch={}){return {name:"Item de teste",category:"weapon",quantity:1,resource_cost:1,damage_bonus:2,protection:0,notes:"Manual",acquired:true,equipped:true,sort_order:0,...patch};}
@@ -47,13 +47,22 @@ test("backup do cofre preserva documentos e rejeita versão desconhecida",()=>{
   const packed=createVaultBackup([validateBackup(backup())]);assert.equal(parseBackupText(JSON.stringify(packed)).length,1);
   packed.format_version=99;assert.throws(()=>parseBackupText(JSON.stringify(packed)));
 });
-test("três modelos do Atlas exportam o contrato de backup v1 sem metadados de apresentação",()=>{
-  assert.equal(SYSTEM_STARTERS.length,3);
+test("modelos do Atlas exportam o contrato de backup v1 sem metadados de apresentação",()=>{
+  assert.ok(SYSTEM_STARTERS.length>=3);
   for(const starter of SYSTEM_STARTERS){
-    const template={name:starter.template.name,version:starter.template.version,fields:starter.template.fields.map(({id,label,kind,required,options,expression})=>({id,label,kind,required,options,expression}))};
+    const template={name:starter.template.name,version:starter.template.version,fields:starter.template.fields.map(({id,label,kind,required,options,expression,depends_on})=>({id,label,kind,required,options,expression,...(depends_on?{depends_on}:{})}))};
     const value={format:"rpg-nexus-sheet",format_version:1,name:"Lia",template,values:{...starter.values,nome:"Lia"},effects:[]};
     // Campos opcionais vazios não são gravados pela oficina.
-    for(const field of starter.template.fields)if(field.kind==="select"&&value.values[field.id]==="")delete value.values[field.id];
+    for(const field of starter.template.fields)if(field.kind==="select"&&(value.values[field.id]===""||(field.required&&value.values[field.id]===undefined))){
+      // Dependent selects (e.g. Demon's main Lore by House) take options from the controller's case.
+      const options=field.depends_on?(field.depends_on.cases.find(item=>item.equals===value.values[field.depends_on.field_id])??field.depends_on.cases[0])?.options??[]:field.options;
+      if(field.required)value.values[field.id]=options[0];else delete value.values[field.id];
+    }
+    // Required texts, such as the first Hunter Convicção/Pedra de Toque pair, need a value.
+    for(const field of starter.template.fields)if(field.kind==="text"&&field.required&&value.values[field.id]==="")value.values[field.id]="Exemplo";
+    for(const field of starter.template.fields)if(field.kind==="number"&&field.required&&value.values[field.id]===undefined){
+      value.values[field.id]=field.min??0;
+    }
     assert.equal(validateBackup(value).name,"Lia");
     assert.equal(JSON.stringify(value.template).includes("creation_step"),false);
     assert.equal(value.values.ativo_na_sessao,true);

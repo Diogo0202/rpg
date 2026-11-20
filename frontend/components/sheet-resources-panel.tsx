@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 
 import { useCharacterSession } from "../lib/character-session";
 import { adjustExperience, listSheetEvents, spendMetaCurrency, type AdjustedSheet, type SheetEvent } from "../lib/sheet-adjustments";
-import type { MetaCurrency, SheetTemplate } from "../lib/sheet-template";
-import { createClient } from "../lib/supabase/client";
+import type { MetaCurrency, SheetTemplate } from "../../shared/rules/sheet-template";
+import { browserDb } from "../lib/data/browser";
+import { sheetContext, templateSchema } from "../lib/data/sheets";
 import styles from "./sheet-resources-panel.module.css";
 
 type Resources = { sheetId: string; ownerId: string; experienceField: string | null; currencies: MetaCurrency[] };
@@ -36,11 +37,11 @@ export function SheetResourcesPanel({ viewerId, canManage }: { viewerId: string;
     if (!characterId) return;
     let active = true;
     (async () => {
-      const client = createClient();
-      const { data: sheet, error: sheetError } = await client.from("character_sheets").select("template_id,owner_id").eq("id", characterId).single();
+      const db = browserDb();
+      const { data: sheet, error: sheetError } = await sheetContext(db, characterId);
       if (!active) return;
       if (sheetError || !sheet) { setMessage("Não foi possível ler o modelo desta ficha."); return; }
-      const { data: template, error: templateError } = await client.from("system_templates").select("schema").eq("id", sheet.template_id).single();
+      const { data: template, error: templateError } = await templateSchema(db, sheet.template_id);
       if (!active) return;
       if (templateError || !template) { setMessage("Não foi possível ler o modelo desta ficha."); return; }
       const schema = template.schema as SheetTemplate;

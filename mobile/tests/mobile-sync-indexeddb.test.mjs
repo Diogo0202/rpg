@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const sourcePath = join(here, "../src/lib/mobile-sync/store.ts");
+const syncCorePath = join(here, "../../shared/sync/core.ts");
 const transportPath = join(here, "../src/lib/mobile-sync/transport.ts");
 const mergePath = join(here, "../src/lib/mobile-sync/merge.ts");
 const require = createRequire(import.meta.url);
@@ -32,7 +33,8 @@ test("IndexedDB persists partitions and serializes writes across store instances
   const ts = require("typescript");
   const source = await readFile(sourcePath, "utf8");
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
-  const pageHtml = `<!doctype html><meta charset="utf-8"><script>(()=>{const exports={};${js}\n;window.mobileSyncModule=exports})()</script>`;
+  const coreJs = ts.transpileModule(await readFile(syncCorePath,"utf8"), { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const pageHtml = `<!doctype html><meta charset="utf-8"><script>(()=>{const core={};new Function("exports",${JSON.stringify(coreJs)})(core);const require=(id)=>{if(id.includes("sync/core"))return core;throw new Error("Unknown dependency "+id);};const exports={};${js}\n;window.mobileSyncModule=exports})()</script>`;
   const server = createServer((_request, response) => { response.writeHead(200, { "content-type": "text/html; charset=utf-8" }); response.end(pageHtml); });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
@@ -95,11 +97,13 @@ test("FastApiSyncTransport calls the browser's native fetch without Illegal invo
   catch (error) { t.skip(`Chromium unavailable: ${error.message}`); return; }
   const ts = require("typescript");
   const compilerOptions = { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS };
+  const coreJs = ts.transpileModule(await readFile(syncCorePath,"utf8"),{compilerOptions}).outputText;
   const mergeJs = ts.transpileModule(await readFile(mergePath, "utf8"), { compilerOptions }).outputText;
   const transportJs = ts.transpileModule(await readFile(transportPath, "utf8"), { compilerOptions }).outputText;
   const html = `<!doctype html><meta charset="utf-8"><script>(()=>{
+    const coreModule={exports:{}};new Function("exports",${JSON.stringify(coreJs)})(coreModule.exports);
     const mergeModule={exports:{}}; new Function('module','exports',${JSON.stringify(mergeJs)})(mergeModule,mergeModule.exports);
-    const transportModule={exports:{}}; new Function('module','exports','require',${JSON.stringify(transportJs)})(transportModule,transportModule.exports,()=>mergeModule.exports);
+    const transportModule={exports:{}}; new Function('module','exports','require',${JSON.stringify(transportJs)})(transportModule,transportModule.exports,(id)=>id.includes("sync/core")?coreModule.exports:mergeModule.exports);
     window.FastApiSyncTransport=transportModule.exports.FastApiSyncTransport; window.transportExportKeys=Object.keys(transportModule.exports);
   })()</script>`;
   const seen = [];
@@ -116,8 +120,8 @@ test("FastApiSyncTransport calls the browser's native fetch without Illegal invo
   try {
     const page = await browser.newPage();
     await page.goto(`http://127.0.0.1:${address.port}/`);
-    const moduleCheck = await page.evaluate(() => ({ keys: window.transportExportKeys, type: typeof window.FastApiSyncTransport }));
-    assert.deepEqual(moduleCheck, { keys: ["SyncHttpError", "FastApiSyncTransport", "parseRetryAfter", "checkedBaseUrl"], type: "function" });
+    const moduleCheck = await page.evaluate(() => ({ keys: window.transportExportKeys.sort(), type: typeof window.FastApiSyncTransport }));
+    assert.deepEqual(moduleCheck, { keys: ["SyncHttpError", "FastApiSyncTransport", "parseRetryAfter", "checkedBaseUrl"].sort(), type: "function" });
     const result = await page.evaluate(async (baseUrl) => {
       const transport = new window.FastApiSyncTransport({ baseUrl, getAccessToken: async () => "test-access-token" });
       return await transport.listCampaigns();
@@ -128,5 +132,38 @@ test("FastApiSyncTransport calls the browser's native fetch without Illegal invo
   } finally {
     await new Promise((resolve) => server.close(resolve));
     await browser.close();
+  }
+});
+
+test("table preferences update atomically across two browser tabs", async (t) => {
+  const playwright = await loadPlaywright();
+  if (!playwright) { t.skip("Playwright is not installed"); return; }
+  const browser = await playwright.chromium.launch({ headless: true });
+  const ts = require("typescript");
+  const source = await readFile(join(here, "../src/lib/nexus/prefs.ts"), "utf8");
+  const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.CommonJS } }).outputText;
+  const html = `<!doctype html><script>const exports={};${js};window.prefs=exports;</script>`;
+  const server = createServer((_request, response) => { response.writeHead(200, { "content-type": "text/html" }); response.end(html); });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const context = await browser.newContext();
+    const first = await context.newPage(), second = await context.newPage();
+    const url = `http://127.0.0.1:${server.address().port}/`;
+    await Promise.all([first.goto(url), second.goto(url)]);
+    const key = `table-concurrent-${Date.now()}`;
+    const append = (page, tab) => page.evaluate(async ({ key, tab }) => {
+      await Promise.all(Array.from({ length: 40 }, (_, index) => window.prefs.prefUpdateKeys([key], ([value]) => {
+        const next = [...(value ?? []), `${tab}-${index}`];
+        return { result: next.length, writes: [[key, next]] };
+      })));
+    }, { key, tab });
+    await Promise.all([append(first, "a"), append(second, "b")]);
+    const saved = await first.evaluate((key) => window.prefs.prefGet(key), key);
+    assert.equal(saved.length, 80);
+    assert.equal(new Set(saved).size, 80);
+    await context.close();
+  } finally {
+    await browser.close();
+    await new Promise((resolve) => server.close(resolve));
   }
 });

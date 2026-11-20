@@ -71,7 +71,7 @@ function accumulate(target: RollProbabilities, events: RollProbabilities, probab
   target.bestial_failure += events.bestial_failure * probability;
 }
 
-/** Same event model and reroll policy as backend/app/services/v5_probability.py. */
+/** Same event model and reroll policy as backend/app/domain/v5_probability.py. */
 export function estimateV5Probabilities(
   pool: number,
   hunger: number,
@@ -100,28 +100,56 @@ export function estimateV5Probabilities(
   );
   const withoutReroll = { success: 0, messy_critical: 0, bestial_failure: 0 };
   const withReroll = { success: 0, messy_critical: 0, bestial_failure: 0 };
+  const scale = 10 ** willpowerDice;
+  const choices = new Map<string, { success: number; messy: number }>();
+
+  // Integer numerators keep ties exact when comparing different reroll sizes.
+  const entries = rerollDistributions.map((states, count) => states.map((state) => ({
+    ...state, ways: Math.round(state.probability * 10 ** count),
+  })));
+
+  function bestChoice(failures: number, singles: number, tens: number, hungry: HungerState) {
+    const key = `${failures},${singles},${tens},${hungry.successes},${hungry.tens}`;
+    const cached = choices.get(key);
+    if (cached) return cached;
+    let best = { success: -1, messy: scale + 1, total: willpowerDice + 1 };
+    for (let total = 0; total <= willpowerDice; total++) {
+      for (let a = 0; a <= Math.min(failures, total); a++) {
+        for (let b = 0; b <= Math.min(singles, total - a); b++) {
+          const c = total - a - b;
+          if (c > tens) continue;
+          let success = 0;
+          let messy = 0;
+          for (const extra of entries[total]) {
+            const allTens = tens - c + hungry.tens + extra.tens;
+            const successes = singles - b + hungry.successes + extra.successes + allTens + 2 * Math.floor(allTens / 2);
+            if (successes < difficulty) continue;
+            success += extra.ways;
+            if (allTens >= 2 && hungry.tens > 0) messy += extra.ways;
+          }
+          const factor = 10 ** (willpowerDice - total);
+          success *= factor;
+          messy *= factor;
+          if (success > best.success || (success === best.success && (messy < best.messy || (messy === best.messy && total < best.total))))
+            best = { success, messy, total };
+        }
+      }
+    }
+    choices.set(key, best);
+    return best;
+  }
 
   for (const normal of ordinary) {
     const failedNormal = ordinaryCount - normal.successes - normal.tens;
-    const rerolls = rerollDistributions[Math.min(willpowerDice, failedNormal)];
     for (const hungry of hungerStates) {
       const weight = normal.probability * hungry.probability;
       accumulate(withoutReroll, countEvents(normal, hungry, difficulty), weight);
-      for (const extra of rerolls) {
-        accumulate(
-          withReroll,
-          countEvents(
-            {
-              successes: normal.successes + extra.successes,
-              tens: normal.tens + extra.tens,
-              probability: 1,
-            },
-            hungry,
-            difficulty,
-          ),
-          weight * extra.probability,
-        );
-      }
+      const best = bestChoice(failedNormal, normal.successes, normal.tens, hungry);
+      accumulate(withReroll, {
+        success: best.success / scale,
+        messy_critical: best.messy / scale,
+        bestial_failure: hungry.ones > 0 ? (scale - best.success) / scale : 0,
+      }, weight);
     }
   }
 

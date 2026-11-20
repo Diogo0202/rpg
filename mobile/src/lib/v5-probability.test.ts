@@ -3,8 +3,8 @@ import { estimateV5Probabilities } from "./v5-probability";
 
 describe("V5 probability comparison", () => {
   it.each([
-    [2, 1, 1, 1, [0.75, 0.01, 0.05], [0.875, 0.015, 0.025]],
-    [5, 2, 3, 3, [0.5125, 0.05878, 0.1259], [0.780625, 0.0794575, 0.065575]],
+    [2, 1, 1, 1, [0.75, 0.01, 0.05], [0.875, 0.001, 0.025]],
+    [5, 2, 3, 3, [0.5125, 0.05878, 0.1259], [0.780625, 0.0533839, 0.065575]],
     [5, 5, 4, 3, [0.2325, 0.08146, 0.36046], [0.2325, 0.08146, 0.36046]],
     [
       30,
@@ -12,7 +12,7 @@ describe("V5 probability comparison", () => {
       8,
       3,
       [0.998382616828084, 0.3859463446782533, 0.0009279777711713791],
-      [0.9995957790819734, 0.3923391298712877, 0.00023552716570448398],
+      [0.9995957790819734, 0.20504030318471453, 0.00023552716570448398],
     ],
   ] as const)(
     "matches the server for pool %i, hunger %i, difficulty %i",
@@ -26,6 +26,12 @@ describe("V5 probability comparison", () => {
       }
     },
   );
+
+  it("can reroll a successful ordinary die to seek a critical", () => {
+    const result = estimateV5Probabilities(2, 0, 4, 1);
+    expect(result.without_reroll.success).toBeCloseTo(0.01, 12);
+    expect(result.with_reroll.success).toBeCloseTo(0.028, 12);
+  });
 
   it("rejects invalid inputs instead of changing the pool silently", () => {
     expect(() => estimateV5Probabilities(4, 5, 2)).toThrow();

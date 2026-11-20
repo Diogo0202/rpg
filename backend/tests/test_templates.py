@@ -1,7 +1,7 @@
 import pytest
 
-from app.models import FieldKind, TemplateDraft, TemplateField
-from app.services.templates import validate_template
+from app.domain.models import FieldKind, TemplateDraft, TemplateField
+from app.domain.templates import validate_template
 
 
 def test_validates_formula_references() -> None:

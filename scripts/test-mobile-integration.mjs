@@ -40,6 +40,7 @@ const rpcArguments = {
   mobile_sync_push: ["p_campaign_id", "p_device_id", "p_mutations"],
   mobile_sync_snapshot: ["p_campaign_id", "p_entity_type", "p_after_id", "p_limit"],
   mobile_sync_changes: ["p_campaign_id", "p_cursor", "p_limit"],
+  adjust_sheet_number_idempotent: ["p_sheet_id", "p_operation_id", "p_field_id", "p_delta", "p_reason"],
 };
 const quote = (name) => `"${name.replaceAll('"', '""')}"`;
 const fixtureEmails = new Map([["owner@example.test", owner], ["player@example.test", player], ["outsider@example.test", outsider]]);
@@ -218,6 +219,16 @@ try {
   assert(!managerChanges.changes.some((event) => event.action === "delete" && [sheetId, inventoryId].includes(event.entity_id)));
   assert(managerChanges.changes.some((event) => event.entity_type === "character_sheets" && event.entity_id === sheetId && event.action === "update"));
   checked.push("new owner snapshot contains transferred rows while manager receives no old-owner tombstone");
+
+  const adjustment = { operation_id: crypto.randomUUID(), field_id: "vigor", delta: 1, reason: "Ajuste offline" };
+  const newOwnerWire = transport(newOwner);
+  const adjusted = await newOwnerWire.adjustSheet(sheetId, adjustment);
+  const repeated = await newOwnerWire.adjustSheet(sheetId, adjustment);
+  assert.equal(adjusted.sheet.values.vigor, 6);
+  assert.equal(repeated.sheet.values.vigor, 6);
+  assert.equal((await db.query("select count(*)::integer as count from public.character_sheet_events where operation_id=$1", [adjustment.operation_id])).rows[0].count, 1);
+  await assert.rejects(newOwnerWire.adjustSheet(sheetId, {...adjustment,delta:2}), error => error.status === 409);
+  checked.push("atomic adjustment replay keeps one event and rejects changed operation content");
 
   await assert.rejects(transport(outsider).snapshot(campaign, "character_sheets"), (error) => error.status === 403);
   await db.query("delete from public.campaign_members where campaign_id=$1 and user_id=$2", [campaign, player]);

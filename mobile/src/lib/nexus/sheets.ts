@@ -1,9 +1,10 @@
-import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
-import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
+import { ONE_RING_SEEDS,ONE_RING_CREATION_RULES,ONE_RING_META_CURRENCIES } from "../../../../shared/rules/one-ring-rules.ts";
+import { SYSTEM_STARTERS, type SystemStarter } from "../../../../shared/rules/system-starters.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 import { createSheetBackup, mechanicallyEquivalentFields, type BackupField, type BackupInventoryItem, type SheetBackup } from "@/lib/sheet-backup.ts";
 import { evaluateFormula, type FormulaResult } from "@/lib/formula";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
-import { characterNameField, reconcileDependentValues, validateFields } from "@/lib/sheet-creation.ts";
+import { characterNameField, reconcileDependentValues, validateFields } from "../../../../shared/rules/sheet-creation.ts";
 
 export type SheetData = {
   name: string;
@@ -11,6 +12,7 @@ export type SheetData = {
   template_name: string;
   template_version: number;
   template_fields?: BackupField[];
+  template_schema?: SheetTemplate;
   values: Record<string, FieldValue>;
   effects: JsonValue[];
 };
@@ -33,6 +35,17 @@ export function starterById(id: string | null | undefined): SystemStarter | unde
 }
 
 export function templateFor(sheet: SheetData): SheetTemplate {
+  if(sheet.system_key==="one-ring") {
+    if(sheet.template_schema?.fields?.length) return {...sheet.template_schema,name:sheet.template_name,version:sheet.template_version};
+    if(sheet.template_fields?.length) return {name:sheet.template_name,version:sheet.template_version,system_key:"one-ring",fields:sheet.template_fields as SheetField[]};
+    if(sheet.template_version===2) return {name:sheet.template_name,version:2,system_key:"one-ring",fields:[
+      {id:"sistema",label:"Sistema",kind:"text",required:false,options:[],expression:null},
+      {id:"ativo_na_sessao",label:"Ativo na sessão",kind:"checkbox",required:false,options:[],expression:null},
+      ...ONE_RING_SEEDS.map(({initial,...field})=>field),
+      {id:"experiencia",label:"Experiência disponível",kind:"number",required:false,options:[],expression:null}
+    ],experience_field:"experiencia",meta_currencies:ONE_RING_META_CURRENCIES,creation_rules:ONE_RING_CREATION_RULES};
+    if(sheet.template_version<3) return {name:sheet.template_name,version:sheet.template_version,system_key:"one-ring",fields:Object.entries(sheet.values).map(([id,value])=>({id,label:id,kind:Array.isArray(value)?"collection":typeof value==="number"?"number":typeof value==="boolean"?"checkbox":"text",required:false,options:[],expression:null,...(id==="nome"?{character_name:true}:{})}))};
+  }
   const starter = starterById(sheet.system_key);
   if (starter) return starter.template;
   return { name: sheet.template_name, version: sheet.template_version, fields: (sheet.template_fields ?? []) as SheetField[] };
@@ -76,7 +89,7 @@ export function storableValues(template: SheetTemplate, values: Record<string, F
 
 export function toBackupFields(fields: SheetField[]): BackupField[] {
   return fields.map((f) => ({
-    id: f.id, label: f.label, kind: f.kind, required: f.required, options: [...f.options], expression: f.expression,
+    id: f.id, label: f.label, kind: f.kind, required: f.required, options: [...(f.options ?? [])], expression: f.expression ?? null,
     ...(f.depends_on ? { depends_on: f.depends_on } : {}),
   }));
 }
@@ -92,9 +105,17 @@ export function exportSheet(sheet: SheetData, items: InventoryData[]): SheetBack
   });
 }
 
+/**
+ * Backup format v1 carries only the BackupField keys, so the template side is projected
+ * the same way: limits, private, item_options and paired_with stay with the template.
+ */
+export function backupMatchesFields(doc: SheetBackup, fields: SheetField[]): boolean {
+  return mechanicallyEquivalentFields(doc.template.fields, toBackupFields(fields));
+}
+
 export function matchStarter(doc: SheetBackup): SystemStarter | undefined {
   return SYSTEM_STARTERS.find((s) => s.template.name === doc.template.name && s.template.version === doc.template.version
-    && mechanicallyEquivalentFields(doc.template.fields, s.template.fields));
+    && backupMatchesFields(doc, s.template.fields));
 }
 
 /** Normalize the record name and its canonical input together before any write. */
@@ -119,7 +140,7 @@ export function sheetFromBackup(doc: SheetBackup): SheetData {
   return {
     name, system_key: starter?.id ?? null, template_name: doc.template.name,
     template_version: doc.template.version,
-    ...(starter ? {} : { template_fields: doc.template.fields }),
+    ...(starter ? {} : { template_fields: doc.template.fields, template_schema: doc.template as SheetTemplate }),
     values: storableValues(template, values), effects: JSON.parse(JSON.stringify(doc.effects)) as JsonValue[],
   };
 }

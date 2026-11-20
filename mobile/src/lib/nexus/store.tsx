@@ -1,3 +1,4 @@
+import { clearTableAccount, blockTableCampaign, restoreTableCampaign } from "@/lib/game/table-queue-storage";
 import {
   useCallback,
   useContext,
@@ -150,6 +151,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async (eng: SyncEngine) => {
     const s = await eng.readState();
+    if (s.accessRevoked) await blockTableCampaign(eng.partition.accountId, eng.partition.campaignId);
     const templateRows = Object.values(s.records).filter(
       (record) => record.entity_type === "system_templates" && !record.deleted,
     );
@@ -193,7 +195,10 @@ export function NexusProvider({ children }: { children: ReactNode }) {
               !Array.isArray(schema) &&
               Array.isArray(schema.fields)
             )
-              data.template_fields = schema.fields as JsonValue;
+            { data.template_fields = schema.fields as JsonValue;
+              if(typeof schema.system_key==="string")data.system_key=schema.system_key;
+              if(schema.system_key==="one-ring")data.template_schema=schema as JsonValue;
+            }
           }
           if (!Array.isArray(data.effects)) data.effects = [];
         }
@@ -325,8 +330,12 @@ export function NexusProvider({ children }: { children: ReactNode }) {
       if (nextAccountId === priorAccountId) return;
 
       // Keep this SDK callback synchronous. Detach the old partition immediately;
-      // its IndexedDB rows and queued mutations remain available to that account.
+      // account cleanup runs outside the SDK callback.
       authAccountRef.current = nextAccountId;
+      if (priorAccountId && !nextAccountId) {
+        void clearTableAccount(priorAccountId).catch((error) => setError(String(error)));
+        void storeRef.current?.clearAccount(priorAccountId).catch((error) => setError(String(error)));
+      }
       const local = localEngineRef.current;
       if (engineRef.current && engineRef.current.partition.accountId !== LOCAL_ACCOUNT_ID) {
         modeRef.current = "local";
@@ -555,6 +564,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
     authAccountRef.current = null;
     authStateObservedRef.current = true;
     const account = user?.id;
+    if (account) await clearTableAccount(account);
     const local = localEngineRef.current;
     setUser(null);
     setCampaigns([]);
@@ -574,6 +584,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
     }
     let cleanupFailure: unknown;
     try {
+      if (account) { const { clearOfflineAccount } = await import("../../../../shared/one-ring/offline.ts"); await clearOfflineAccount(account); }
       if (account && storeRef.current) await storeRef.current.clearAccount(account);
       if (account) {
         await prefSet(`${CAMPAIGN_CACHE}${account}`, []);
@@ -642,6 +653,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
         try {
           caps = await accountTransport.capabilities(requestedId);
           if (authAccountRef.current !== accountAtStart) throw new Error("A conta mudou durante a abertura da campanha.");
+          await restoreTableCampaign(accountAtStart, requestedId);
           await prefSet(capsKey, caps);
         } catch (caught) {
           if (authAccountRef.current !== accountAtStart) throw new Error("A conta mudou durante a abertura da campanha.");
@@ -713,6 +725,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
     if (!active || modeRef.current !== "connected")
       throw new Error("Escolha uma campanha conectada antes de sincronizar.");
     const report = await active.sync();
+    if (report.reason === "revoked") await blockTableCampaign(active.partition.accountId, active.partition.campaignId);
     await load(active);
     if (engineRef.current !== active) throw new Error("A conta ou campanha ativa mudou durante a sincronização.");
     if (report.reason === "revoked")
@@ -764,6 +777,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
           requested = false;
           if (!alive || authAccountRef.current !== user.id || engineRef.current !== active) return;
           const report = await active.sync();
+    if (report.reason === "revoked") await blockTableCampaign(active.partition.accountId, active.partition.campaignId);
           if (report.reason === "network" || report.reason === "retry_later" || report.reason === "reauth_required" || report.reason === "revoked") {
             await load(active);
             return;

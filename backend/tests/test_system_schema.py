@@ -1,8 +1,9 @@
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.services.marketplace import PublishRequest, validate_publication
+from app.domain.errors import InvalidInput
+
+from app.domain.marketplace import PublishRequest, validate_publication
 
 
 def publication():
@@ -34,7 +35,7 @@ def test_partition_validation_does_not_discard_invalid_schema(change):
         body["template"]["fields"] = body["template"]["primitives"]
     else:
         body["template"]["inventory_schema"][0] = {"id": "peso", "label": "Peso", "kind": "formula", "expression": "1+1"}
-    with pytest.raises((ValidationError, HTTPException)):
+    with pytest.raises((ValidationError, InvalidInput)):
         validate_publication(PublishRequest.model_validate(body))
 
 

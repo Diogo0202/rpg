@@ -1,0 +1,1214 @@
+{
+  "version": 3,
+  "source": {
+    "id": "1IncmiLhV10vXg7mJZa4b29jYfSx9NFoi",
+    "title": "O Um Anel 2ª edição, tradução brasileira beta 2.1",
+    "pdf_page_offset": 3,
+    "pages": {
+      "creation": [
+        28,
+        55
+      ],
+      "equipment": [
+        47,
+        50,
+        100
+      ],
+      "virtues": 80,
+      "rewards": 79,
+      "living": 72
+    },
+    "precedence": "Descrições completas dos capítulos prevalecem sobre o resumo da página 51."
+  },
+  "attributes": [
+    "corpo",
+    "coracao",
+    "astucia"
+  ],
+  "skills": [
+    {
+      "id": "awe",
+      "label": "Fascínio",
+      "legacy_label": "Presença",
+      "attribute": "corpo"
+    },
+    {
+      "id": "enhearten",
+      "label": "Indução",
+      "legacy_label": "Encorajar",
+      "attribute": "coracao"
+    },
+    {
+      "id": "persuade",
+      "label": "Persuasão",
+      "legacy_label": "Persuasão",
+      "attribute": "astucia"
+    },
+    {
+      "id": "athletics",
+      "label": "Atletismo",
+      "legacy_label": "Atletismo",
+      "attribute": "corpo"
+    },
+    {
+      "id": "travel",
+      "label": "Viagem",
+      "legacy_label": "Viagem",
+      "attribute": "coracao"
+    },
+    {
+      "id": "stealth",
+      "label": "Furtividade",
+      "legacy_label": "Furtividade",
+      "attribute": "astucia"
+    },
+    {
+      "id": "awareness",
+      "label": "Vigilância",
+      "legacy_label": "Percepção",
+      "attribute": "corpo"
+    },
+    {
+      "id": "insight",
+      "label": "Discernimento",
+      "legacy_label": "Intuição",
+      "attribute": "coracao"
+    },
+    {
+      "id": "scan",
+      "label": "Busca",
+      "legacy_label": "Busca",
+      "attribute": "astucia"
+    },
+    {
+      "id": "hunting",
+      "label": "Caçada",
+      "legacy_label": "Caçada",
+      "attribute": "corpo"
+    },
+    {
+      "id": "healing",
+      "label": "Cura",
+      "legacy_label": "Cura",
+      "attribute": "coracao"
+    },
+    {
+      "id": "explore",
+      "label": "Exploração",
+      "legacy_label": "Exploração",
+      "attribute": "astucia"
+    },
+    {
+      "id": "song",
+      "label": "Música",
+      "legacy_label": "Canção",
+      "attribute": "corpo"
+    },
+    {
+      "id": "courtesy",
+      "label": "Cortesia",
+      "legacy_label": "Cortesia",
+      "attribute": "coracao"
+    },
+    {
+      "id": "riddle",
+      "label": "Enigma",
+      "legacy_label": "Enigmas",
+      "attribute": "astucia"
+    },
+    {
+      "id": "craft",
+      "label": "Ofício",
+      "legacy_label": "Ofício",
+      "attribute": "corpo"
+    },
+    {
+      "id": "battle",
+      "label": "Batalha",
+      "legacy_label": "Batalha",
+      "attribute": "coracao"
+    },
+    {
+      "id": "lore",
+      "label": "História",
+      "legacy_label": "Conhecimento",
+      "attribute": "astucia"
+    }
+  ],
+  "proficiencies": [
+    {
+      "id": "machados",
+      "label": "Machados"
+    },
+    {
+      "id": "arcos",
+      "label": "Arcos"
+    },
+    {
+      "id": "lancas",
+      "label": "Lanças"
+    },
+    {
+      "id": "espadas",
+      "label": "Espadas"
+    }
+  ],
+  "skill_costs": [
+    0,
+    1,
+    2,
+    3,
+    5
+  ],
+  "combat_costs": [
+    0,
+    2,
+    4,
+    6
+  ],
+  "previous_experience": 10,
+  "cultures": [
+    {
+      "id": "dwarves",
+      "name": "Anões do Povo de Durin",
+      "attributes": [
+        [
+          7,
+          2,
+          5
+        ],
+        [
+          7,
+          3,
+          4
+        ],
+        [
+          6,
+          3,
+          5
+        ],
+        [
+          6,
+          4,
+          4
+        ],
+        [
+          5,
+          4,
+          5
+        ],
+        [
+          6,
+          2,
+          6
+        ]
+      ],
+      "bases": [
+        22,
+        8,
+        10
+      ],
+      "skills": {
+        "awe": 2,
+        "enhearten": 0,
+        "persuade": 0,
+        "athletics": 1,
+        "travel": 3,
+        "stealth": 0,
+        "awareness": 0,
+        "insight": 0,
+        "scan": 3,
+        "hunting": 0,
+        "healing": 0,
+        "explore": 2,
+        "song": 1,
+        "courtesy": 1,
+        "riddle": 2,
+        "craft": 2,
+        "battle": 1,
+        "lore": 1
+      },
+      "favoured": [
+        "travel",
+        "craft"
+      ],
+      "combat": [
+        "machados",
+        "espadas"
+      ],
+      "traits": [
+        "Astuto",
+        "Cauteloso",
+        "Feroz",
+        "Nobre",
+        "Orgulhoso",
+        "Severo",
+        "Sigiloso",
+        "Teimoso"
+      ],
+      "living": "Próspero",
+      "languages": [
+        "Língua Comum",
+        "Khuzdul"
+      ],
+      "blessing": "Formidável",
+      "page": 32,
+      "armor_load_divisor": 2,
+      "forbidden_equipment": [
+        "great_bow",
+        "long_spear",
+        "great_shield"
+      ],
+      "age_suggestion": [
+        50,
+        90
+      ]
+    },
+    {
+      "id": "bardings",
+      "name": "Bardeses",
+      "attributes": [
+        [
+          5,
+          7,
+          2
+        ],
+        [
+          4,
+          7,
+          3
+        ],
+        [
+          5,
+          6,
+          3
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          5,
+          5,
+          4
+        ],
+        [
+          6,
+          6,
+          2
+        ]
+      ],
+      "bases": [
+        20,
+        8,
+        12
+      ],
+      "skills": {
+        "awe": 1,
+        "enhearten": 2,
+        "persuade": 3,
+        "athletics": 1,
+        "travel": 1,
+        "stealth": 0,
+        "awareness": 0,
+        "insight": 2,
+        "scan": 1,
+        "hunting": 2,
+        "healing": 0,
+        "explore": 1,
+        "song": 1,
+        "courtesy": 2,
+        "riddle": 0,
+        "craft": 1,
+        "battle": 2,
+        "lore": 1
+      },
+      "favoured": [
+        "enhearten",
+        "athletics"
+      ],
+      "combat": [
+        "arcos",
+        "espadas"
+      ],
+      "traits": [
+        "Alto",
+        "Ansioso",
+        "Belo",
+        "Bravo",
+        "Feroz",
+        "Generoso",
+        "Orgulhoso",
+        "Teimoso"
+      ],
+      "living": "Próspero",
+      "languages": [
+        "Língua Comum",
+        "Valeanto"
+      ],
+      "blessing": "Coração Forte",
+      "page": 34,
+      "valour_favoured": true,
+      "age_suggestion": [
+        18,
+        40
+      ]
+    },
+    {
+      "id": "elves",
+      "name": "Elfos de Lindon",
+      "attributes": [
+        [
+          5,
+          2,
+          7
+        ],
+        [
+          4,
+          3,
+          7
+        ],
+        [
+          5,
+          3,
+          6
+        ],
+        [
+          4,
+          4,
+          6
+        ],
+        [
+          5,
+          4,
+          5
+        ],
+        [
+          6,
+          2,
+          6
+        ]
+      ],
+      "bases": [
+        20,
+        8,
+        12
+      ],
+      "skills": {
+        "awe": 2,
+        "enhearten": 1,
+        "persuade": 0,
+        "athletics": 2,
+        "travel": 0,
+        "stealth": 3,
+        "awareness": 2,
+        "insight": 0,
+        "scan": 0,
+        "hunting": 0,
+        "healing": 1,
+        "explore": 0,
+        "song": 2,
+        "courtesy": 0,
+        "riddle": 0,
+        "craft": 2,
+        "battle": 0,
+        "lore": 3
+      },
+      "favoured": [
+        "song",
+        "lore"
+      ],
+      "combat": [
+        "arcos",
+        "lancas"
+      ],
+      "traits": [
+        "Ágil",
+        "Alegre",
+        "Belo",
+        "Cauteloso",
+        "Nobre",
+        "Olhar Aguçado",
+        "Paciente",
+        "Sutil"
+      ],
+      "living": "Frugal",
+      "languages": [
+        "Língua Comum",
+        "Sindarin"
+      ],
+      "blessing": "Perícia Élfica",
+      "page": 36,
+      "age_suggestion": [
+        100,
+        300
+      ]
+    },
+    {
+      "id": "hobbits",
+      "name": "Hobbits do Condado",
+      "attributes": [
+        [
+          3,
+          6,
+          5
+        ],
+        [
+          3,
+          7,
+          4
+        ],
+        [
+          2,
+          7,
+          5
+        ],
+        [
+          4,
+          6,
+          4
+        ],
+        [
+          4,
+          5,
+          5
+        ],
+        [
+          2,
+          6,
+          6
+        ]
+      ],
+      "bases": [
+        18,
+        10,
+        12
+      ],
+      "skills": {
+        "awe": 0,
+        "enhearten": 0,
+        "persuade": 2,
+        "athletics": 0,
+        "travel": 0,
+        "stealth": 3,
+        "awareness": 2,
+        "insight": 2,
+        "scan": 0,
+        "hunting": 0,
+        "healing": 1,
+        "explore": 0,
+        "song": 2,
+        "courtesy": 2,
+        "riddle": 3,
+        "craft": 1,
+        "battle": 0,
+        "lore": 0
+      },
+      "favoured": [
+        "stealth",
+        "courtesy"
+      ],
+      "combat": [
+        "arcos",
+        "espadas"
+      ],
+      "traits": [
+        "Alegre",
+        "Ansioso",
+        "Eloquente",
+        "Fiel",
+        "Honrado",
+        "Inquisitivo",
+        "Olhar Aguçado",
+        "Rústico"
+      ],
+      "living": "Comum",
+      "languages": [
+        "Língua Comum"
+      ],
+      "blessing": "Bom-senso Hobbit",
+      "page": 38,
+      "wisdom_favoured": true,
+      "greed_bonus": 1,
+      "allowed_weapons": [
+        "dagger",
+        "bow",
+        "club",
+        "short_sword",
+        "short_spear",
+        "spear",
+        "axe",
+        "cudgel"
+      ],
+      "forbidden_equipment": [
+        "great_shield"
+      ],
+      "age_suggestion": [
+        20,
+        60
+      ]
+    },
+    {
+      "id": "bree",
+      "name": "Homens de Bri",
+      "attributes": [
+        [
+          2,
+          5,
+          7
+        ],
+        [
+          3,
+          4,
+          7
+        ],
+        [
+          3,
+          5,
+          6
+        ],
+        [
+          4,
+          4,
+          6
+        ],
+        [
+          4,
+          5,
+          5
+        ],
+        [
+          2,
+          6,
+          6
+        ]
+      ],
+      "bases": [
+        20,
+        10,
+        10
+      ],
+      "skills": {
+        "awe": 0,
+        "enhearten": 2,
+        "persuade": 2,
+        "athletics": 1,
+        "travel": 1,
+        "stealth": 1,
+        "awareness": 1,
+        "insight": 2,
+        "scan": 1,
+        "hunting": 1,
+        "healing": 0,
+        "explore": 1,
+        "song": 1,
+        "courtesy": 3,
+        "riddle": 2,
+        "craft": 2,
+        "battle": 0,
+        "lore": 0
+      },
+      "favoured": [
+        "insight",
+        "riddle"
+      ],
+      "combat": [
+        "machados",
+        "lancas"
+      ],
+      "traits": [
+        "Astuto",
+        "Inquisitivo",
+        "Eloquente",
+        "Fiel",
+        "Generoso",
+        "Paciente",
+        "Rústico",
+        "Sincero"
+      ],
+      "living": "Comum",
+      "languages": [
+        "Língua Comum"
+      ],
+      "blessing": "Sangue de Bri",
+      "page": 40,
+      "fellowship_bonus": 1,
+      "age_suggestion": [
+        18,
+        40
+      ]
+    },
+    {
+      "id": "rangers",
+      "name": "Patrulheiros do Norte",
+      "attributes": [
+        [
+          7,
+          5,
+          2
+        ],
+        [
+          7,
+          4,
+          3
+        ],
+        [
+          6,
+          5,
+          3
+        ],
+        [
+          6,
+          4,
+          4
+        ],
+        [
+          5,
+          5,
+          4
+        ],
+        [
+          6,
+          6,
+          2
+        ]
+      ],
+      "bases": [
+        20,
+        6,
+        14
+      ],
+      "skills": {
+        "awe": 1,
+        "enhearten": 0,
+        "persuade": 0,
+        "athletics": 2,
+        "travel": 2,
+        "stealth": 2,
+        "awareness": 2,
+        "insight": 0,
+        "scan": 1,
+        "hunting": 2,
+        "healing": 2,
+        "explore": 2,
+        "song": 0,
+        "courtesy": 0,
+        "riddle": 0,
+        "craft": 0,
+        "battle": 2,
+        "lore": 2
+      },
+      "favoured": [
+        "hunting",
+        "lore"
+      ],
+      "combat": [
+        "lancas",
+        "espadas"
+      ],
+      "traits": [
+        "Ágil",
+        "Alto",
+        "Bravo",
+        "Honrado",
+        "Severo",
+        "Sigiloso",
+        "Sincero",
+        "Sutil"
+      ],
+      "living": "Frugal",
+      "languages": [
+        "Língua Comum",
+        "Sindarin"
+      ],
+      "blessing": "Reis dos Homens",
+      "page": 42,
+      "attribute_bonus": 1,
+      "age_suggestion": [
+        20,
+        50
+      ]
+    }
+  ],
+  "callings": [
+    {
+      "id": "treasure_hunter",
+      "name": "Caçador de Tesouros",
+      "favoured": [
+        "explore",
+        "scan",
+        "stealth"
+      ],
+      "trait": "Ladroagem",
+      "shadow": "Doença do Dragão",
+      "page": 44
+    },
+    {
+      "id": "champion",
+      "name": "Campeão",
+      "favoured": [
+        "athletics",
+        "awe",
+        "hunting"
+      ],
+      "trait": "Conhecimento sobre Inimigos",
+      "shadow": "Maldição da Vingança",
+      "enemy_choice": true,
+      "page": 44
+    },
+    {
+      "id": "captain",
+      "name": "Capitão",
+      "favoured": [
+        "battle",
+        "enhearten",
+        "persuade"
+      ],
+      "trait": "Liderança",
+      "shadow": "Tentação do Poder",
+      "page": 45
+    },
+    {
+      "id": "scholar",
+      "name": "Erudito",
+      "favoured": [
+        "craft",
+        "lore",
+        "riddle"
+      ],
+      "trait": "Rimas de História",
+      "shadow": "Tentação dos Segredos",
+      "page": 45
+    },
+    {
+      "id": "warden",
+      "name": "Guardião",
+      "favoured": [
+        "awareness",
+        "healing",
+        "insight"
+      ],
+      "trait": "História da Sombra",
+      "shadow": "Caminho do Desespero",
+      "page": 45
+    },
+    {
+      "id": "messenger",
+      "name": "Mensageiro",
+      "favoured": [
+        "courtesy",
+        "song",
+        "travel"
+      ],
+      "trait": "História dos Povos",
+      "shadow": "Loucura da Vagância",
+      "page": 46
+    }
+  ],
+  "enemies": [
+    "Homens Malignos",
+    "Orcs",
+    "Aranhas",
+    "Trolls",
+    "Wargs",
+    "Mortos-vivos"
+  ],
+  "living": [
+    {
+      "name": "Pobre",
+      "treasure": 0,
+      "useful_items": 0,
+      "mount_vigour": 0
+    },
+    {
+      "name": "Frugal",
+      "treasure": 0,
+      "useful_items": 1,
+      "mount_vigour": 0
+    },
+    {
+      "name": "Comum",
+      "treasure": 30,
+      "useful_items": 2,
+      "mount_vigour": 1
+    },
+    {
+      "name": "Próspero",
+      "treasure": 90,
+      "useful_items": 3,
+      "mount_vigour": 2
+    },
+    {
+      "name": "Rico",
+      "treasure": 180,
+      "useful_items": 4,
+      "mount_vigour": 3
+    },
+    {
+      "name": "Muito rico",
+      "treasure": 301,
+      "useful_items": 4,
+      "mount_vigour": 3
+    }
+  ],
+  "weapons": [
+    {
+      "id": "dagger",
+      "name": "Adaga",
+      "proficiency": "briga",
+      "damage": 2,
+      "wound": 14,
+      "load": 0,
+      "hands": 1
+    },
+    {
+      "id": "club",
+      "name": "Cassetete",
+      "proficiency": "briga",
+      "damage": 3,
+      "wound": 12,
+      "load": 0,
+      "hands": 1
+    },
+    {
+      "id": "cudgel",
+      "name": "Tacape",
+      "proficiency": "briga",
+      "damage": 4,
+      "wound": 14,
+      "load": 1,
+      "hands": 1
+    },
+    {
+      "id": "short_sword",
+      "name": "Espada Curta",
+      "proficiency": "espadas",
+      "damage": 3,
+      "wound": 16,
+      "load": 1,
+      "hands": 1
+    },
+    {
+      "id": "sword",
+      "name": "Espada",
+      "proficiency": "espadas",
+      "damage": 4,
+      "wound": 16,
+      "load": 2,
+      "hands": 1
+    },
+    {
+      "id": "long_sword",
+      "name": "Espada Longa",
+      "proficiency": "espadas",
+      "damage": 5,
+      "wound": 16,
+      "wound_two_hands": 18,
+      "load": 3,
+      "hands": 0
+    },
+    {
+      "id": "short_spear",
+      "name": "Lança Curta",
+      "proficiency": "lancas",
+      "damage": 3,
+      "wound": 14,
+      "load": 2,
+      "hands": 1
+    },
+    {
+      "id": "spear",
+      "name": "Lança",
+      "proficiency": "lancas",
+      "damage": 4,
+      "wound": 14,
+      "wound_two_hands": 16,
+      "load": 3,
+      "hands": 0
+    },
+    {
+      "id": "long_spear",
+      "name": "Lança Longa",
+      "proficiency": "lancas",
+      "damage": 5,
+      "wound": 16,
+      "load": 4,
+      "hands": 2
+    },
+    {
+      "id": "axe",
+      "name": "Machado",
+      "proficiency": "machados",
+      "damage": 5,
+      "wound": 18,
+      "load": 2,
+      "hands": 1
+    },
+    {
+      "id": "long_hafted_axe",
+      "name": "Machado de Haste Longa",
+      "proficiency": "machados",
+      "damage": 6,
+      "wound": 18,
+      "wound_two_hands": 20,
+      "load": 3,
+      "hands": 0
+    },
+    {
+      "id": "great_axe",
+      "name": "Machado Grande",
+      "proficiency": "machados",
+      "damage": 7,
+      "wound": 20,
+      "load": 4,
+      "hands": 2
+    },
+    {
+      "id": "mattock",
+      "name": "Picareta",
+      "proficiency": "machados",
+      "damage": 7,
+      "wound": 18,
+      "load": 3,
+      "hands": 2
+    },
+    {
+      "id": "bow",
+      "name": "Arco",
+      "proficiency": "arcos",
+      "damage": 3,
+      "wound": 14,
+      "load": 2,
+      "hands": 2
+    },
+    {
+      "id": "great_bow",
+      "name": "Arco Grande",
+      "proficiency": "arcos",
+      "damage": 4,
+      "wound": 16,
+      "load": 4,
+      "hands": 2
+    }
+  ],
+  "armor": [
+    {
+      "id": "none",
+      "name": "Sem armadura",
+      "protection": 0,
+      "load": 0,
+      "minimum_living": "Pobre"
+    },
+    {
+      "id": "leather_shirt",
+      "name": "Camisa de Couro",
+      "protection": 1,
+      "load": 3,
+      "minimum_living": "Pobre"
+    },
+    {
+      "id": "leather_corselet",
+      "name": "Colete de Couro",
+      "protection": 2,
+      "load": 6,
+      "minimum_living": "Pobre"
+    },
+    {
+      "id": "mail_shirt",
+      "name": "Camisa de Malha",
+      "protection": 3,
+      "load": 9,
+      "minimum_living": "Comum"
+    },
+    {
+      "id": "coat_mail",
+      "name": "Cota de Malha",
+      "protection": 4,
+      "load": 12,
+      "minimum_living": "Próspero"
+    }
+  ],
+  "helmet": {
+    "id": "helmet",
+    "name": "Elmo",
+    "protection": 1,
+    "load": 4
+  },
+  "shields": [
+    {
+      "id": "none",
+      "name": "Sem escudo",
+      "parry": 0,
+      "load": 0,
+      "minimum_living": "Pobre"
+    },
+    {
+      "id": "buckler",
+      "name": "Broquel",
+      "parry": 1,
+      "load": 2,
+      "minimum_living": "Pobre"
+    },
+    {
+      "id": "shield",
+      "name": "Escudo",
+      "parry": 2,
+      "load": 4,
+      "minimum_living": "Comum"
+    },
+    {
+      "id": "great_shield",
+      "name": "Escudo Grande",
+      "parry": 3,
+      "load": 6,
+      "minimum_living": "Próspero"
+    }
+  ],
+  "virtues": [
+    {
+      "id": "aptitude",
+      "name": "Dom",
+      "effect": "attribute_tn",
+      "amount": -1,
+      "page": 80
+    },
+    {
+      "id": "confidence",
+      "name": "Confiança",
+      "effect": "hope",
+      "amount": 2,
+      "page": 80
+    },
+    {
+      "id": "dexterity",
+      "name": "Destreza",
+      "effect": "parry",
+      "amount": 1,
+      "page": 80
+    },
+    {
+      "id": "mastery",
+      "name": "Maestria",
+      "effect": "favoured",
+      "amount": 2,
+      "page": 80
+    },
+    {
+      "id": "powerful_hands",
+      "name": "Mãos Inclementes",
+      "effect": "special_damage",
+      "amount": 1,
+      "page": 80
+    },
+    {
+      "id": "resilience",
+      "name": "Resiliência",
+      "effect": "endurance",
+      "amount": 2,
+      "page": 80
+    }
+  ],
+  "rewards": [
+    {
+      "id": "keen",
+      "name": "Afiada",
+      "targets": [
+        "weapon"
+      ],
+      "effect": "piercing_on",
+      "amount": 9,
+      "page": 79
+    },
+    {
+      "id": "well_fitted",
+      "name": "Ajustado",
+      "targets": [
+        "armor",
+        "helmet"
+      ],
+      "effect": "protection_bonus",
+      "amount": 2,
+      "page": 79
+    },
+    {
+      "id": "cunning_make",
+      "name": "Fabricação Habilidosa",
+      "targets": [
+        "armor",
+        "helmet",
+        "shield"
+      ],
+      "effect": "load",
+      "amount": -2,
+      "page": 79
+    },
+    {
+      "id": "grievous",
+      "name": "Cruel",
+      "targets": [
+        "weapon"
+      ],
+      "effect": "wound",
+      "amount": 2,
+      "page": 79
+    },
+    {
+      "id": "fell",
+      "name": "Atroz",
+      "targets": [
+        "weapon"
+      ],
+      "effect": "damage",
+      "amount": 1,
+      "page": 79
+    },
+    {
+      "id": "reinforced",
+      "name": "Reforçado",
+      "targets": [
+        "shield"
+      ],
+      "effect": "parry",
+      "amount": 1,
+      "page": 79
+    }
+  ],
+  "patrons": [
+    {
+      "id": "none",
+      "name": "Sem patrono",
+      "bonus": 0
+    },
+    {
+      "id": "balin",
+      "name": "Balin, filho de Fundin",
+      "bonus": 1
+    },
+    {
+      "id": "bilbo",
+      "name": "Bilbo Bolseiro",
+      "bonus": 2
+    },
+    {
+      "id": "cirdan",
+      "name": "Círdan, o Marinheiro",
+      "bonus": 1
+    },
+    {
+      "id": "gandalf",
+      "name": "Gandalf, o Cinzento",
+      "bonus": 2
+    },
+    {
+      "id": "gilraen",
+      "name": "Gilraen, filha de Dírhael",
+      "bonus": 0
+    },
+    {
+      "id": "tom_bombadil",
+      "name": "Tom Bombadil e Senhora Fruta D'Ouro",
+      "bonus": 2
+    }
+  ]
+}

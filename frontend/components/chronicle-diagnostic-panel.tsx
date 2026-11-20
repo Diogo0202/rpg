@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { apiBase, sessionJson } from "../lib/api/session";
 import styles from "./chronicle-diagnostic-panel.module.css";
 
 type Trait = { id: string; name: string; category: "attribute" | "skill" };
@@ -29,7 +29,7 @@ type Snapshot = {
   limits: { characters_max: number; activities_max: number; character_count: number; activity_count: number; truncated: boolean };
 };
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const configuredApi = apiBase();
 
 export function ChronicleDiagnosticPanel({ campaignId, canManage }: { campaignId: string; canManage: boolean }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -58,17 +58,11 @@ export function ChronicleDiagnosticPanel({ campaignId, canManage }: { campaignId
   const load = useCallback(async () => {
     const version = ++requestVersion.current;
     const requestedCampaign = campaignId;
-    if (!apiBase || !canManage) return;
-    const { data, error } = await createClient().auth.getSession();
-    if (error || !data.session) throw new Error("Entre com uma conta de narrador para abrir o diagnóstico.");
-    const response = await fetch(`${apiBase}/api/v1/campaigns/${campaignId}/chronicle`, {
-      headers: { Authorization: `Bearer ${data.session.access_token}` }, cache: "no-store",
+    if (!configuredApi || !canManage) return;
+    const result = await sessionJson<Snapshot>(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/chronicle`, { cache: "no-store" }, {
+      signedOut: "Entre com uma conta de narrador para abrir o diagnóstico.",
+      rejected: "Não foi possível consultar o diagnóstico desta campanha.",
     });
-    if (!response.ok) {
-      const payload = await response.json().catch(() => null) as { detail?: string } | null;
-      throw new Error(payload?.detail ?? "Não foi possível consultar o diagnóstico desta campanha.");
-    }
-    const result = await response.json() as Snapshot;
     if (version !== requestVersion.current || requestedCampaign !== latestCampaign.current) return;
     setSnapshot(result);
     setSelectedId((current) => result.characters.some((character) => character.id === current) ? current : result.characters[0]?.id ?? "");
@@ -88,18 +82,11 @@ export function ChronicleDiagnosticPanel({ campaignId, canManage }: { campaignId
   }, [load]);
 
   async function post(path: string, payload: unknown, success: string) {
-    if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para conectar à API.");
-    const { data, error } = await createClient().auth.getSession();
-    if (error || !data.session) throw new Error("Entre na sua conta para registrar atividade.");
-    const response = await fetch(`${apiBase}/api/v1/campaigns/${campaignId}/chronicle${path}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-      body: JSON.stringify(payload),
+    await sessionJson(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/chronicle${path}`, { method: "POST", body: payload }, {
+      missingApi: "Configure NEXT_PUBLIC_API_URL para conectar à API.",
+      signedOut: "Entre na sua conta para registrar atividade.",
+      rejected: "A API recusou o registro.",
     });
-    if (!response.ok) {
-      const result = await response.json().catch(() => null) as { detail?: string } | null;
-      throw new Error(result?.detail ?? "A API recusou o registro.");
-    }
     if (campaignId !== latestCampaign.current) throw new DOMException("Campanha alterada", "AbortError");
     await load();
     if (campaignId !== latestCampaign.current) throw new DOMException("Campanha alterada", "AbortError");
@@ -131,7 +118,7 @@ export function ChronicleDiagnosticPanel({ campaignId, canManage }: { campaignId
       <button type="button" className={styles.button} disabled={busy} onClick={() => { const requestedCampaign = campaignId; setBusy(true); void load().then(() => { if (requestedCampaign === latestCampaign.current) setMessage("Dados atualizados."); }).catch((error) => { if (requestedCampaign === latestCampaign.current) setMessage(error instanceof Error ? error.message : "Falha ao atualizar."); }).finally(() => { if (requestedCampaign === latestCampaign.current) setBusy(false); }); }}>Atualizar</button>
     </header>
     {message && <p className={styles.notice} role="status">{message}</p>}
-    {!apiBase && <p className={styles.notice}>Configure NEXT_PUBLIC_API_URL para abrir o diagnóstico.</p>}
+    {!configuredApi && <p className={styles.notice}>Configure NEXT_PUBLIC_API_URL para abrir o diagnóstico.</p>}
     {snapshot && <>
       <p className={styles.scope}>Analisadas {snapshot.limits.character_count}/{snapshot.limits.characters_max} fichas e {snapshot.limits.activity_count}/{snapshot.limits.activities_max} atividades. Nenhum registro foi truncado.</p>
       <div className={styles.summaryGrid}>

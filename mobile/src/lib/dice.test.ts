@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DICE_LIMITS, parseDice, randomInt, rollExpression, rollPool, type DiceTerm } from "./dice";
+import { DICE_LIMITS, parseDice, randomInt, rollExpression, rollHunter, rollPool, rollSotdl, type DiceTerm } from "./dice";
 
 describe("parseDice", () => {
   it("returns the real dice/constant union for valid terms", () => {
@@ -59,5 +59,47 @@ describe("randomInt and rolling", () => {
     expect(() => rollPool(3, Number.POSITIVE_INFINITY)).toThrow("fome inválidos");
     expect(() => rollPool(6, 6)).toThrow("fome inválidos");
     expect(() => rollPool(3, 1.5)).toThrow("fome inválidos");
+  });
+});
+
+describe("rollSotdl", () => {
+  it("adds the attribute modifier and only the highest leftover boon die", () => {
+    for (let index = 0; index < 50; index++) {
+      const roll = rollSotdl(12, 3, 1, 10);
+      const [d20, modifier, boons] = roll.terms;
+      expect(modifier!.subtotal).toBe(2);
+      expect(boons!.rolls).toHaveLength(2);
+      expect(boons!.subtotal).toBe(Math.max(...boons!.rolls));
+      expect(roll.total).toBe(d20!.subtotal + 2 + boons!.subtotal);
+      expect(roll.sotdl!.success).toBe(roll.total >= 10);
+    }
+  });
+
+  it("subtracts banes, skips the d6 when they cancel and validates bounds", () => {
+    const bane = rollSotdl(10, 0, 2);
+    expect(bane.terms[2]!.subtotal).toBe(-Math.max(...bane.terms[2]!.rolls));
+    expect(rollSotdl(10, 2, 2).terms).toHaveLength(2);
+    expect(() => rollSotdl(21)).toThrow("atributo");
+    expect(() => rollSotdl(10, 11)).toThrow("Dádivas");
+    expect(() => rollSotdl(10, 0, 0, 0)).toThrow("alvo");
+  });
+});
+
+describe("rollHunter", () => {
+  it("separates orange and Desperation dice and counts the resolved faces", () => {
+    for (let index = 0; index < 20; index++) {
+      const roll = rollHunter(5, 3, true, 4);
+      const normal = roll.terms[0]!.rolls;
+      const desperate = roll.terms[1]!.rolls;
+      const all = [...normal, ...desperate];
+      expect(normal).toHaveLength(5);
+      expect(desperate).toHaveLength(3);
+      expect(roll.total).toBe(all.filter((value) => value >= 6).length + Math.floor(all.filter((value) => value === 10).length / 2) * 2);
+      expect(roll.hunter!.success).toBe(roll.total >= 4);
+      expect(roll.hunter!.desperationOnes).toBe(desperate.filter((value) => value === 1).length);
+    }
+    expect(rollHunter(5, 3, false, 4).terms[1]!.rolls).toHaveLength(0);
+    expect(() => rollHunter(31, 0, false, 1)).toThrow();
+    expect(() => rollHunter(1, 6, true, 1)).toThrow();
   });
 });

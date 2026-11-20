@@ -41,6 +41,17 @@ export type LegacyCell = { x: number; y: number; kind: string };
 export type LegacyMarker = { id: string; label: string; x: number; y: number; color: string };
 export type LegacyLayer = { width: number; height: number; terrain: LegacyCell[]; markers: LegacyMarker[] };
 
+/**
+ * Fog of war (MAP-05). Regions are applied in order and the last one that
+ * contains a point decides: "reveal" shows it, "hide" covers it again. A
+ * region applies to every player (`players: null`) or to the listed user ids.
+ * Anything under fog is removed from get_player_map, not only painted over.
+ */
+export const MAX_FOG_REGIONS = 500;
+export const MAX_FOG_PLAYERS = 100;
+export type FogRegion = { id: string; mode: "reveal" | "hide"; points: Point[]; players: string[] | null };
+export type MapFog = { enabled: boolean; line_of_sight: boolean; regions: FogRegion[] };
+
 export type MapDocumentV2 = {
   version: 2;
   system_key: string | null;
@@ -51,9 +62,11 @@ export type MapDocumentV2 = {
   structures: MapStructure[];
   pins: MapPin[];
   legacy?: LegacyLayer;
+  fog?: MapFog;
 };
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
+const UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 const SLUG = /^[a-z_]{1,40}$/;
 const HEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -172,6 +185,37 @@ function parsePin(value: unknown): MapPin | null {
   return pin;
 }
 
+function parseFogRegion(value: unknown): FogRegion | null {
+  if (!record(value) || typeof value.id !== "string" || !ID.test(value.id)) return null;
+  if (value.mode !== "reveal" && value.mode !== "hide") return null;
+  const shape = points(value.points, 3);
+  if (!shape) return null;
+  let players: string[] | null = null;
+  if (value.players !== null && value.players !== undefined) {
+    if (!Array.isArray(value.players) || value.players.length === 0 || value.players.length > MAX_FOG_PLAYERS) return null;
+    if (!value.players.every((item) => typeof item === "string" && UUID.test(item))) return null;
+    players = [...new Set(value.players as string[])];
+  }
+  return { id: value.id, mode: value.mode, points: shape, players };
+}
+
+/** undefined when absent, null when present but malformed. */
+function parseFog(value: unknown): MapFog | null | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!record(value)) return null;
+  if (value.enabled !== undefined && typeof value.enabled !== "boolean") return null;
+  if (value.line_of_sight !== undefined && typeof value.line_of_sight !== "boolean") return null;
+  const source = value.regions ?? [];
+  if (!Array.isArray(source) || source.length > MAX_FOG_REGIONS) return null;
+  const regions: FogRegion[] = [];
+  for (const item of source) {
+    const parsed = parseFogRegion(item);
+    if (!parsed) return null;
+    regions.push(parsed);
+  }
+  return { enabled: value.enabled === true, line_of_sight: value.line_of_sight === true, regions };
+}
+
 /** Accepts v2 documents and converts generated v1 maps; never throws. */
 export function parseMapDocument(value: unknown, systemKey: string | null = null): { document: MapDocumentV2 | null; error: string } {
   if (!record(value)) return { document: null, error: "O documento do mapa não tem um formato reconhecido." };
@@ -189,6 +233,8 @@ export function parseMapDocument(value: unknown, systemKey: string | null = null
     if (!parsed) return { document: null, error: "Um pin do mapa está fora do formato aceito." };
     pins.push(parsed);
   }
+  const fog = parseFog(value.fog);
+  if (fog === null) return { document: null, error: "A névoa do mapa está fora do formato aceito." };
   const base = createEmptyDocument(typeof value.system_key === "string" ? value.system_key : systemKey);
   const grid = record(value.grid) ? value.grid : {};
   const legacy = record(value.legacy) && Number.isInteger(value.legacy.width) && Number.isInteger(value.legacy.height)
@@ -203,6 +249,7 @@ export function parseMapDocument(value: unknown, systemKey: string | null = null
       structures,
       pins,
       ...(legacy ? { legacy } : {}),
+      ...(fog ? { fog } : {}),
     },
     error: "",
   };
@@ -226,15 +273,27 @@ export function validateMapDocument(document: MapDocumentV2): string {
     if (!parsePin(pin)) return "Um pin do mapa está fora do formato aceito.";
     if (!pin.label.trim()) return "Todo pin precisa de um nome.";
   }
+  if (document.fog) {
+    if (document.fog.regions.length > MAX_FOG_REGIONS) return `A névoa aceita até ${MAX_FOG_REGIONS} regiões.`;
+    for (const region of document.fog.regions) {
+      if (!parseFogRegion(region)) return "Uma região de névoa está fora do formato aceito.";
+      if (ids.has(region.id)) return "Há dois elementos com o mesmo identificador.";
+      ids.add(region.id);
+    }
+  }
   return "";
 }
 
-/** Client-side mirror of private.redact_map_document, for "ver como jogador". */
+/**
+ * Client-side mirror of the GM-only part of private.redact_map_document. Fog
+ * and line of sight are applied on top by redactForViewer (map-visibility).
+ */
 export function redactForPlayers(document: MapDocumentV2): MapDocumentV2 {
+  const { fog: _fog, ...rest } = document;
   const structures = document.structures.filter((item) => !item.gm_only);
   const wallIds = new Set(structures.filter((item) => item.type === "wall").map((item) => item.id));
   return {
-    ...document,
+    ...rest,
     structures: structures.filter((item) => item.type !== "door" || wallIds.has(item.wall_id)),
     pins: document.pins.filter((pin) => !pin.gm_only).map(({ notes: _notes, ...pin }) => pin),
     ...(document.legacy ? { legacy: { ...document.legacy, markers: [] } } : {}),

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.services.second_inquisition import (
+from app.domain.second_inquisition import (
     EventKind,
     VerificationBasis,
     VerifiedEvent,

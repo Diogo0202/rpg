@@ -2,12 +2,17 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { campaignFilter, useTableChannel } from "../lib/realtime/hooks";
+import { browserDb } from "../lib/data/browser";
+import * as mapRepo from "../lib/data/maps";
 import { parseMapDocument, type MapDocumentV2 } from "../lib/map-document";
 import { distance } from "../lib/map-geometry";
 import { kitForSystem } from "../lib/map-kits";
+import { redactForViewer, viewerMasks } from "../lib/map-visibility";
 import { MapCanvas, PIN_RADIUS, type CanvasPointer } from "./map-editor/map-canvas";
 import { usePortraitUrls } from "./portrait-picker";
+import { MapInteractionsPanel } from "./map-interactions-panel";
+import { webMapRpc } from "../lib/map-interactions-rpc";
 import styles from "./saved-maps-panel.module.css";
 import editorStyles from "./map-editor/map-editor.module.css";
 
@@ -30,10 +35,10 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
 
   useEffect(() => {
     let active = true;
-    const client = createClient();
+    const db = browserDb();
     void Promise.all([
-      client.rpc("list_player_maps", { p_campaign_id: campaignId }),
-      client.from("character_sheets").select("id").eq("campaign_id", campaignId).eq("owner_id", viewerId),
+      mapRepo.listPlayerMaps(db, campaignId),
+      mapRepo.listOwnSheetIds(db, campaignId, viewerId),
     ]).then(([mapResult, sheetResult]) => {
       if (!active) return;
       if (mapResult.error) { setMessage("Não foi possível listar os mapas compartilhados."); return; }
@@ -46,18 +51,16 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
   }, [campaignId, viewerId, revision]);
 
   // Realtime carries only an invalidation marker; the content is re-read through the RPC.
-  useEffect(() => {
-    const client = createClient();
-    const channel = client.channel(`player-maps-${campaignId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "map_notifications", filter: `campaign_id=eq.${campaignId}` }, () => { if (!dragging.current) setRevision((value) => value + 1); })
-      .subscribe();
-    return () => { void client.removeChannel(channel); };
-  }, [campaignId]);
+  useTableChannel({
+    topic: `player-maps-${campaignId}`,
+    listeners: [{ table: "map_notifications", filter: campaignFilter(campaignId) }],
+    onChange: () => { if (!dragging.current) setRevision((value) => value + 1); },
+  });
 
   useEffect(() => {
     let active = true;
     if (!selectedId) { setLoaded(null); return; }
-    void createClient().rpc("get_player_map", { p_map_id: selectedId }).then(({ data, error }) => {
+    void mapRepo.getPlayerMap(browserDb(), selectedId).then(({ data, error }) => {
       if (!active) return;
       if (error || !data) { setLoaded(null); setMessage("Este mapa não está mais compartilhado."); return; }
       const row = data as { id: string; name: string; version: number; system_key: string | null; document: unknown };
@@ -69,6 +72,15 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
   }, [selectedId, revision]);
 
   const movable = useMemo(() => new Set((loaded?.document.pins ?? []).filter((pin) => pin.kind === "character" && pin.sheet_id && ownSheetIds.has(pin.sheet_id)).map((pin) => pin.id)), [loaded, ownSheetIds]);
+  // The database already removed what is under fog (and out of sight); here the
+  // same rules run again on the redacted copy so dragging the own pin updates
+  // the visible area live, and the canvas masks fog and shadowed space.
+  const view = useMemo(() => {
+    if (!loaded) return null;
+    const viewer = { userId: viewerId, ownSheetIds };
+    const document = redactForViewer(loaded.document, viewer);
+    return { document, vision: viewerMasks(document, viewer) };
+  }, [loaded, viewerId, ownSheetIds]);
   const portraitUrls = usePortraitUrls((loaded?.document.pins ?? []).map((pin) => pin.portrait_path));
 
   function onPointer(event: CanvasPointer) {
@@ -91,7 +103,7 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
       if (!moved) return;
       const pin = loaded.document.pins.find((item) => item.id === pinId);
       if (!pin) return;
-      void createClient().rpc("move_own_pin", { p_map_id: loaded.id, p_pin_id: pinId, p_x: pin.x, p_y: pin.y }).then(({ error }) => {
+      void mapRepo.moveOwnPin(browserDb(), { mapId: loaded.id, pinId, x: pin.x, y: pin.y }).then(({ error }) => {
         setMessage(error ? "Não foi possível mover o pin; o mapa foi recarregado." : "Posição do seu personagem salva.");
         setRevision((value) => value + 1);
       });
@@ -110,9 +122,13 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
     </header>
     <p className={styles.message} role="status" aria-live="polite">{message}</p>
     {maps.length === 0 ? <p className={styles.empty}>O narrador ainda não compartilhou nenhum mapa.</p>
-      : loaded ? <div className={editorStyles.stage}>
-        <MapCanvas document={loaded.document} kit={kitForSystem(loaded.system_key ?? loaded.document.system_key)} portraitUrls={portraitUrls}
-          mode="player" movablePinIds={movable} label={`Mapa ${loaded.name}, visto de cima`} onPointer={onPointer} />
+      : loaded && view ? <div className={editorStyles.stage}>
+        <MapCanvas document={view.document} kit={kitForSystem(loaded.system_key ?? loaded.document.system_key)} portraitUrls={portraitUrls}
+          mode="player" movablePinIds={movable} label={`Mapa ${loaded.name}, visto de cima`} onPointer={onPointer} vision={view.vision} />
       </div> : <p className={styles.empty}>Carregando mapa…</p>}
+    {loaded && view && <MapInteractionsPanel key={`${campaignId}/${viewerId}/${loaded.id}`} mapId={loaded.id} campaignId={campaignId}
+      viewerId={viewerId} canManage={false} document={view.document} rpc={webMapRpc}
+      sheets={loaded.document.pins.filter((pin) => pin.kind === "character" && pin.sheet_id && ownSheetIds.has(pin.sheet_id)).map((pin) => ({ id: pin.sheet_id!, name: pin.label }))}
+      onChanged={() => setRevision((value) => value + 1)} />}
   </section>;
 }

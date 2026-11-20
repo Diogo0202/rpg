@@ -3,6 +3,7 @@ import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
 import { useNexus, type Entity, type PathSet } from "@/lib/nexus/store";
 import { Btn, Empty, Panel, Tag } from "./ui";
+import { MapPanel } from "./MapPanel";
 
 type WorldData = { kind: string; name: string; description: string; tags: string[] };
 type WorldDraft = { id?: string; kind: string; name: string; description: string; tags: string };
@@ -274,13 +275,7 @@ export function WorldPanel() {
         )}
       </Panel>
 
-      <Panel title="Mapas">
-        <p className="text-sm text-ink-muted">
-          O criador de mapas táticos é exclusivo da versão web para computador. Abra a campanha no
-          navegador do computador para desenhar mapas; os mapas compartilhados pelo narrador também
-          aparecem lá.
-        </p>
-      </Panel>
+      <MapPanel />
       {error && (
         <p
           className="parchment border border-destructive p-3 text-sm font-semibold text-destructive"

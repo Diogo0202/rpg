@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Dices, RotateCcw, Trash2 } from "lucide-react";
-import { DICE_LIMITS, rollExpression, rollPool, type DiceRoll } from "@/lib/dice";
+import { DICE_LIMITS, rollExpression, rollHunter, rollPool, rollSotdl, type DiceRoll } from "@/lib/dice";
 import { estimateV5Probabilities, type RollProbabilities } from "@/lib/v5-probability";
 import { prefGet, prefSet } from "@/lib/nexus/prefs";
 import { NexusContext } from "@/lib/nexus/context";
@@ -10,11 +10,14 @@ import {
   type SheetProbabilityResult,
 } from "@/lib/nexus/v5-sheet-probability";
 import type { SheetData } from "@/lib/nexus/sheets";
+import type { RollContext } from "@/lib/dice-roller";
 import { Btn, Empty, Panel, Tag } from "./ui";
+import { DiceRollStage } from "./DiceRollStage";
+import { DiceTray3D, canShowTray } from "./DiceTray3D";
 
 const HISTORY_KEY = "dice-roll-history-v1";
 const HISTORY_LIMIT = 30;
-type RollMode = "expression" | "v5";
+type RollMode = "expression" | "v5" | "sotdl" | "hunter";
 
 function validHistory(value: unknown): DiceRoll[] {
   if (!Array.isArray(value)) return [];
@@ -94,6 +97,12 @@ export function DicePanel() {
   const [hunger, setHunger] = useState("0");
   const [difficulty, setDifficulty] = useState("3");
   const [willpowerDice, setWillpowerDice] = useState("3");
+  const [attribute, setAttribute] = useState("10");
+  const [boons, setBoons] = useState("0");
+  const [banes, setBanes] = useState("0");
+  const [target, setTarget] = useState("10");
+  const [desperation, setDesperation] = useState("0");
+  const [useDesperation, setUseDesperation] = useState(false);
   const [selectedSheetId, setSelectedSheetId] = useState("");
   const [contextTag, setContextTag] = useState("");
   const [sheetProbability, setSheetProbability] = useState<SheetProbabilityResult | null>(null);
@@ -101,6 +110,8 @@ export function DicePanel() {
   const [sheetProbabilityError, setSheetProbabilityError] = useState("");
   const [label, setLabel] = useState("");
   const [history, setHistory] = useState<DiceRoll[]>([]);
+  const [lastRoll, setLastRoll] = useState<{ roll: DiceRoll; context: RollContext } | null>(null);
+  const [trayRoll, setTrayRoll] = useState<DiceRoll | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
@@ -231,6 +242,13 @@ export function DicePanel() {
     }
   };
 
+  // The result already exists here; the stage only animates its presentation.
+  const present = (result: DiceRoll, context: RollContext) => {
+    setLastRoll({ roll: result, context });
+    setTrayRoll(canShowTray(result) ? result : null);
+    void saveRoll(result);
+  };
+
   const roll = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
@@ -246,7 +264,15 @@ export function DicePanel() {
           throw new Error(
             `O modificador deve ficar entre -${DICE_LIMITS.maxModifier} e ${DICE_LIMITS.maxModifier}.`,
           );
-        void saveRoll(rollExpression(expression, value, cleanLabel || undefined));
+        present(rollExpression(expression, value, cleanLabel || undefined), { mode });
+      } else if (mode === "sotdl") {
+        const numbers = [attribute, boons, banes, target].map(readInteger);
+        if (numbers.some((value) => value === null)) throw new Error("Atributo, dádivas, perdições e alvo precisam ser números inteiros.");
+        present(rollSotdl(numbers[0]!, numbers[1]!, numbers[2]!, numbers[3]!, cleanLabel || "Shadow of the Demon Lord"), { mode });
+      } else if (mode === "hunter") {
+        const numbers = [poolSize, desperation, difficulty].map(readInteger);
+        if (numbers.some((value) => value === null)) throw new Error("Parada, Desespero e dificuldade precisam ser números inteiros.");
+        present(rollHunter(numbers[0]!, numbers[1]!, useDesperation, numbers[2]!, cleanLabel || "Caçador local"), { mode });
       } else {
         if (readInteger(poolSize) === null || readInteger(hunger) === null)
           throw new Error("A parada e os dados de fome precisam ser números inteiros.");
@@ -255,7 +281,12 @@ export function DicePanel() {
         if (Number(hunger) > Number(poolSize))
           throw new Error("Dados de fome não podem exceder a parada.");
         if (Number(hunger) > 5) throw new Error("Fome deve ficar entre 0 e 5.");
-        void saveRoll(rollPool(Number(poolSize), Number(hunger), cleanLabel || "V5 local"));
+        const v5Difficulty = readInteger(difficulty);
+        present(rollPool(Number(poolSize), Number(hunger), cleanLabel || "V5 local"), {
+          mode,
+          hunger: Number(hunger),
+          ...(v5Difficulty !== null && v5Difficulty >= 1 ? { difficulty: v5Difficulty } : {}),
+        });
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Não foi possível rolar os dados.");
@@ -304,6 +335,21 @@ export function DicePanel() {
           >
             Parada V5 local
           </Btn>
+          <Btn
+            type="button"
+            variant={mode === "sotdl" ? "forest" : "outline"}
+            role="tab"
+            aria-selected={mode === "sotdl"}
+            onClick={() => {
+              setMode("sotdl");
+              setError("");
+            }}
+          >
+            d20 Demon Lord
+          </Btn>
+          <Btn type="button" variant={mode === "hunter" ? "forest" : "outline"} role="tab" aria-selected={mode === "hunter"} onClick={() => { setMode("hunter"); setError(""); }}>
+            d10 Caçador
+          </Btn>
         </div>
 
         <form className="space-y-3" onSubmit={roll}>
@@ -338,6 +384,39 @@ export function DicePanel() {
                   onChange={(event) => setModifier(event.target.value)}
                 />
               </label>
+            </div>
+          ) : mode === "sotdl" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {([
+                ["Atributo (1 a 20)", attribute, setAttribute, 1, 20],
+                ["Alvo (10 ou a Defesa)", target, setTarget, 1, 40],
+                ["Dádivas", boons, setBoons, 0, 10],
+                ["Perdições", banes, setBanes, 0, 10],
+              ] as const).map(([name, value, setter, min, max]) => (
+                <label key={name} className="text-sm font-semibold text-ink">
+                  {name}
+                  <input
+                    className="field-input mt-1"
+                    type="number"
+                    min={min}
+                    max={max}
+                    step={1}
+                    value={value}
+                    onChange={(event) => setter(event.target.value)}
+                  />
+                </label>
+              ))}
+              <p className="sm:col-span-2 text-xs text-ink-muted">
+                d20 + (atributo − 10). Dádivas e perdições se anulam; das que sobram vale o maior d6.
+              </p>
+            </div>
+          ) : mode === "hunter" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm font-semibold text-ink">Dados comuns<input className="field-input mt-1" type="number" min={1} max={30} step={1} value={poolSize} onChange={(event) => setPoolSize(event.target.value)} /></label>
+              <label className="text-sm font-semibold text-ink">Desespero atual<input className="field-input mt-1" type="number" min={0} max={5} step={1} value={desperation} onChange={(event) => setDesperation(event.target.value)} /></label>
+              <label className="text-sm font-semibold text-ink">Dificuldade<input className="field-input mt-1" type="number" min={1} max={69} step={1} value={difficulty} onChange={(event) => setDifficulty(event.target.value)} /></label>
+              <label className="flex items-center gap-2 text-sm font-semibold text-ink"><input type="checkbox" checked={useDesperation} onChange={(event) => setUseDesperation(event.target.checked)} />Somar dados de Desespero</label>
+              <p className="sm:col-span-2 text-xs text-ink-muted">Laranja: dados comuns. Preto: Desespero. O resultado é local neste aparelho.</p>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -451,6 +530,8 @@ export function DicePanel() {
             </p>
           )}
         </form>
+        {lastRoll && <DiceRollStage roll={lastRoll.roll} context={lastRoll.context} reducedMotion={trayRoll === lastRoll.roll ? true : undefined} />}
+        {trayRoll && <DiceTray3D roll={trayRoll} onDone={() => setTrayRoll(null)} />}
         {mode === "v5" && (
           <div className="mt-4 space-y-3" aria-label="Probabilidades V5 locais">
             <h3 className="font-semibold text-ink">Risco antes da rolagem</h3>
@@ -464,8 +545,9 @@ export function DicePanel() {
                   />
                 </div>
                 <p className="text-xs text-ink-muted">
-                  Estimativa local sem condições da ficha. Vontade rerrola dados comuns que
-                  falharam; Dados de Fome ficam fora. Sucesso e crítico sujo podem ocorrer juntos.
+                  Estimativa local sem condições da ficha. Vontade compara escolhas de até três
+                  dados comuns para buscar sucesso e, em empate, reduzir crítico sujo. Dados de
+                  Fome ficam fora. Sucesso e crítico sujo podem ocorrer juntos.
                 </p>
               </>
             ) : (
@@ -588,6 +670,11 @@ export function DicePanel() {
                     {entry.pool.hungerDice.length
                       ? ` · fome: ${entry.pool.hungerDice.join(", ")}`
                       : ""}
+                  </p>
+                )}
+                {entry.sotdl && (
+                  <p className="text-sm text-ink">
+                    {entry.sotdl.critical ? "Crítico" : entry.sotdl.success ? "Sucesso" : "Falha"} contra {entry.sotdl.target}
                   </p>
                 )}
               </li>

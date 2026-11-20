@@ -1,5 +1,5 @@
 begin;
-select plan(8);
+select plan(9);
 insert into auth.users(id) values ('61000000-0000-4000-8000-000000000001'),('61000000-0000-4000-8000-000000000002');
 insert into public.campaigns(id,owner_id,name) values ('62000000-0000-4000-8000-000000000001','61000000-0000-4000-8000-000000000001','Inventário modular');
 insert into public.system_templates(id,campaign_id,owner_id,name,status,schema) values (
@@ -17,6 +17,7 @@ select throws_ok($$update public.character_inventory set custom_values='{"peso":
 select public.restore_character_backup('62000000-0000-4000-8000-000000000001','63000000-0000-4000-8000-000000000001','{"format":"rpg-nexus-sheet","format_version":1,"name":"Cópia","template":{"fields":[{"id":"nome","label":"Nome","kind":"text","required":true,"options":[],"expression":null}]},"values":{"nome":"Cópia"},"effects":[],"inventory":[{"name":"Corda restaurada","category":"equipment","quantity":1,"resource_cost":0,"damage_bonus":0,"protection":0,"notes":"","acquired":true,"equipped":false,"sort_order":0,"custom_values":{"peso":3}}]}');
 select is((select custom_values->>'peso' from public.character_inventory where name='Corda restaurada'),'3','restore preserves dynamic item fields');
 select ok(private.mobile_sync_field_allowlist('character_inventory') @> array['custom_values'],'mobile capabilities allow dynamic item fields');
+select ok(not ((private.mobile_sync_record_dto('character_sheets','{"id":"64000000-0000-4000-8000-000000000001","sync_version":1,"portrait_path":"private-path","future_private":"secret"}')->'data') ?| array['portrait_path','future_private','sync_version']), 'sync DTO excludes new and undeclared columns');
 reset role;
 select set_config('request.jwt.claim.sub','61000000-0000-4000-8000-000000000002',true);
 set local role authenticated;

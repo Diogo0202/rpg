@@ -1,23 +1,31 @@
+import { OneRingCharacterBuilder } from "@/components/nexus/OneRingCharacterBuilder";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
-import type { FieldValue, SheetTemplate } from "@/lib/sheet-template.ts";
-import { creationGroups, creationStepLabel, identityFields, reconcileDependentValues, validateFields, characterNameField } from "@/lib/sheet-creation.ts";
+import { SYSTEM_STARTERS, type SystemStarter } from "../../../shared/rules/system-starters.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../shared/rules/sheet-template.ts";
+import { creationGroups, creationStepLabel, identityFields, masterGrantedFieldIds, reconcileDependentValues, validateFields, characterNameField } from "../../../shared/rules/sheet-creation.ts";
 import { FieldInput } from "@/components/nexus/FieldInput";
+import { GrantPicker, GrantSummary, PowerPicker } from "@/components/nexus/CreationGrants";
+import { applyGrants, creationRuleViolations, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerRules, ruleMessage, selectedCase, staleGrantChoices } from "../../../shared/rules/creation-grants.ts";
 import { Btn, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { computeFormulas, focusSheetError, IDENTITY_LABELS, prepareSheetValues, wizardTransition } from "@/lib/nexus/sheets";
 import { useNexus } from "@/lib/nexus/store";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
 import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
+import { DistributionControls, distributionProblems } from "@/components/nexus/DistributionControls";
+import { distributionRulesFor, matchingDistribution } from "@/lib/creation-distributions";
+import { stepHelp } from "../../../shared/rules/step-help";
+import { hunterTemplateCreationProblems } from "@/lib/nexus/hunter-creation";
+import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../../../shared/rules/priority-points";
 
 export const Route = createFileRoute("/fichas/nova")({
   head: () => ({
     meta: [
-      { title: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador e O Um Anel." },
-      { property: "og:title", content: "Nova ficha guiada — RPG-Atlas Mobile" },
-      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, Caçador e O Um Anel." },
+      { title: "Nova ficha guiada â€” RPG-Atlas Mobile" },
+      { name: "description", content: "Assistente guiado para criar fichas de Vampiro V5, CaÃ§ador, O Um Anel, Shadow of the Demon Lord e DemÃ´nio: A Queda." },
+      { property: "og:title", content: "Nova ficha guiada â€” RPG-Atlas Mobile" },
+      { property: "og:description", content: "Assistente guiado para criar fichas de Vampiro V5, CaÃ§ador, O Um Anel, Shadow of the Demon Lord e DemÃ´nio: A Queda." },
     ],
   }),
   component: NewSheet,
@@ -34,59 +42,133 @@ function NewSheet() {
       .filter((item): item is NonNullable<typeof item> => item !== null);
   }, [list, mode]);
   return (
-    <>
+    <div data-system-theme={starter?.systemKey === "demon-the-fallen" ? "demon-the-fallen" : undefined} className="sheet-system-theme space-y-4">
       <PageHeader title="Nova ficha" subtitle="Assistente guiado. Modelos-base parciais; regras completas dependem das fontes oficiais." />
       <LocalGate>
-        {starter ? <Wizard starter={starter} onCancel={() => setStarter(null)} /> : templates.length > 0 ? (
+        {starter ? (starter.template.system_key === "one-ring" && starter.template.rules_profile_version === 3 ? <OneRingNewCharacter starter={starter} onCancel={()=>setStarter(null)} /> : <Wizard starter={starter} onCancel={() => setStarter(null)} />) : templates.length > 0 ? (
           <div className="grid gap-3 sm:grid-cols-3">
             {templates.map((s) => (
               <Btn key={s.id} variant="outline" onClick={() => setStarter(s)} className="parchment flex h-auto flex-col items-start bg-card p-4 text-left hover:ring-2 hover:ring-ring">
                 <p className="font-display text-xl font-semibold text-ink">{s.label}</p>
-                <p className="mt-1 text-sm text-ink-muted">{s.template.name} · {s.template.fields.length} campos</p>
+                <p className="mt-1 text-sm text-ink-muted">{s.template.name} Â· {s.template.fields.length} campos</p>
               </Btn>
             ))}
           </div>
-        ) : <p className="parchment p-4 text-sm text-ink-muted">{mode === "connected" ? "Esta campanha não tem modelos aprovados compatíveis para criar fichas." : "Nenhum modelo local está disponível."}</p>
+        ) : <p className="parchment p-4 text-sm text-ink-muted">{mode === "connected" ? "Esta campanha nÃ£o tem modelos aprovados compatÃ­veis para criar fichas." : "Nenhum modelo local estÃ¡ disponÃ­vel."}</p>
         }
       </LocalGate>
-    </>
+    </div>
   );
 }
 
 type WizardStarter = { id: string; label: string; systemKey: string; templateId: string | null; template: SheetTemplate; values: Record<string, FieldValue> };
 
+function OneRingNewCharacter({starter,onCancel}:{starter:WizardStarter;onCancel:()=>void}) {
+  const {create,mode,accountId,campaignId}=useNexus();
+  const navigate=useNavigate();
+  return <><Btn variant="outline" onClick={onCancel}>Trocar modelo</Btn><OneRingCharacterBuilder accountId={accountId} campaignId={campaignId} templateId={starter.templateId ?? "local-one-ring-v3"} initialValues={starter.values} saveMode={mode==="connected" ? "queued" : "local"} onSave={async(values)=>{
+    const payload:Record<string,JsonValue>=mode==="connected" ? {template_id:starter.templateId!,name:String(values.nome),values} : {name:String(values.nome),system_key:"one-ring",template_name:starter.template.name,template_version:3,values,effects:[]};
+    const id=await create("character_sheets",payload);
+    toast.success(mode==="connected" ? "Ficha enviada para confirmação pelo servidor." : "Ficha criada apenas no modo local.");
+    await navigate({to:"/fichas",search:{ficha:id}});
+  }}/></>;
+}
+
 function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () => void }) {
   const template = starter.template;
   const { create, mode } = useNexus();
   const navigate = useNavigate();
-  const [values, setValues] = useState<Record<string, FieldValue>>(() => ({ ...starter.values }));
+  // Templates from the server start empty; the base grants (Humanity 7, disciplines at 0) land at once.
+  // XP and pool meta currencies start at zero in a campaign; only the master grants them (the database refuses otherwise).
+  const masterGranted = useMemo(() => mode === "connected" ? masterGrantedFieldIds(template) : new Set<string>(), [mode, template]);
+  const [values, setValues] = useState<Record<string, FieldValue>>(() => {
+    const initial = { ...starter.values, ...applyGrants(template, starter.values, starter.values) };
+    for (const id of masterGranted) if (template.fields.some((field) => field.id === id && field.kind === "number")) initial[id] = 0;
+    return initial;
+  });
+  const [problems, setProblems] = useState<string[]>([]);
+  const [picker, setPicker] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [removed, setRemoved] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [distributionChoices, setDistributionChoices] = useState<Record<string, number>>({});
   const nameField = characterNameField(template);
-  const idFields = identityFields(template);
+  const choiceFieldIds = useMemo(() => grantChoiceFieldIds(template), [template]);
+  const idFields = identityFields(template).filter((field) => !choiceFieldIds.has(field.id));
+  const labels = useMemo(() => new Map(template.fields.map((field) => [field.id, field.label])), [template]);
+  const pickRules = useMemo(() => new Map(powerRules(template).map((rule) => [rule.collection, rule])), [template]);
+  const enforced = grantedNumbers(template, values).enforced;
+  const lockedPriority = lockedFieldIds(template, values);
+  const lockedItems = grantedItems(template, values);
   const groups = creationGroups(template);
   const steps = useMemo(() => [
     { key: "identity", label: creationStepLabel("identity"), fields: [...(nameField ? [nameField] : []), ...idFields] },
     ...groups.map((g) => ({ key: g.step, label: creationStepLabel(g.step), fields: g.fields })),
-    { key: "review", label: "Revisão", fields: [] },
+    { key: "review", label: "RevisÃ£o", fields: [] },
   ], [template]); // eslint-disable-line react-hooks/exhaustive-deps
   const [step, setStep] = useState(0);
    const current = steps[step] ?? steps[0];
    if (!current) return null;
   const formulas = computeFormulas(template, values);
+  const currentIds = current.fields.map((field) => field.id);
+  const pendingDistributionIds = new Set(distributionRulesFor(template, currentIds)
+    .filter((rule) => rule.options.length > 1 && (distributionChoices[rule.id] ?? matchingDistribution(rule, values)) < 0)
+    .flatMap((rule) => rule.fields));
 
   const onChange = (id: string, v: FieldValue | undefined) => {
     const next = { ...values };
     if (v === undefined) delete next[id]; else next[id] = v;
     const r = reconcileDependentValues(template, next);
+    // Clan and predator packages land on the sheet at once; the picks they offer open in a picker.
+    const granted = { ...r.values, ...applyGrants(template, values, r.values) };
+    Object.assign(granted, priorityPatch(template, values, granted));
+    for (const stale of staleGrantChoices(template, granted)) delete granted[stale];
     setRemoved(r.removedIds.filter((rid) => values[rid] !== undefined && r.values[rid] === undefined));
-    setValues(r.values);
-    setErrors((e) => { const n = { ...e }; delete n[id]; return n; });
+    setValues(granted);
+    // A paired field (ConvicÃ§Ã£o / Pedra de Toque) answers its partner's "fill both" error too.
+    setErrors((e) => { const n = { ...e }; delete n[id]; for (const f of template.fields) if (f.paired_with === id) delete n[f.id]; return n; });
+    setProblems([]);
+    const opened = grantRules(template).find((rule) => rule.field === id && values[id] !== v && (selectedCase(rule, granted)?.choices?.length ?? 0) > 0);
+    if (opened) setPicker(opened.id);
+  };
+
+  const focusProblems = () => requestAnimationFrame(() => document.getElementById("nova-regras")?.focus());
+
+  /** Clan, predator and power checks plus the point distributions that live on these fields. */
+  const stepProblems = (fields: SheetField[]) => {
+    const ids = new Set(fields.map((field) => field.id));
+    const priority = priorityRules(template).flatMap((rule) => {
+      const tally = tallyPriority(template, rule, values);
+      const touched = tally.pools.filter((pool) => pool.groups.some((group) => group.fieldIds.some((id) => ids.has(id))));
+      // Merits spend and Flaws add bonus points, so those collections also answer for the budget.
+      const itemsHere = [...(rule.freebie_items?.spend ?? []), ...(rule.freebie_items?.earn ? [rule.freebie_items.earn.collection] : [])].some((id) => ids.has(id));
+      return [
+        ...touched.flatMap((pool) => [
+          ...pool.problems,
+          ...(pool.shortfall ? [`${pool.pool.label}: faltam ${pool.shortfall} pontos da distribuiÃ§Ã£o inicial`] : []),
+        ]),
+        ...((touched.length || itemsHere) && tally.remaining < 0 ? [`BÃ´nus: ${-tally.remaining} a mais que os ${tally.remaining + tally.bonus} disponÃ­veis.`] : []),
+      ];
+    });
+    return [
+      ...priority,
+      ...distributionProblems(template, values, ids, distributionChoices),
+      ...grantProblems(template, values, ids, labels),
+      ...creationRuleViolations(template, values)
+        .filter((rule) => rule.type !== "select_grants" && rule.type !== "power_picks" && rule.type !== "priority_points" && rule.type !== "collection_points" && rule.fields.some((fieldId) => ids.has(fieldId)))
+        .map(ruleMessage),
+    ];
   };
 
   const goTo = (target: number) => {
     const result = wizardTransition(steps, step, target, values, template);
+    if (target > step && !Object.keys(result.errors).length) {
+      for (let i = 0; i < Math.min(target, steps.length - 1); i++) {
+        const found = stepProblems(steps[i]?.fields ?? []);
+        if (found.length) { setErrors({}); setProblems(found); setStep(i); focusProblems(); return; }
+      }
+    }
+    setProblems([]);
     setErrors(result.errors);
     setStep(result.step);
     focusSheetError("nova", result.errors);
@@ -99,7 +181,16 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
       setErrors(all);
       const invalidStep = steps.findIndex((s) => s.fields.some((f) => all[f.id]));
       if (invalidStep >= 0) setStep(invalidStep);
-      focusSheetError("nova", all); toast.error("Há campos para revisar."); return;
+      focusSheetError("nova", all); toast.error("HÃ¡ campos para revisar."); return;
+    }
+    // The database refuses a sheet that breaks a creation rule; say why before it syncs.
+    const violations = creationRuleViolations(template, prepared.values);
+    const hunterProblems = hunterTemplateCreationProblems(template, prepared.values);
+    if (violations.length || hunterProblems.length) {
+      setProblems([...violations.map(ruleMessage), ...hunterProblems]);
+      const invalidStep = steps.findIndex((s) => s.fields.some((f) => violations.some((rule) => rule.fields.includes(f.id) || ("field" in rule && rule.field === f.id) || ("collection" in rule && rule.collection === f.id))));
+      if (invalidStep >= 0) setStep(invalidStep);
+      focusProblems(); toast.error("A ficha nÃ£o segue as regras de criaÃ§Ã£o."); return;
     }
     setSaving(true);
     try {
@@ -109,10 +200,10 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
         ? { template_id: starter.templateId!, name, values: stored as Record<string, JsonValue> }
         : { name, system_key: starter.systemKey, template_name: template.name, template_version: template.version, values: stored as Record<string, JsonValue>, effects: [] };
       const id = await create("character_sheets", payload);
-      toast.success(mode === "connected" ? "Ficha na fila local; a API confirma após sincronização." : "Ficha salva neste aparelho e selecionada na sessão.");
+      toast.success(mode === "connected" ? "Ficha na fila local; a API confirma apÃ³s sincronizaÃ§Ã£o." : "Ficha salva neste aparelho e selecionada na sessÃ£o.");
       void navigate({ to: "/fichas", search: { ficha: id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.");
+      toast.error(e instanceof Error ? e.message : "NÃ£o foi possÃ­vel salvar.");
     } finally { setSaving(false); }
   };
 
@@ -132,23 +223,64 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
           </li>
         ))}
       </ol>
-      <Panel title={`${starter.label} · ${current.label}`} actions={identityKinds.map((k) => <Tag key={k} tone="gold">{k}</Tag>)}>
+      <Panel title={`${starter.label} Â· ${current.label}`} actions={identityKinds.map((k) => <Tag key={k} tone="gold">{k}</Tag>)}>
+        {stepHelp(template.system_key, current.key) && <p className="mb-3 text-sm text-ink-muted">{stepHelp(template.system_key, current.key)}</p>}
         {removed.length > 0 && (
           <p className="parchment-inset mb-3 p-3 text-sm text-ink" role="status">Algumas escolhas dependentes foram limpas por incompatibilidade: {removed.join(", ")}. Revise.</p>
         )}
+        {problems.length > 0 && (
+          <div id="nova-regras" tabIndex={-1} className="parchment-inset mb-3 p-3 text-sm text-ink" role="alert">
+            <p className="font-semibold">Regras de criaÃ§Ã£o</p>
+            <ul className="mt-1 list-disc pl-5">{problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>
+          </div>
+        )}
+        <DistributionControls template={template} values={values} ids={currentIds} choices={distributionChoices}
+          onChoose={(id, option) => { setDistributionChoices((previous) => ({ ...previous, [id]: option })); setProblems([]); }} />
+        {priorityRules(template).map((rule) => {
+          const tally = tallyPriority(template, rule, values);
+          const pools = tally.pools.filter((pool) => current.key === "review" || pool.groups.some((group) => group.fieldIds.some((id) => currentIds.includes(id))));
+          const spec = rule.freebie_items;
+          const itemsHere = current.key === "review" || [...(spec?.spend ?? []), ...(spec?.earn ? [spec.earn.collection] : [])].some((id) => currentIds.includes(id));
+          const items = freebieItemPoints(rule, values);
+          // Flaws add bonus points up to their cap, so the total moves with them.
+          const available = tally.remaining + tally.bonus;
+          return pools.length || (spec && itemsHere) ? <div key={rule.id} className="parchment-inset mb-3 p-3 text-sm text-ink" role="status" aria-live="polite">
+            <p className={`font-semibold ${tally.remaining < 0 ? "text-destructive" : ""}`}>{tally.remaining < 0
+              ? `BÃ´nus: ${-tally.remaining} a mais que os ${available} disponÃ­veis`
+              : `Pontos bÃ´nus: restam ${tally.remaining} de ${available}`}</p>
+            {spec && (items.spent || items.earned) ? <p>Qualidades custam {items.spent}; Defeitos somam {items.earned}{spec.earn ? ` (atÃ© ${spec.earn.max})` : ""}.</p> : null}
+            {pools.map((pool) => <p key={pool.pool.id}>{pool.pool.label}: {pool.groups.map((group) => `${group.label} ${group.spent}/${group.free}`).join("; ")}</p>)}
+          </div> : null;
+        })}
         {current.key === "review" ? <Review starter={starter} values={values} formulas={formulas} /> : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {current.fields.map((f) => (
-              <FieldInput key={f.id} template={template} field={f} values={values} error={errors[f.id]} formula={formulas[f.id]} onChange={onChange} idPrefix="nova" />
-            ))}
+            {current.fields.map((f) => {
+              if (pendingDistributionIds.has(f.id)) return null;
+              // V3: disciplines outside the clan and virtues outside the chosen Path stay off the step.
+              if (lockedPriority.has(f.id)) return null;
+              if (masterGranted.has(f.id) && f.kind === "number") {
+                return <FieldInput key={f.id} template={template} field={f} values={values} onChange={onChange} idPrefix="nova" fixed={0} fixedNote="Concedido pelo Mestre durante a crÃ´nica" />;
+              }
+              const fixed = f.kind === "number" ? enforced.get(f.id) : undefined;
+              // Disciplines the clan and predator leave at zero stay off the step.
+              if (fixed === 0 && f.creation_step === "traits") return null;
+              const pickRule = f.kind === "collection" ? pickRules.get(f.id) : undefined;
+              if (pickRule) return <PowerPicker key={f.id} field={f} rule={pickRule} values={values} error={errors[f.id]} onChange={onChange} idPrefix="nova" />;
+              return <FieldInput key={f.id} template={template} field={f} values={values} error={errors[f.id]} formula={formulas[f.id]} onChange={onChange} idPrefix="nova" fixed={fixed} lockedItems={lockedItems.get(f.id)} />;
+            })}
+            {current.key === "identity" && <GrantSummary template={template} values={values} onPick={setPicker} />}
           </div>
         )}
       </Panel>
+      {picker && (() => {
+        const rule = grantRules(template).find((item) => item.id === picker);
+        return rule ? <GrantPicker rule={rule} values={values} onChange={onChange} onClose={() => setPicker(null)} /> : null;
+      })()}
       <div className="flex flex-wrap justify-between gap-2">
         <Btn variant="forest" onClick={step === 0 ? onCancel : () => setStep(step - 1)}>{step === 0 ? "Trocar sistema" : "Voltar"}</Btn>
         {current.key === "review"
-          ? <Btn onClick={() => void save()} disabled={saving}>{saving ? "Salvando…" : "Criar personagem"}</Btn>
-           : <Btn onClick={() => goTo(step + 1)}>Avançar</Btn>}
+          ? <Btn onClick={() => void save()} disabled={saving}>{saving ? "Salvandoâ€¦" : "Criar personagem"}</Btn>
+           : <Btn onClick={() => goTo(step + 1)}>AvanÃ§ar</Btn>}
       </div>
     </div>
   );
@@ -158,13 +290,13 @@ function Review({ starter, values, formulas }: { starter: WizardStarter; values:
   const shown = starter.template.fields.filter((f) => values[f.id] !== undefined && values[f.id] !== "" && !(Array.isArray(values[f.id]) && (values[f.id] as string[]).length === 0));
   return (
     <div className="space-y-3">
-      <p className="text-sm text-ink-muted">Nenhuma rolagem acontece ao salvar. Valores calculados são somente leitura.</p>
+      <p className="text-sm text-ink-muted">Nenhuma rolagem acontece ao salvar. Valores calculados sÃ£o somente leitura.</p>
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
         {shown.map((f) => (
           <div key={f.id} className="min-w-0"><dt className="text-ink-muted">{f.label}</dt><dd className="truncate font-semibold text-ink">{Array.isArray(values[f.id]) ? (values[f.id] as string[]).join(", ") : String(values[f.id])}</dd></div>
         ))}
         {Object.entries(formulas).map(([id, r]) => (
-          <div key={id}><dt className="text-ink-muted">{starter.template.fields.find((f) => f.id === id)?.label}</dt><dd className="font-semibold text-ink">{r.ok ? r.value : "—"}</dd></div>
+          <div key={id}><dt className="text-ink-muted">{starter.template.fields.find((f) => f.id === id)?.label}</dt><dd className="font-semibold text-ink">{r.ok ? r.value : "â€”"}</dd></div>
         ))}
       </dl>
     </div>

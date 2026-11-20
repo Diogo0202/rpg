@@ -1,14 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 import { useCharacterSession } from "../lib/character-session";
 import { ModifierExplanation, type ModifierPreview } from "./character-effects-panel";
-import { deriveDamageState } from "./v5-action-panel";
+import { probabilityRequest } from "../lib/v5-probability-request";
+import { V5ProbabilityCurve } from "./v5-probability-curve";
+import { V5WillpowerReroll } from "./v5-willpower-reroll";
 
 type Roll = { success: number; messy_critical: number; bestial_failure: number };
 type Comparison = { without_reroll: Roll; with_reroll: Roll; reroll_limit: number; modifier_preview: ModifierPreview; hunger_dice: number };
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const UNAVAILABLE_SHEET = "Esta ficha não está disponível para sua conta. Atualize as fichas da campanha.";
+const PROBABILITY_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para acessar a API.",
+  signedOut: "Entre na campanha para calcular a rolagem.",
+  status: { 401: "Sua sessão expirou. Entre novamente.", 403: UNAVAILABLE_SHEET, 404: UNAVAILABLE_SHEET },
+  useDetail: false,
+  rejected: "Confira os valores da parada e tente de novo.",
+};
 
 function Chance({ title, value, tone }: { title: string; value: number; tone: string }) {
   const percent = value * 100;
@@ -38,17 +47,8 @@ export function V5ProbabilityPanel() {
     setLoading(true);
     setMessage("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-      const { data } = await createClient().auth.getSession();
-      if (!data.session) throw new Error("Entre na campanha para calcular a rolagem.");
-      const response = await fetch(`${apiBase}/api/v1/v5/probabilities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-        body: JSON.stringify({ pool, hunger, difficulty, willpower_dice: rerolls, effects: character?.effects ?? [], context_tags: contextTags, damage: character ? deriveDamageState(character.values) : null }),
-        signal,
-      });
-      if (!response.ok) throw new Error("Confira os valores da parada e tente de novo.");
-      const comparison = (await response.json()) as Comparison;
+      const request = probabilityRequest({ sheetId: character?.id ?? null, pool, hunger, difficulty, willpowerDice: rerolls, contextTags });
+      const comparison = await sessionJson<Comparison>(request.path, { method: "POST", body: request.body, signal }, PROBABILITY_MESSAGES);
       if (!signal.aborted) setResult(comparison);
     } catch (error) {
       if (signal.aborted) return;
@@ -86,17 +86,19 @@ export function V5ProbabilityPanel() {
       <h2>Leia o risco antes de agir.</h2>
       <p>A distribuição conta sucessos, pares de 10, dados de Fome e falhas bestiais. Ajuste os números para a rolagem desta cena.</p>
       <label>Parada de dados<input type="number" min={0} max={30} value={pool} onChange={(event) => setPool(Number(event.target.value))} /></label>
-      <label>Fome<input type="number" min={0} max={5} value={hunger} onChange={(event) => setHunger(Number(event.target.value))} /></label>
-      <p className="probability-note">{character ? `Condições de ${character.name}. Tags: ${contextTags.join(", ") || "ação sem tags"}.` : "Simulação sem personagem e sem condições."}</p>
+      <label>Fome<input type="number" min={0} max={5} value={hunger} disabled={!!character} onChange={(event) => setHunger(Number(event.target.value))} /></label>
+      <p className="probability-note">{character ? `Fome, dano e condições de ${character.name} consultados no servidor. Tags: ${contextTags.join(", ") || "ação sem tags"}.` : "Simulação sem personagem e sem condições."}</p>
       {result && <><ModifierExplanation preview={result.modifier_preview} /><p className="probability-note">{result.hunger_dice} dados de Fome na parada ajustada.</p></>}
       <label>Dificuldade<input type="number" min={1} max={100} value={difficulty} onChange={(event) => setDifficulty(Number(event.target.value))} /></label>
       <label>Dados comuns para Vontade<input type="number" min={0} max={3} value={rerolls} onChange={(event) => setRerolls(Number(event.target.value))} /></label>
       <p className="probability-note" role="status">{loading ? "Atualizando probabilidades…" : "As probabilidades são atualizadas ao mudar os valores."}</p>
       {message && <p className="auth-message" role="status">{message}</p>}
-      <p className="probability-note">A comparação presume que Vontade rerrola até {rerolls} dados comuns que falharam. Dados de Fome ficam fora da rerrolagem.</p>
+      <p className="probability-note">Com Vontade, o cálculo testa todas as escolhas de até {rerolls} dados comuns (falhas, 6-9 e 10) e usa a melhor: maior chance de atingir a dificuldade; no empate, menor risco de crítico sujo e menos dados. Dados de Fome ficam fora da rerrolagem.</p>
     </article>
     <div className="probability-results">
       {result ? <><Outcome title="Sem rerrolagem" roll={result.without_reroll} /><Outcome title={`Com Vontade · até ${result.reroll_limit} dados`} roll={result.with_reroll} /><p className="probability-note">Crítico sujo e sucesso são eventos simultâneos. As probabilidades das linhas não devem ser somadas.</p></> : <article className="generation-card generator-empty">Defina a parada da cena e calcule a curva para comparar os riscos.</article>}
+      <V5ProbabilityCurve hunger={hunger} rerolls={rerolls} />
+      {character && <V5WillpowerReroll sheetId={character.id} pool={pool} difficulty={difficulty} contextTags={contextTags} />}
     </div>
   </section>;
 }

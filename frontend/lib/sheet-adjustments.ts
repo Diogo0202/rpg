@@ -1,4 +1,5 @@
-import { createClient } from "./supabase/client";
+import { DEFAULT_MESSAGES } from "./api/http.ts";
+import { sessionJson, type SessionMessages } from "./api/session.ts";
 
 /**
  * Atomic sheet adjustments: the API forwards deltas to Supabase RPCs, so XP
@@ -19,29 +20,15 @@ export type SheetEvent = {
   created_at: string;
 };
 
+const SHEET_MESSAGES: SessionMessages = {
+  status: { 429: DEFAULT_MESSAGES.tooManyRequests },
+  rejected: "A API recusou o ajuste.",
+  signedOut: "Entre na campanha para alterar a ficha.",
+};
+
 /** Authenticated JSON call to the FastAPI backend; errors carry the API's detail text. */
-export async function request(path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<unknown> {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) throw new Error("A API não está configurada.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para alterar a ficha.");
-  let response: Response;
-  try {
-    response = await fetch(`${api.replace(/\/$/, "")}${path}`, {
-      method: init.method,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    });
-  } catch {
-    throw new Error("Não foi possível alcançar a API.");
-  }
-  if (response.status === 429) throw new Error("Limite de solicitações atingido. Aguarde antes de tentar novamente.");
-  const decoded: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const detail = decoded && typeof decoded === "object" && "detail" in decoded && typeof decoded.detail === "string" ? decoded.detail : "";
-    throw new Error(detail ? detail.slice(0, 300) : "A API recusou o ajuste.");
-  }
-  return decoded;
+export function request(path: string, init: { method: "GET" | "POST"; body?: unknown }): Promise<unknown> {
+  return sessionJson(path, init, SHEET_MESSAGES);
 }
 
 function adjustedSheet(result: unknown): AdjustedSheet {

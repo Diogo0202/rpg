@@ -1,0 +1,45 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { test } from "node:test";
+import { poolBase, priorityPatch, priorityRules, tallyPriority } from "../../shared/rules/priority-points.ts";
+import { stepHelp } from "../../shared/rules/step-help.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+
+const demon = SYSTEM_STARTERS.find((item) => item.id === "demon-the-fallen");
+const rule = priorityRules(demon.template)[0];
+const virtues = rule.pools.find((pool) => pool.id === "virtudes");
+const willpower = rule.pools.find((pool) => pool.id === "vontade");
+
+test("Demônio: A Queda tem ficha e orçamentos separados de Shadow of the Demon Lord", () => {
+  assert.equal(demon.template.system_key, "demon-the-fallen");
+  assert.equal(demon.template.fields.length, 107);
+  assert.deepEqual(rule.pools.map((pool) => pool.budgets), [[7, 5, 3], [13, 9, 5], [5], [3], [3], [0], [0]]);
+  assert.equal(demon.template.fields.filter((field) => field.creation_step === "skills").length, 36);
+  assert.equal(virtues.base, 1);
+  assert.equal(stepHelp("demon-the-fallen", "attributes").includes("7, 5 e 3"), true);
+});
+
+test("Força de Vontade usa as duas maiores Virtudes e acompanha sua alteração", () => {
+  const before = { ...demon.values, consciencia: 3, conviccao: 2, coragem: 1, vontade_max: 5, vontade_atual: 5 };
+  assert.equal(poolBase(willpower, before), 5);
+  const after = { ...before, coragem: 4 };
+  assert.equal(poolBase(willpower, after), 7);
+  assert.equal(priorityPatch(demon.template, before, after).vontade_max, 7);
+  assert.equal(tallyPriority(demon.template, rule, before).complete, false);
+});
+
+test("Doutrina principal depende da Casa e recursos atuais seguem os máximos", () => {
+  const field = demon.template.fields.find((item) => item.id === "doutrina_principal");
+  assert.equal(field.creation_step, "traits");
+  assert.deepEqual(field.depends_on.cases.find((item) => item.equals === "Flagelos").options,
+    ["Ventos", "Despertar", "Firmamento"]);
+  const before = { ...demon.values, casa: "Flagelos", doutrina_principal: "Ventos",
+    fe_permanente: 3, fe_atual: 3, vontade_max: 2, vontade_atual: 2 };
+  assert.equal(priorityPatch(demon.template, before, { ...before, fe_permanente: 4 }).fe_atual, 4);
+  assert.equal(tallyPriority(demon.template, rule, { ...before, fe_atual: 2 }).complete, false);
+});
+
+test("backend e starter têm o mesmo contrato de criação", () => {
+  const fixture = JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/demon_fallen_starter.json", import.meta.url), "utf8"));
+  assert.deepEqual(fixture, demon.template);
+});

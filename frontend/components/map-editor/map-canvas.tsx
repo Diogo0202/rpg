@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 
-import type { MapDocumentV2, MapPin, MapStructure } from "../../lib/map-document";
+import type { FogRegion, MapDocumentV2, MapPin, MapStructure } from "../../lib/map-document";
 import { pointAlongPolyline, type Point } from "../../lib/map-geometry";
 import { findDoor, findFloor, findPinIcon, findProp, findWall, type FloorMaterial, type MapKit } from "../../lib/map-kits";
 import { initials } from "../../lib/portraits";
@@ -13,8 +13,10 @@ export type CanvasDraft =
   | { type: "polyline"; points: Point[]; cursor: Point | null; closed: boolean }
   | { type: "rect"; from: Point; to: Point }
   | null;
-export type LayerVisibility = { areas: boolean; shadows: boolean; walls: boolean; props: boolean; pins: boolean; grid: boolean };
-export const ALL_LAYERS: LayerVisibility = { areas: true, shadows: true, walls: true, props: true, pins: true, grid: true };
+export type LayerVisibility = { areas: boolean; shadows: boolean; walls: boolean; props: boolean; pins: boolean; grid: boolean; fog: boolean };
+export const ALL_LAYERS: LayerVisibility = { areas: true, shadows: true, walls: true, props: true, pins: true, grid: true, fog: true };
+/** Player-side masks: fog regions in order (null = no fog) and sight polygons from own pins. */
+export type CanvasVision = { fogRegions: FogRegion[] | null; sight: Point[][] | null };
 
 export const PIN_RADIUS = { small: 110, medium: 150, large: 200 } as const;
 const LEGACY_COLORS: Record<string, string> = { room: "#536b59", corridor: "#947a55", wall: "#252b28", water: "#365f69", forest: "#345541", mountain: "#77776c" };
@@ -36,6 +38,10 @@ type Props = {
   onPointer?: (event: CanvasPointer) => void;
   /** Hand tool or two fingers pan; otherwise pointer events go to onPointer. */
   panMode?: boolean;
+  /** Darkens what the viewer cannot see (fog and line of sight). */
+  vision?: CanvasVision | null;
+  /** Editor overlay: outlines of fog regions (reveal in green, hide in red). */
+  fogOutlines?: FogRegion[] | null;
 };
 
 function patternMarkup(floor: FloorMaterial): ReactNode {
@@ -56,7 +62,7 @@ const pointsAttr = (points: Point[]) => points.map(([x, y]) => `${x},${y}`).join
 
 /** Top-down SVG renderer shared by the master's editor and the players' view. */
 export function MapCanvas(props: Props) {
-  const { document, kit, portraitUrls, portraitPaths = {}, mode, selectedId, draft, layers = ALL_LAYERS, movablePinIds, label, onPointer, panMode } = props;
+  const { document, kit, portraitUrls, portraitPaths = {}, mode, selectedId, draft, layers = ALL_LAYERS, movablePinIds, label, onPointer, panMode, vision, fogOutlines } = props;
   const uid = useId().replace(/:/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>({ x: 0, y: 0, scale: 1 });
@@ -272,6 +278,23 @@ export function MapCanvas(props: Props) {
     {layers.props && document.structures.filter((item) => item.type === "prop").map(renderStructure)}
     {mode === "editor" && legacy?.markers.map((marker) => <circle key={marker.id} cx={marker.x} cy={(marker.y / 10_000) * height} r="70" fill={marker.color} stroke="#111714" strokeWidth="14"><title>{marker.label}</title></circle>)}
     {layers.pins && document.pins.map(renderPin)}
+    {vision?.sight && <g pointerEvents="none" aria-hidden="true">
+      <mask id={`${uid}-sight`} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
+        <rect width={width} height={height} fill="white" />
+        {vision.sight.map((polygon, index) => <polygon key={index} points={pointsAttr(polygon)} fill="black" />)}
+      </mask>
+      <rect width={width} height={height} fill="#05060a" fillOpacity={0.72} mask={`url(#${uid}-sight)`} />
+    </g>}
+    {vision?.fogRegions && <g pointerEvents="none" aria-hidden="true">
+      <mask id={`${uid}-fog`} maskUnits="userSpaceOnUse" x="0" y="0" width={width} height={height}>
+        <rect width={width} height={height} fill="white" />
+        {vision.fogRegions.map((region) => <polygon key={region.id} points={pointsAttr(region.points)} fill={region.mode === "reveal" ? "black" : "white"} />)}
+      </mask>
+      <rect width={width} height={height} fill="#030305" mask={`url(#${uid}-fog)`} />
+    </g>}
+    {layers.fog && fogOutlines?.map((region) => <polygon key={region.id} points={pointsAttr(region.points)} pointerEvents="none"
+      fill={region.mode === "reveal" ? "rgba(120,200,140,.10)" : "rgba(220,90,90,.16)"} stroke={region.mode === "reveal" ? "rgba(120,200,140,.8)" : "rgba(220,90,90,.85)"}
+      strokeWidth="18" strokeDasharray="70 40"><title>{`${region.mode === "reveal" ? "Revelado" : "Oculto"} · ${region.players ? "jogador específico" : "todos"}`}</title></polygon>)}
     {draft?.type === "polyline" && <polyline className={styles.draft}
       points={pointsAttr(draft.cursor ? [...draft.points, draft.cursor] : draft.points)}
       fill={draft.closed ? "rgba(240,199,127,.12)" : "none"} />}
