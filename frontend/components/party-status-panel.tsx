@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import { adjustExperience, spendMetaCurrency } from "../lib/sheet-adjustments";
 import type { MetaCurrency, SheetTemplate } from "../../shared/rules/sheet-template";
-import { createClient } from "../lib/supabase/client";
+import { campaignFilter, useTableChannel } from "../lib/realtime/hooks";
 import { browserDb } from "../lib/data/browser";
 import * as sheetRepo from "../lib/data/sheets";
 import styles from "./party-status-panel.module.css";
@@ -87,7 +87,8 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({});
   const [noteStatus, setNoteStatus] = useState<Record<string, string>>({});
-  const refreshRef = useRef<() => void>(() => undefined);
+  const refreshRef = useRef<(manual?: boolean) => void>(() => undefined);
+  const subscribedRef = useRef(false);
 
   /** Master-only notes live in character_sheet_secrets, which not even the sheet owner can read. */
   async function saveNote(sheetId: string) {
@@ -102,16 +103,15 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
 
   useEffect(() => {
     let active = true;
-    let subscribed = false;
     let requestId = 0;
     setSheets([]);
     setLoading(true);
     setStatus("offline");
     setMessage("");
 
-    let supabase: ReturnType<typeof createClient>;
+    let supabase: ReturnType<typeof browserDb>;
     try {
-      supabase = createClient();
+      supabase = browserDb();
     } catch {
       setLoading(false);
       setStatus("error");
@@ -139,7 +139,7 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
         setTemplates(Object.fromEntries((templateResult.data ?? []).map((row) => [row.id as string, row.schema as SheetTemplate])));
         setNotes(Object.fromEntries((secretResult.data ?? []).map((row) => [row.sheet_id as string, row.notes as string])));
         setMessage("");
-        setStatus(subscribed ? "connected" : "offline");
+        setStatus(subscribedRef.current ? "connected" : "offline");
       } catch {
         if (!active || currentRequest !== requestId) return;
         setStatus("error");
@@ -152,44 +152,37 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
       }
     }
 
-    refreshRef.current = () => void refresh(true);
-
-    const channel = supabase
-      .channel(`party-status-${campaignId}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` },
-        () => void refresh(),
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` },
-        () => void refresh(),
-      )
-      .subscribe((channelStatus) => {
-        if (!active) return;
-        if (channelStatus === "SUBSCRIBED") {
-          subscribed = true;
-          setStatus("connected");
-          void refresh();
-        } else if (channelStatus === "CHANNEL_ERROR" || channelStatus === "TIMED_OUT") {
-          subscribed = false;
-          setStatus("error");
-          setMessage("O realtime apresentou um erro. Atualize para buscar os dados atuais.");
-        } else if (channelStatus === "CLOSED") {
-          subscribed = false;
-          setStatus("offline");
-        }
-      });
-
+    refreshRef.current = (manual = false) => void refresh(manual);
     void refresh();
 
     return () => {
       active = false;
       refreshRef.current = () => undefined;
-      void supabase.removeChannel(channel);
     };
   }, [campaignId]);
+
+  useTableChannel({
+    topic: `party-status-${campaignId}`,
+    listeners: [
+      { table: "character_sheet_notifications", event: "INSERT", filter: campaignFilter(campaignId) },
+      { table: "character_sheet_notifications", event: "UPDATE", filter: campaignFilter(campaignId) },
+    ],
+    onChange: () => refreshRef.current(),
+    onState: (channelStatus) => {
+      if (channelStatus === "SUBSCRIBED") {
+        subscribedRef.current = true;
+        setStatus("connected");
+        refreshRef.current();
+      } else if (channelStatus === "CHANNEL_ERROR" || channelStatus === "TIMED_OUT") {
+        subscribedRef.current = false;
+        setStatus("error");
+        setMessage("O realtime apresentou um erro. Atualize para buscar os dados atuais.");
+      } else if (channelStatus === "CLOSED") {
+        subscribedRef.current = false;
+        setStatus("offline");
+      }
+    },
+  });
 
   const statusLabel = status === "connected" ? "Conectado" : status === "error" ? "Erro" : "Sem realtime";
   const visibleSheets = onlyActive ? sheets.filter((sheet) => sheet.values.ativo_na_sessao === true) : sheets;
@@ -228,7 +221,7 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
     }
     setResults(lines);
     setApplying(false);
-    refreshRef.current();
+    refreshRef.current(true);
   }
 
   return (
@@ -246,7 +239,7 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
 
       <div className={styles.toolbar}>
         <p className={styles.description}>Condição atual das fichas visíveis nesta campanha.</p>
-        <button className={styles.refreshButton} type="button" onClick={() => refreshRef.current()} disabled={refreshing}>
+        <button className={styles.refreshButton} type="button" onClick={() => refreshRef.current(true)} disabled={refreshing}>
           {refreshing ? "Atualizando…" : "Atualizar"}
         </button>
       </div>

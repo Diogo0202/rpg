@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { campaignFilter, useTableChannel } from "../lib/realtime/hooks";
 import { browserDb } from "../lib/data/browser";
 import * as mapRepo from "../lib/data/maps";
 import { parseMapDocument, type MapDocumentV2 } from "../lib/map-document";
@@ -51,13 +51,11 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
   }, [campaignId, viewerId, revision]);
 
   // Realtime carries only an invalidation marker; the content is re-read through the RPC.
-  useEffect(() => {
-    const client = createClient();
-    const channel = client.channel(`player-maps-${campaignId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "map_notifications", filter: `campaign_id=eq.${campaignId}` }, () => { if (!dragging.current) setRevision((value) => value + 1); })
-      .subscribe();
-    return () => { void client.removeChannel(channel); };
-  }, [campaignId]);
+  useTableChannel({
+    topic: `player-maps-${campaignId}`,
+    listeners: [{ table: "map_notifications", filter: campaignFilter(campaignId) }],
+    onChange: () => { if (!dragging.current) setRevision((value) => value + 1); },
+  });
 
   useEffect(() => {
     let active = true;

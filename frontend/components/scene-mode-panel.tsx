@@ -1,13 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import {
   advanceCombatTurn, appendParticipantsToCombat, blankCombatState, CombatStateError, parseCombatState, type CombatState,
 } from "../lib/combat-state";
-import { applyRowChange, connectionLabel, startRealtimeSync, type RealtimeConnection, type RowChange } from "../lib/realtime-sync";
-import { createClient } from "../lib/supabase/client";
+import { applyRowChange, connectionLabel, type RowChange } from "../lib/realtime-sync";
+import { campaignFilter, useRealtimeSync } from "../lib/realtime/hooks";
 import { browserDb } from "../lib/data/browser";
 import * as combat from "../lib/data/combat";
 import { downloadText } from "../lib/download";
@@ -26,14 +25,12 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
   campaignRef.current = campaignId;
   const requestRef = useRef(0);
   const scenesRef = useRef<Scene[]>([]);
-  const syncRef = useRef<{ reconnectNow(): void } | null>(null);
   const [scenes, setScenesState] = useState<Scene[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [notes, setNotes] = useState<SceneNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [live, setLive] = useState<RealtimeConnection>("connecting");
   const [titleDraft, setTitleDraft] = useState("");
   const [participantName, setParticipantName] = useState("");
   const [initiativeDraft, setInitiativeDraft] = useState("0");
@@ -73,18 +70,17 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
   }
 
   useEffect(() => {
-    setScenes([]); setNotes([]); setSelectedId(null); setBusy(false); setMessage(""); setLive("connecting");
+    setScenes([]); setNotes([]); setSelectedId(null); setBusy(false); setMessage("");
     void refresh(campaignId);
-    let active = true;
-    let client: ReturnType<typeof createClient>;
-    try { client = createClient(); } catch { setLive("offline"); return () => { active = false; requestRef.current += 1; }; }
-    // Combat rows and their notes arrive through postgres_changes; RLS limits them to campaign members.
-    const sync = startRealtimeSync<RealtimeChannel>({
-      client,
-      topic: `combat-sync-${campaignId}`,
-      bind: (channel) => channel
-        .on("postgres_changes", { event: "*", schema: "public", table: "combat_sessions", filter: `campaign_id=eq.${campaignId}` }, (payload) => {
-          if (!active) return;
+    return () => { requestRef.current += 1; };
+  }, [campaignId]);
+
+  // Combat rows and their notes arrive through postgres_changes; RLS limits them to campaign members.
+  const { status: live, reconnectNow } = useRealtimeSync({
+    topic: `combat-sync-${campaignId}`,
+    bind: (channel, active) => channel
+        .on("postgres_changes", { event: "*", schema: "public", table: "combat_sessions", filter: campaignFilter(campaignId) }, (payload) => {
+          if (!active()) return;
           const change = { eventType: payload.eventType, new: payload.new, old: payload.old } as RowChange<Scene>;
           if (change.eventType !== "DELETE" && (change.new as Scene).campaign_id !== campaignId) return;
           setScenes((rows) => applyRowChange(rows, change));
@@ -92,18 +88,14 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
           else setSelectedId((current) => current ?? (change.new as Scene).id);
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "combat_events" }, (payload) => {
-          if (!active) return;
+          if (!active()) return;
           const note = payload.new as SceneNote;
           if (note?.event_type !== "notes" || !scenesRef.current.some((scene) => scene.id === note.combat_id)) return;
           setNotes((rows) => rows.some((row) => row.id === note.id) ? rows : [note, ...rows]);
         }),
-      onStatus: (status) => { if (active) setLive(status); },
-      // Every (re)subscribe re-reads the snapshot, so changes missed while offline are recovered.
-      onResync: () => { if (active) void refresh(campaignId, true); },
-    });
-    syncRef.current = sync;
-    return () => { active = false; requestRef.current += 1; syncRef.current = null; sync.stop(); };
-  }, [campaignId]);
+    // Every (re)subscribe re-reads the snapshot, so changes missed while offline are recovered.
+    onResync: () => { void refresh(campaignId, true); },
+  });
 
   const selected = scenes.find((scene) => scene.id === selectedId) ?? null;
   const state = selected ? parseCombatState(selected.state) : null;
@@ -210,7 +202,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
   }
 
   return <section className={styles.panel} aria-labelledby={`${uid}-title`} aria-busy={loading || busy}>
-    <header className={styles.header}><div><p className={styles.eyebrow}>MESA EM ANDAMENTO</p><h2 id={`${uid}-title`}>Modo de cena</h2><p className={styles.intro}>Iniciativa, turnos e notas sincronizados entre os dispositivos da campanha.</p></div><div className={styles.actions}><span className={`${styles.live} ${styles[live]}`} role="status" aria-live="polite"><span className={styles.liveDot} aria-hidden="true" />{connectionLabel(live)}</span>{live !== "connected" && <button type="button" className={styles.secondaryButton} onClick={() => syncRef.current?.reconnectNow()}>Reconectar</button>}<button type="button" className={styles.secondaryButton} disabled={loading || busy} onClick={() => void refresh()}>Atualizar</button></div></header>
+    <header className={styles.header}><div><p className={styles.eyebrow}>MESA EM ANDAMENTO</p><h2 id={`${uid}-title`}>Modo de cena</h2><p className={styles.intro}>Iniciativa, turnos e notas sincronizados entre os dispositivos da campanha.</p></div><div className={styles.actions}><span className={`${styles.live} ${styles[live]}`} role="status" aria-live="polite"><span className={styles.liveDot} aria-hidden="true" />{connectionLabel(live)}</span>{live !== "connected" && <button type="button" className={styles.secondaryButton} onClick={reconnectNow}>Reconectar</button>}<button type="button" className={styles.secondaryButton} disabled={loading || busy} onClick={() => void refresh()}>Atualizar</button></div></header>
     <CampaignPresence campaignId={campaignId} viewerId={viewerId} canManage={canManage} />
     <CampaignChat campaignId={campaignId} viewerId={viewerId} canManage={canManage} />
     <p className={styles.message} role="status" aria-live="polite">{message}</p>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "../lib/supabase/client";
 import { apiBase } from "../lib/api/session";
+import { campaignFilter, useTableChannel } from "../lib/realtime/hooks";
 import { browserDb } from "../lib/data/browser";
 import * as oneRing from "../lib/data/one-ring";
 import { CompanyOfflineStore, CompanySyncEngine, createCompanyHttpTransport, getOfflineContext, saveOfflineContext, clearOfflineAccount } from "../lib/one-ring-offline";
@@ -117,11 +118,11 @@ export function OneRingCompanyPanel({ campaignId, viewerId, canManage, viewerRol
     void engine.flush().then(()=>engine.refresh()).then(() => load(engine)).catch(() => load(engine));
   }, [engine, online, offlineOnly, load]);
 
-  useEffect(()=>{
-    if(!engine || offlineOnly || !online)return;
-    const client=createClient();const channel=client.channel(`one-ring-company:${campaignId}`).on("postgres_changes",{event:"*",schema:"public",table:"one_ring_company_notifications",filter:`campaign_id=eq.${campaignId}`},()=>{void engine.flush().then(()=>engine.refresh()).then(()=>load(engine)).catch(()=>load(engine));}).subscribe();
-    return ()=>{void client.removeChannel(channel);};
-  },[engine,campaignId,offlineOnly,online,load]);
+  useTableChannel({
+    topic: engine && online && !offlineOnly ? `one-ring-company:${campaignId}` : null,
+    listeners: [{ table: "one_ring_company_notifications", filter: campaignFilter(campaignId) }],
+    onChange: () => { if (engine) void engine.flush().then(() => engine.refresh()).then(() => load(engine)).catch(() => load(engine)); },
+  });
 
   const shown = useMemo(() => snapshot ? (snapshot.company ? snapshot : EMPTY) : null, [snapshot]);
   const availableTargets = shown?.members ?? [];

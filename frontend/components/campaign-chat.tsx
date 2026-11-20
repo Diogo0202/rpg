@@ -1,15 +1,14 @@
 "use client";
 
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import {
   applyChatChange, authorLabel, canDeleteMessage, canEditMessage, CHAT_COLUMNS, CHAT_MAX_LENGTH, CHAT_PAGE_SIZE, CHAT_ROLE_LABELS, chatErrorMessage, chatTopic,
   mergeMessages, messageVisibility, parseChatMessage, privateRecipients, removeMessage, resyncMessages, setMessageStatus, validateChatDraft,
   type ChatChange, type ChatMessage, type ChatParticipant, type ChatRole,
 } from "../lib/campaign-chat";
-import { connectionLabel, startRealtimeSync, type RealtimeConnection } from "../lib/realtime-sync";
-import { createClient } from "../lib/supabase/client";
+import { connectionLabel } from "../lib/realtime-sync";
+import { campaignFilter, useRealtimeSync } from "../lib/realtime/hooks";
 import { browserDb } from "../lib/data/browser";
 import * as chat from "../lib/data/campaign";
 import styles from "./campaign-chat.module.css";
@@ -33,7 +32,6 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
   const [messages, setMessagesState] = useState<ChatMessage[]>([]);
   const messagesRef = useRef<ChatMessage[]>([]);
   const [participants, setParticipants] = useState<ChatParticipant[]>([]);
-  const [status, setStatus] = useState<RealtimeConnection>("connecting");
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
   const [recipient, setRecipient] = useState("");
@@ -44,7 +42,6 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
   const [savingEdit, setSavingEdit] = useState(false);
   const campaignRef = useRef(campaignId);
   campaignRef.current = campaignId;
-  const syncRef = useRef<{ reconnectNow(): void } | null>(null);
   const listRef = useRef<HTMLOListElement | null>(null);
   const stickRef = useRef(true);
   const requestRef = useRef(0);
@@ -72,11 +69,11 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
 
   useEffect(() => {
     let active = true;
-    messagesRef.current = []; setMessagesState([]); setParticipants([]); setRecipient(""); setNotice(""); setLoading(true); setStatus("connecting");
+    messagesRef.current = []; setMessagesState([]); setParticipants([]); setRecipient(""); setNotice(""); setLoading(true);
     stickRef.current = true;
 
-    let client: ReturnType<typeof createClient>;
-    try { client = createClient(); } catch { setStatus("offline"); setLoading(false); return () => { active = false; }; }
+    let client: ReturnType<typeof browserDb>;
+    try { client = browserDb(); } catch { setLoading(false); return () => { active = false; }; }
 
     void (async () => {
       const { data, error } = await chat.chatParticipants(client, campaignId);
@@ -85,35 +82,29 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
       setParticipants(((data ?? []) as ParticipantRow[]).map(toParticipant).filter((row): row is ChatParticipant => row !== null));
     })();
 
-    const onChange = (payload: { eventType: string; new: unknown; old: unknown }) => {
-      if (!active) return;
-      const change = (payload.eventType === "DELETE"
-        ? { eventType: "DELETE", old: payload.old as { id?: unknown } }
-        : { eventType: payload.eventType, new: payload.new }) as ChatChange;
-      setMessages((rows) => applyChatChange(rows, change, campaignId));
-    };
-
-    // RLS on campaign_chat_messages decides which rows each subscriber receives (private ones only
-    // reach author and recipient). DELETE events cannot be filtered, so they only carry the id.
-    const sync = startRealtimeSync<RealtimeChannel>({
-      client,
-      topic: chatTopic(campaignId),
-      bind: (channel) => channel
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_chat_messages", filter: `campaign_id=eq.${campaignId}` }, onChange)
-        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "campaign_chat_messages", filter: `campaign_id=eq.${campaignId}` }, onChange)
-        .on("postgres_changes", { event: "DELETE", schema: "public", table: "campaign_chat_messages" }, onChange),
-      onStatus: (next) => { if (active) setStatus(next); },
-      onResync: () => { void loadMessages(); },
-    });
-    syncRef.current = sync;
     void loadMessages();
+    return () => { active = false; };
+  }, [campaignId, loadMessages]);
 
-    return () => {
-      active = false;
-      syncRef.current = null;
-      sync.stop();
-    };
-  }, [campaignId, loadMessages, setMessages]);
+  // RLS on campaign_chat_messages decides which rows each subscriber receives (private ones only
+  // reach author and recipient). DELETE events cannot be filtered, so they only carry the id.
+  const { status, reconnectNow } = useRealtimeSync({
+    topic: chatTopic(campaignId),
+    bind: (channel, active) => {
+      const onChange = (payload: { eventType: string; new: unknown; old: unknown }) => {
+        if (!active()) return;
+        const change = (payload.eventType === "DELETE"
+          ? { eventType: "DELETE", old: payload.old as { id?: unknown } }
+          : { eventType: payload.eventType, new: payload.new }) as ChatChange;
+        setMessages((rows) => applyChatChange(rows, change, campaignId));
+      };
+      return channel
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "campaign_chat_messages", filter: campaignFilter(campaignId) }, onChange)
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "campaign_chat_messages", filter: campaignFilter(campaignId) }, onChange)
+        .on("postgres_changes", { event: "DELETE", schema: "public", table: "campaign_chat_messages" }, onChange);
+    },
+    onResync: () => { void loadMessages(); },
+  });
 
   // Keep the newest message in view unless the reader scrolled up.
   useLayoutEffect(() => {
@@ -225,7 +216,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     <div className={styles.head}>
       <h3 id={`${uid}-title`}>Chat da mesa</h3>
       <span className={`${styles.badge} ${styles[status]}`} role="status" aria-live="polite"><span className={styles.dot} aria-hidden="true" />{connectionLabel(status)}</span>
-      {status !== "connected" && <button type="button" className={styles.linkButton} onClick={() => syncRef.current?.reconnectNow()}>Reconectar</button>}
+      {status !== "connected" && <button type="button" className={styles.linkButton} onClick={reconnectNow}>Reconectar</button>}
     </div>
     <ol
       ref={listRef}

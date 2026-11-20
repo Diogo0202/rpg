@@ -3,11 +3,12 @@
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { useRealtimeSync } from "../lib/realtime/hooks";
 import * as campaignRepo from "../lib/data/campaign";
 import {
-  canSendPing, connectionLabel, liveTopic, presenceMembers, roleFromMembership, startRealtimeSync,
-  type PresenceMember, type PresenceMeta, type PresenceRole, type RealtimeConnection,
+  canSendPing, connectionLabel, liveTopic, presenceMembers, roleFromMembership,
+  type PresenceMember, type PresenceMeta, type PresenceRole,
 } from "../lib/realtime-sync";
 import styles from "./campaign-presence.module.css";
 import { VoiceSessionPanel } from "./voice-session-panel";
@@ -18,7 +19,6 @@ const ROLE_LABELS: Record<PresenceRole, string> = { narrador: "Narrador", jogado
 /** Who is online in the campaign (private Realtime Presence) and the narrator's attention ping. */
 export function CampaignPresence({ campaignId, viewerId, canManage }: { campaignId: string; viewerId: string; canManage: boolean }) {
   const uid = useId();
-  const [status, setStatus] = useState<RealtimeConnection>("connecting");
   const [online, setOnline] = useState<PresenceMember[]>([]);
   const [ping, setPing] = useState<Ping | null>(null);
   const [pingDraft, setPingDraft] = useState("");
@@ -28,29 +28,49 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
   const rolesRef = useRef<Record<string, PresenceRole>>({});
   const nameRef = useRef("");
   const lastPingRef = useRef<number | null>(null);
-  const syncRef = useRef<{ reconnectNow(): void } | null>(null);
+  const dismissRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function recompute() {
+    const channel = channelRef.current;
+    if (!channel) return;
+    setOnline(presenceMembers(channel.presenceState() as Record<string, PresenceMeta[]>, rolesRef.current, viewerId));
+  }
+
+  function track() {
+    const channel = channelRef.current;
+    if (!channel) return;
+    void channel.track({ user_id: viewerId, name: nameRef.current, online_at: new Date().toISOString() });
+  }
+
+  const { status, reconnectNow } = useRealtimeSync({
+    topic: liveTopic(campaignId),
+    config: { private: true, presence: { key: viewerId }, broadcast: { self: false } },
+    bind: (channel, active) => channel
+      .on("presence", { event: "sync" }, () => { if (active()) recompute(); })
+      .on("broadcast", { event: "attention" }, ({ payload }) => {
+        if (!active() || !payload || typeof payload !== "object") return;
+        const data = payload as { from?: unknown; message?: unknown; at?: unknown };
+        // The server only lets managers broadcast; double-check against the membership we read.
+        if (typeof data.from !== "string" || rolesRef.current[data.from] !== "narrador") return;
+        const message = typeof data.message === "string" ? data.message.slice(0, 120) : "";
+        setPing({ message, at: typeof data.at === "string" ? data.at : new Date().toISOString() });
+        try { navigator.vibrate?.(200); } catch { /* not supported */ }
+        if (dismissRef.current) clearTimeout(dismissRef.current);
+        dismissRef.current = setTimeout(() => { if (active()) setPing(null); }, 10000);
+      })
+      // Voice room signal from the API (service key). Only a hint: the panel rereads the row via RLS.
+      .on("broadcast", { event: "voice" }, () => { if (active()) setVoiceRefresh((value) => value + 1); }),
+    onChannel: (channel) => { channelRef.current = channel; },
+    onResync: () => { track(); recompute(); setVoiceRefresh((value) => value + 1); },
+  });
 
   useEffect(() => {
     let active = true;
-    let dismiss: ReturnType<typeof setTimeout> | null = null;
-    setOnline([]); setPing(null); setStatus("connecting"); setNotice("");
+    setOnline([]); setPing(null); setNotice("");
     rolesRef.current = {};
 
-    let client: ReturnType<typeof createClient>;
-    try { client = createClient(); } catch { setStatus("offline"); return () => { active = false; }; }
-
-    const recompute = () => {
-      const channel = channelRef.current;
-      if (!active || !channel) return;
-      setOnline(presenceMembers(channel.presenceState() as Record<string, PresenceMeta[]>, rolesRef.current, viewerId));
-    };
-    const track = () => {
-      const channel = channelRef.current;
-      if (!channel) return;
-      void channel.track({ user_id: viewerId, name: nameRef.current, online_at: new Date().toISOString() });
-    };
-
     async function loadMembership() {
+      const client = browserDb();
       const [campaign, members, profile] = await Promise.all([
         campaignRepo.campaignOwner(client, campaignId),
         campaignRepo.listMemberRoles(client, campaignId),
@@ -67,37 +87,11 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
       track();
     }
 
-    const sync = startRealtimeSync<RealtimeChannel>({
-      client,
-      topic: liveTopic(campaignId),
-      config: { private: true, presence: { key: viewerId }, broadcast: { self: false } },
-      bind: (channel) => channel
-        .on("presence", { event: "sync" }, recompute)
-        .on("broadcast", { event: "attention" }, ({ payload }) => {
-          if (!active || !payload || typeof payload !== "object") return;
-          const data = payload as { from?: unknown; message?: unknown; at?: unknown };
-          // The server only lets managers broadcast; double-check against the membership we read.
-          if (typeof data.from !== "string" || rolesRef.current[data.from] !== "narrador") return;
-          const message = typeof data.message === "string" ? data.message.slice(0, 120) : "";
-          setPing({ message, at: typeof data.at === "string" ? data.at : new Date().toISOString() });
-          try { navigator.vibrate?.(200); } catch { /* not supported */ }
-          if (dismiss) clearTimeout(dismiss);
-          dismiss = setTimeout(() => { if (active) setPing(null); }, 10000);
-        })
-        // Voice room signal from the API (service key). Only a hint: the panel rereads the row via RLS.
-        .on("broadcast", { event: "voice" }, () => { if (active) setVoiceRefresh((value) => value + 1); }),
-      onChannel: (channel) => { channelRef.current = channel; },
-      onStatus: (next) => { if (active) setStatus(next); },
-      onResync: () => { track(); recompute(); if (active) setVoiceRefresh((value) => value + 1); },
-    });
-    syncRef.current = sync;
     void loadMembership().catch(() => { if (active) setNotice("Não foi possível ler os membros da campanha."); });
-
     return () => {
       active = false;
-      if (dismiss) clearTimeout(dismiss);
-      syncRef.current = null;
-      sync.stop();
+      if (dismissRef.current) clearTimeout(dismissRef.current);
+      dismissRef.current = null;
     };
   }, [campaignId, viewerId]);
 
@@ -117,7 +111,7 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
     <div className={styles.head}>
       <h3 id={`${uid}-title`}>Na mesa agora</h3>
       <span className={`${styles.badge} ${styles[status]}`} role="status" aria-live="polite"><span className={styles.dot} aria-hidden="true" />{connectionLabel(status)}</span>
-      {status !== "connected" && <button type="button" className={styles.linkButton} onClick={() => syncRef.current?.reconnectNow()}>Reconectar</button>}
+      {status !== "connected" && <button type="button" className={styles.linkButton} onClick={reconnectNow}>Reconectar</button>}
     </div>
     <VoiceSessionPanel campaignId={campaignId} canManage={canManage} refreshKey={voiceRefresh} />
     {ping && <p className={styles.ping} role="alert"><strong>O narrador pediu atenção.</strong>{ping.message ? ` ${ping.message}` : ""}</p>}

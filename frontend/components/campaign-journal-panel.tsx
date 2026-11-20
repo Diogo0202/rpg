@@ -1,13 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
-
-import { createClient } from "../lib/supabase/client";
 import { browserDb } from "../lib/data/browser";
 import * as journal from "../lib/data/journal";
 import { bindCampaignJournalRealtime } from "../lib/campaign-journal-sync";
-import { connectionLabel, startRealtimeSync, type RealtimeConnection } from "../lib/realtime-sync";
+import { connectionLabel } from "../lib/realtime-sync";
+import { useRealtimeSync } from "../lib/realtime/hooks";
 import styles from "./campaign-journal-panel.module.css";
 
 type SessionStatus = "planned" | "played" | "archived";
@@ -160,7 +158,6 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
   const [showEventForm, setShowEventForm] = useState(false);
   const [worldEntities, setWorldEntities] = useState<LinkableEntity[]>([]);
   const [entityLinks, setEntityLinks] = useState<EventEntityLink[]>([]);
-  const [syncStatus, setSyncStatus] = useState<RealtimeConnection>("connecting");
   const [linkDrafts, setLinkDrafts] = useState<Record<string, { entity_id: string; link_kind: LinkKind }>>({});
   const campaignRef = useRef(campaignId);
   const refreshRef = useRef<() => void>(() => undefined);
@@ -227,17 +224,11 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     };
   }, [campaignId]);
 
-  useEffect(() => {
-    const client = createClient();
-    const sync = startRealtimeSync<RealtimeChannel>({
-      client,
-      topic: `campaign-journal-${campaignId}`,
-      bind: (channel) => bindCampaignJournalRealtime(channel, campaignId, () => refreshRef.current()),
-      onResync: () => refreshRef.current(),
-      onStatus: setSyncStatus,
-    });
-    return () => sync.stop();
-  }, [campaignId]);
+  const { status: syncStatus } = useRealtimeSync({
+    topic: `campaign-journal-${campaignId}`,
+    bind: (channel) => bindCampaignJournalRealtime(channel, campaignId, () => refreshRef.current()),
+    onResync: () => refreshRef.current(),
+  });
 
   const filteredEvents = events.filter((item) => {
     if (sessionFilter && item.session_id !== sessionFilter) return false;

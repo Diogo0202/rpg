@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { createClient } from "./supabase/client";
+import { campaignFilter, useTableChannel } from "./realtime/hooks";
 import { browserDb } from "./data/browser";
 import { nowPlaying, publishNowPlaying } from "./data/music";
 import type { NowPlayingState } from "./spotify-sync";
@@ -17,41 +17,38 @@ export function useCampaignNowPlaying(campaignId: string) {
   const stateRef = useRef<NowPlayingState | null>(null);
   stateRef.current = state;
 
+  const loadRef = useRef<() => void>(() => undefined);
+
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
     setState(null);
     setLoading(true);
 
     async function load() {
-      const { data } = await nowPlaying(supabase, campaignId);
+      const { data } = await nowPlaying(browserDb(), campaignId);
       if (active) {
         setState((data as NowPlayingState | null) ?? null);
         setLoading(false);
       }
     }
 
-    const channel = supabase
-      .channel(`campaign-now-playing-${campaignId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "campaign_now_playing", filter: `campaign_id=eq.${campaignId}` },
-        (payload) => {
-          if (!active) return;
-          if (payload.eventType === "DELETE") setState(null);
-          else setState(payload.new as NowPlayingState);
-        },
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") void load();
-      });
+    loadRef.current = () => void load();
     void load();
-
     return () => {
       active = false;
-      void supabase.removeChannel(channel);
+      loadRef.current = () => undefined;
     };
   }, [campaignId]);
+
+  useTableChannel({
+    topic: `campaign-now-playing-${campaignId}`,
+    listeners: [{ table: "campaign_now_playing", filter: campaignFilter(campaignId) }],
+    onChange: (payload) => {
+      if (payload.eventType === "DELETE") setState(null);
+      else setState(payload.new as NowPlayingState);
+    },
+    onState: (status) => { if (status === "SUBSCRIBED") loadRef.current(); },
+  });
 
   const publish = useCallback(async (patch: NowPlayingPatch): Promise<boolean> => {
     const base = stateRef.current;

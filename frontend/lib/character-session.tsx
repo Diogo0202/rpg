@@ -4,7 +4,8 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
-import { createClient } from "./supabase/client";
+import { browserDb } from "./data/browser";
+import { campaignFilter, useTableChannel } from "./realtime/hooks";
 import { listSessionCharacters } from "./data/sheets";
 
 export type CharacterEffect = {
@@ -77,12 +78,13 @@ export function CharacterSessionBar({ campaignId }: { campaignId: string }) {
   const [sheets, setSheets] = useState<SessionCharacter[]>([]);
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
+  const loadRef = useRef<() => void>(() => undefined);
 
   useEffect(() => {
     let active = true;
     let request = 0;
-    let client: ReturnType<typeof createClient>;
-    try { client = createClient(); } catch {
+    let client: ReturnType<typeof browserDb>;
+    try { client = browserDb(); } catch {
       setError("Configure o Supabase para selecionar uma ficha salva.");
       return;
     }
@@ -101,13 +103,20 @@ export function CharacterSessionBar({ campaignId }: { campaignId: string }) {
         else if (next.version >= selected.version) selectCharacter(next);
       }
     }
-    const channel = client.channel(`selected-character-${campaignId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` }, () => void load())
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "character_sheet_notifications", filter: `campaign_id=eq.${campaignId}` }, () => void load())
-      .subscribe((status) => { if (active && status === "SUBSCRIBED") void load(); });
+    loadRef.current = () => void load();
     void load();
-    return () => { active = false; void client.removeChannel(channel); };
+    return () => { active = false; loadRef.current = () => undefined; };
   }, [campaignId, revision, selectCharacter]);
+
+  useTableChannel({
+    topic: `selected-character-${campaignId}`,
+    listeners: [
+      { table: "character_sheet_notifications", event: "INSERT", filter: campaignFilter(campaignId) },
+      { table: "character_sheet_notifications", event: "UPDATE", filter: campaignFilter(campaignId) },
+    ],
+    onChange: () => loadRef.current(),
+    onState: (status) => { if (status === "SUBSCRIBED") loadRef.current(); },
+  });
 
   return <div className="character-session-bar">
     <label htmlFor="session-character">Personagem da sessão
