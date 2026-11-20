@@ -1,11 +1,12 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { createClient } from "./supabase/client";
+import { browserDb } from "./data/browser";
+import { nowPlaying, publishNowPlaying } from "./data/music";
 import type { NowPlayingState } from "./spotify-sync";
 
-const COLUMNS = "campaign_id,context_uri,track_uri,track_name,position_ms,is_playing,started_at,updated_by,updated_at";
 
 export type NowPlayingPatch = Partial<Pick<NowPlayingState, "context_uri" | "track_uri" | "track_name" | "position_ms" | "is_playing" | "started_at">>;
 
@@ -23,7 +24,7 @@ export function useCampaignNowPlaying(campaignId: string) {
     setLoading(true);
 
     async function load() {
-      const { data } = await supabase.from("campaign_now_playing").select(COLUMNS).eq("campaign_id", campaignId).maybeSingle();
+      const { data } = await nowPlaying(supabase, campaignId);
       if (active) {
         setState((data as NowPlayingState | null) ?? null);
         setLoading(false);
@@ -64,7 +65,7 @@ export function useCampaignNowPlaying(campaignId: string) {
       started_at: base?.started_at ?? null,
       ...patch,
     };
-    const { error } = await createClient().from("campaign_now_playing").upsert(next, { onConflict: "campaign_id" });
+    const { error } = await publishNowPlaying(browserDb(), next);
     if (error) return false;
     setState((current) => ({ ...(current ?? {}), ...next }) as NowPlayingState);
     return true;

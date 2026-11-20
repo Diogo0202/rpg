@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as music from "../lib/data/music";
 import { checkedAudioUrl } from "../lib/audio-url";
 import { downloadText } from "../lib/download";
 import { spotifyApi, spotifyPlay, type SpotifyPlayer } from "../lib/spotify-api";
@@ -45,11 +46,11 @@ export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; 
     async function load() {
       const request = ++requestRef.current;
       try {
-        const client = createClient();
+        const db = browserDb();
         const [cueResult, sessionResult, linkResult] = await Promise.all([
-          client.from("campaign_music_cues").select("id,campaign_id,session_id,title,scene_type,duration_seconds,brief,notes,audio_url,spotify_uri,version,created_at,updated_at").eq("campaign_id", requestCampaign).order("updated_at", { ascending: false }),
-          client.from("campaign_sessions").select("id,title,sequence").eq("campaign_id", requestCampaign).order("sequence", { ascending: false }),
-          client.from("campaign_playlist_links").select("playlist_id").eq("campaign_id", requestCampaign).order("created_at"),
+          music.listCues(db, requestCampaign),
+          music.listSessionTitles(db, requestCampaign),
+          music.listPlaylistLinks(db, requestCampaign),
         ]);
         if (!active || request !== requestRef.current || campaignRef.current !== requestCampaign) return;
         if (cueResult.error) throw cueResult.error;
@@ -98,8 +99,8 @@ export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; 
     setBusy(true); setMessage("");
     try {
       const result = snapshot
-        ? await createClient().from("campaign_music_cues").update(values).eq("id", snapshot.id).eq("campaign_id", requestCampaign).eq("version", snapshot.version).select("id").maybeSingle()
-        : await createClient().from("campaign_music_cues").insert({ ...values, campaign_id: requestCampaign }).select("id").single();
+        ? await music.updateCue(browserDb(), snapshot, requestCampaign, values)
+        : await music.insertCue(browserDb(), requestCampaign, values);
       if (result.error || !result.data) throw result.error ?? new Error("stale cue");
       if (campaignRef.current !== requestCampaign) return;
       setEditing(null); setDraft(emptyDraft());
@@ -115,7 +116,7 @@ export function MusicCuesPanel({ campaignId, canManage }: { campaignId: string; 
     const requestCampaign = campaignId;
     setBusy(true); setMessage("");
     try {
-      const { data, error } = await createClient().from("campaign_music_cues").delete().eq("id", cue.id).eq("campaign_id", requestCampaign).eq("version", cue.version).select("id").maybeSingle();
+      const { data, error } = await music.deleteCue(browserDb(), cue, requestCampaign);
       if (error || !data) throw error ?? new Error("stale cue");
       if (campaignRef.current !== requestCampaign) return;
       if (editing?.id === cue.id) beginNew();

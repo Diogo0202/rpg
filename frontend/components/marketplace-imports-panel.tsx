@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { approveMarketplaceImport, listPendingMarketplaceImports } from "../lib/data/campaign";
 import { canApproveMarketplaceImport, marketplaceApprovalError, parsePendingMarketplaceImports, type PendingMarketplaceImport } from "../lib/marketplace-imports";
 import styles from "./marketplace-imports-panel.module.css";
 
@@ -34,7 +35,7 @@ export function MarketplaceImportsPanel({ campaignId, viewerId, canManage, onOpe
     if (!canManage) return close;
     async function load() {
       try {
-        const result = await createClient().rpc("marketplace_pending_imports", { p_campaign_id: campaignId });
+        const result = await listPendingMarketplaceImports(browserDb(), campaignId);
         if (!current()) return;
         if (result.error) throw result.error;
         setItems(parsePendingMarketplaceImports(result.data));
@@ -54,9 +55,7 @@ export function MarketplaceImportsPanel({ campaignId, viewerId, canManage, onOpe
     const item = selected;
     busyRef.current = true; setBusy(true); setError(""); setMessage("");
     try {
-      const result = await createClient().rpc("marketplace_approve_import", {
-        p_campaign_id: campaignId, p_template_id: item.id, p_expected_schema: item.schema,
-      });
+      const result = await approveMarketplaceImport(browserDb(), campaignId, item.id, item.schema);
       if (!current()) return;
       if (result.error) throw result.error;
       if (result.data !== item.id) throw new Error("invalid approval response");

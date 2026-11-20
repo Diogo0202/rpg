@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { listActiveCombats } from "../lib/data/combat";
 import { ApiError, detailOf, type ApiMethod } from "../lib/api/http";
 import { sessionSend } from "../lib/api/session";
 import { downloadText } from "../lib/download";
@@ -76,7 +77,7 @@ export function SecondInquisitionPanel({ campaignId, canManage }: { campaignId: 
   useEffect(() => {
     if (!canManage) return;
     let active = true;
-    createClient().from("combat_sessions").select("id,title").eq("campaign_id", campaignId).eq("active", true).order("created_at", { ascending: false }).limit(50)
+    listActiveCombats(browserDb(), campaignId)
       .then(({ data, error }) => {
         if (!active) return;
         const rows = error ? [] : (data ?? []) as Array<{ id: string; title: string }>;

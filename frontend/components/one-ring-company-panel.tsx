@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "../lib/supabase/client";
 import { apiBase } from "../lib/api/session";
+import { browserDb } from "../lib/data/browser";
+import * as oneRing from "../lib/data/one-ring";
 import { CompanyOfflineStore, CompanySyncEngine, createCompanyHttpTransport, getOfflineContext, saveOfflineContext, clearOfflineAccount } from "../lib/one-ring-offline";
 import type { CompanyMember, CompanySnapshot } from "../../shared/one-ring/company-sync";
 import { ONE_RING_CATALOG as C } from "../../shared/one-ring/catalog.ts";
@@ -92,15 +94,15 @@ export function OneRingCompanyPanel({ campaignId, viewerId, canManage, viewerRol
     let active = true;
     void (async () => {
       try {
-        const supabase = createClient();
-        const { data: sessions } = await supabase.from("campaign_sessions").select("id,sequence,title,status").eq("campaign_id", campaignId).in("status", ["played"]).order("sequence", { ascending: false });
+        const db = browserDb();
+        const { data: sessions } = await oneRing.listPlayedSessions(db, campaignId);
         if (active && sessions) { const ended=sessions.map((item) => ({ id: item.id, sequence: item.sequence, title: item.title })); setEndedSessions(ended);await new CompanyOfflineStore().write(engine.partition,(state)=>({...state,ended_sessions:ended})); }
-        const { data, error } = await supabase.from("character_sheets").select("id,name,owner_id,template_id").eq("campaign_id", campaignId).order("name");
+        const { data, error } = await oneRing.listSheetCandidates(db, campaignId);
         if (error) throw error;
         const rows = data ?? [];
         if (rows.length) {
           const templateIds = [...new Set(rows.map((row) => row.template_id))];
-          const { data: templates, error: templateError } = await supabase.from("system_templates").select("id,schema").in("id", templateIds);
+          const { data: templates, error: templateError } = await oneRing.templateSchemas(db, templateIds);
           if (templateError) throw templateError;
           const eligible = new Set((templates ?? []).filter((row) => { const schema = row.schema as { system_key?: string } | null; return schema?.system_key === "one-ring"; }).map((row) => row.id));
           if (active) { const found=rows.filter((row) => eligible.has(row.template_id)).map((row) => ({ id: row.id, name: row.name, owner_id: row.owner_id }));setCandidates(found);await new CompanyOfflineStore().write(engine.partition,(state)=>({...state,candidates:found})); }
@@ -136,7 +138,7 @@ export function OneRingCompanyPanel({ campaignId, viewerId, canManage, viewerRol
       worker?.postMessage({ type: "PREWARM_ONE_RING" });
       if (engine && online) {
         await engine.refresh(); await load(engine);
-        const { data, error } = await createClient().from("system_templates").select("id,name").eq("campaign_id", campaignId).eq("status", "approved").eq("version",3).contains("schema", { system_key: "one-ring", rules_profile_version:3 });
+        const { data, error } = await oneRing.listApprovedV3Templates(browserDb(), campaignId);
         if (error) throw error;
         await new CompanyOfflineStore().write(engine.partition, (state) => ({ ...state, approved_templates: data ?? [] }));
       }
@@ -163,8 +165,7 @@ export function OneRingCompanyPanel({ campaignId, viewerId, canManage, viewerRol
   async function closeSession() {
     try {
       if (!online || offlineOnly) { if (!endedSessions.some((s)=>s.id===resetSessionId)) throw new Error("Sessão encerrada não preparada neste aparelho."); await act("reset_session",{session_id:resetSessionId}); return; }
-      const client = createClient();
-      const { data, error } = await client.from("campaign_sessions").select("id,status").eq("campaign_id", campaignId).eq("id", resetSessionId).maybeSingle();
+      const { data, error } = await oneRing.findSessionStatus(browserDb(), campaignId, resetSessionId);
       if (error || !data || data.status!=="played") throw new Error("Escolha uma sessão jogada no Diário da campanha.");
       await act("reset_session", { session_id: data.id });
     } catch (error) { setMessage(error instanceof Error ? error.message : "Sessão encerrada não encontrada."); }

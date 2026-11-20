@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useId, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { linkPlaylist } from "../lib/data/music";
 import {
   SpotifyApiError, spotifyAddTracks, spotifyCreatePlaylist, spotifyPlaylistTracks, spotifyQueue,
   spotifyRemoveTracks, spotifySearch, spotifyUpdatePlaylist, type SpotifyTrack,
@@ -129,7 +130,7 @@ export function SpotifyPlaylistEditor({ campaignId, playlistIds, account, onCrea
     setBusy(true); setMessage("");
     try {
       const playlist = await spotifyCreatePlaylist({ name, ...(newDescription.trim() ? { description: newDescription.trim().slice(0, 300) } : {}) });
-      const { error } = await createClient().from("campaign_playlist_links").insert({ campaign_id: campaignId, playlist_id: playlist.id });
+      const { error } = await linkPlaylist(browserDb(), campaignId, playlist.id);
       if (error && error.code !== "23505") { setMessage("A playlist foi criada no Spotify, mas não foi vinculada à campanha."); return; }
       onCreated(playlist.id);
       setNewName(""); setNewDescription("");

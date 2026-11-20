@@ -1,4 +1,5 @@
-import { createClient } from "./supabase/client";
+import { browserDb } from "./data/browser";
+import { voiceSession } from "./data/campaign";
 import { objectBody } from "./api/http.ts";
 import { sessionJson, sessionSend } from "./api/session.ts";
 
@@ -36,8 +37,7 @@ export function parseVoiceSession(row: unknown): VoiceSession | null {
 
 /** Reads the campaign voice session through RLS (members only). */
 export async function loadVoiceSession(campaignId: string): Promise<VoiceSession | null> {
-  const { data, error } = await createClient().from("campaign_voice_sessions")
-    .select("status,invite_url,expires_at,error,updated_at").eq("campaign_id", campaignId).maybeSingle();
+  const { data, error } = await voiceSession(browserDb(), campaignId);
   if (error) throw new Error("Não foi possível ler a sala de voz.");
   return parseVoiceSession(data);
 }

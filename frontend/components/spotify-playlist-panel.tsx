@@ -1,8 +1,10 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb, currentUserId } from "../lib/data/browser";
+import { memberRole } from "../lib/data/campaign";
+import * as music from "../lib/data/music";
 import { useCampaignNowPlaying } from "../lib/use-campaign-now-playing";
 import { nowPlayingFromPlayer } from "../lib/spotify-sync";
 import type { SpotifyPlayer } from "../lib/spotify-api";
@@ -82,14 +84,14 @@ export default function SpotifyPlaylistPanel({ campaignId }: { campaignId: strin
       setMessage("");
 
       try {
-        const supabase = createClient();
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        if (authError || !authData.user) throw new Error("A sessão não está disponível.");
+        const userId = await currentUserId();
+        if (!userId) throw new Error("A sessão não está disponível.");
 
+        const db = browserDb();
         const [ownerResult, memberResult, playlistResult] = await Promise.all([
-          supabase.from("campaigns").select("id").eq("id", campaignId).eq("owner_id", authData.user.id).maybeSingle(),
-          supabase.from("campaign_members").select("role").eq("campaign_id", campaignId).eq("user_id", authData.user.id).maybeSingle(),
-          supabase.from("campaign_playlist_links").select("playlist_id").eq("campaign_id", campaignId).order("created_at"),
+          music.ownedCampaign(db, campaignId, userId),
+          memberRole(db, campaignId, userId),
+          music.listPlaylistLinks(db, campaignId),
         ]);
 
         if (ownerResult.error || memberResult.error || playlistResult.error) {
@@ -131,11 +133,7 @@ export default function SpotifyPlaylistPanel({ campaignId }: { campaignId: strin
 
     setSaving(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from("campaign_playlist_links").insert({
-        campaign_id: requestCampaignId,
-        playlist_id: playlist.id,
-      });
+      const { error } = await music.linkPlaylist(browserDb(), requestCampaignId, playlist.id);
       if (currentCampaignId.current !== requestCampaignId) return;
       if (error) {
         setMessage(error.code === "23505" ? "Esta playlist já está nesta campanha." : "Não foi possível salvar o link nesta campanha.");
@@ -159,12 +157,7 @@ export default function SpotifyPlaylistPanel({ campaignId }: { campaignId: strin
     const requestCampaignId = campaignId;
     setRemovingId(playlistId);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("campaign_playlist_links")
-        .delete()
-        .eq("campaign_id", requestCampaignId)
-        .eq("playlist_id", playlistId);
+      const { error } = await music.unlinkPlaylist(browserDb(), requestCampaignId, playlistId);
       if (currentCampaignId.current !== requestCampaignId) return;
       if (error) {
         setMessage("Não foi possível remover o link desta campanha.");

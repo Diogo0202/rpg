@@ -116,3 +116,17 @@ export function editChatMessage(db: Db, messageId: string, body: string, columns
 export function deleteChatMessage(db: Db, messageId: string) {
   return db.from("campaign_chat_messages").delete().eq("id", messageId);
 }
+
+/** Sala de voz da campanha, lida pelo RLS (só membros). */
+export function voiceSession(db: Db, campaignId: string) {
+  return db.from("campaign_voice_sessions").select("status,invite_url,expires_at,error,updated_at").eq("campaign_id", campaignId).maybeSingle();
+}
+
+export function listPendingMarketplaceImports(db: Db, campaignId: string) {
+  return db.rpc("marketplace_pending_imports", { p_campaign_id: campaignId });
+}
+
+/** O esquema esperado impede aprovar um modelo que mudou depois da revisão. */
+export function approveMarketplaceImport(db: Db, campaignId: string, templateId: string, expectedSchema: unknown) {
+  return db.rpc("marketplace_approve_import", { p_campaign_id: campaignId, p_template_id: templateId, p_expected_schema: expectedSchema });
+}

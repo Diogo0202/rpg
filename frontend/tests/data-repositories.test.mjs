@@ -10,6 +10,7 @@ import * as combat from "../lib/data/combat.ts";
 import * as world from "../lib/data/world.ts";
 import * as campaign from "../lib/data/campaign.ts";
 import * as journal from "../lib/data/journal.ts";
+import * as music from "../lib/data/music.ts";
 
 const item = { id: "item-1", version: 4 };
 
@@ -171,4 +172,19 @@ test("pending invites exclude expired ones at the given time", () => {
   const { db, calls } = fakeDb();
   campaign.listPendingInvites(db, "c1", new Date("2026-11-20T12:00:00Z"));
   assert.deepEqual(calls[0].slice(3), [["eq", "status", "pending"], ["gt", "expires_at", "2026-11-20T12:00:00.000Z"], ["order", "created_at", { ascending: false }]]);
+});
+test("music cue changes are guarded by version and now playing upserts by campaign", () => {
+  const { db, calls } = fakeDb();
+  music.updateCue(db, { id: "q1", version: 6 }, "c1", { title: "Chuva" });
+  music.publishNowPlaying(db, { campaign_id: "c1", is_playing: true });
+  assert.deepEqual(calls, [
+    [["from", "campaign_music_cues"], ["update", { title: "Chuva" }], ["eq", "id", "q1"], ["eq", "campaign_id", "c1"], ["eq", "version", 6], ["select", "id"], ["maybeSingle"]],
+    [["from", "campaign_now_playing"], ["upsert", { campaign_id: "c1", is_playing: true }, { onConflict: "campaign_id" }]],
+  ]);
+});
+
+test("a marketplace import is approved only against the schema the narrator reviewed", () => {
+  const { db, calls } = fakeDb();
+  campaign.approveMarketplaceImport(db, "c1", "t1", { fields: [] });
+  assert.deepEqual(calls, [[["rpc", "marketplace_approve_import", { p_campaign_id: "c1", p_template_id: "t1", p_expected_schema: { fields: [] } }]]]);
 });
