@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { CampaignWorkbench } from "../../../../components/campaign-workbench";
 import { createClient, isSupabaseConfigured } from "../../../../lib/supabase/server";
+import { findCampaign, memberRole } from "../../../../lib/data/campaign";
 
 export const metadata: Metadata = {
   title: "Mesa | RPG-Atlas",
@@ -18,19 +19,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const supabase = await createClient();
   const { data: userData, error: authError } = await supabase.auth.getUser();
   if (authError || !userData.user) redirect("/login");
-  const { data: campaign, error } = await supabase
-    .from("campaigns")
-    .select("id, name, owner_id")
-    .eq("id", id)
-    .maybeSingle();
+  const { data: campaign, error } = await findCampaign(supabase, id);
   if (error || !campaign) notFound();
   const isOwner = campaign.owner_id === userData.user.id;
-  const { data: membership } = isOwner ? { data: null } : await supabase
-    .from("campaign_members")
-    .select("role")
-    .eq("campaign_id", id)
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
+  const { data: membership } = isOwner ? { data: null } : await memberRole(supabase, id, userData.user.id);
   const canManageTemplates = isOwner || membership?.role === "master";
   const canEditSheets = canManageTemplates || membership?.role === "player";
 

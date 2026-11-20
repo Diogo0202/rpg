@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "../../lib/supabase/server";
+import { createCampaign as insertCampaign } from "../../lib/data/campaign";
 
 export type CreateCampaignState = { error: string | null };
 
@@ -20,11 +21,7 @@ export async function createCampaign(
   const { data: userData, error: authError } = await supabase.auth.getUser();
   if (authError || !userData.user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("campaigns")
-    .insert({ owner_id: userData.user.id, name, description })
-    .select("id")
-    .single();
+  const { data, error } = await insertCampaign(supabase, userData.user.id, name, description);
 
   if (error || !data) return { error: "Não foi possível criar a campanha. Confira a conexão e as migrações do Supabase." };
   revalidatePath("/app");

@@ -8,6 +8,8 @@ import * as hunter from "../lib/data/hunter.ts";
 import * as maps from "../lib/data/maps.ts";
 import * as combat from "../lib/data/combat.ts";
 import * as world from "../lib/data/world.ts";
+import * as campaign from "../lib/data/campaign.ts";
+import * as journal from "../lib/data/journal.ts";
 
 const item = { id: "item-1", version: 4 };
 
@@ -141,4 +143,32 @@ test("world entity changes keep campaign and version guards", () => {
     [["from", "world_entities"], ["delete"], ["eq", "id", "e1"], ["eq", "campaign_id", "c1"], ["eq", "version", 2], ["select", "id"]],
     [["from", "world_entities"], ["insert", { campaign_id: "c1", kind: "npc", name: "Ana", body: {}, created_by: "u1" }], ["select", "id,name,kind"], ["single"]],
   ]);
+});
+test("journal sessions and events are guarded by updated_at and factions by version", () => {
+  const { db, calls } = fakeDb();
+  const row = { id: "r1", updated_at: "2026-11-20T10:00:00Z" };
+  journal.updateDated(db, "campaign_events", row, "c1", { title: "Ataque" });
+  journal.deleteDated(db, "campaign_sessions", row, "c1");
+  journal.updateFaction(db, { id: "f1", version: 3 }, "c1", { tension: 2 });
+  assert.deepEqual(calls, [
+    [["from", "campaign_events"], ["update", { title: "Ataque" }], ["eq", "id", "r1"], ["eq", "campaign_id", "c1"], ["eq", "updated_at", row.updated_at], ["select", "id"], ["maybeSingle"]],
+    [["from", "campaign_sessions"], ["delete"], ["eq", "id", "r1"], ["eq", "campaign_id", "c1"], ["eq", "updated_at", row.updated_at], ["select", "id"], ["maybeSingle"]],
+    [["from", "campaign_factions"], ["update", { tension: 2 }], ["eq", "id", "f1"], ["eq", "campaign_id", "c1"], ["eq", "version", 3], ["select", "id"], ["maybeSingle"]],
+  ]);
+});
+
+test("an invite is accepted by id or by code, never both", () => {
+  const { db, calls } = fakeDb();
+  campaign.acceptInvite(db, { inviteId: "i1" });
+  campaign.acceptInvite(db, { code: "ABC123DEF456" });
+  assert.deepEqual(calls, [
+    [["rpc", "accept_campaign_invite", { p_code: null, p_invite_id: "i1" }]],
+    [["rpc", "accept_campaign_invite", { p_code: "ABC123DEF456", p_invite_id: null }]],
+  ]);
+});
+
+test("pending invites exclude expired ones at the given time", () => {
+  const { db, calls } = fakeDb();
+  campaign.listPendingInvites(db, "c1", new Date("2026-11-20T12:00:00Z"));
+  assert.deepEqual(calls[0].slice(3), [["eq", "status", "pending"], ["gt", "expires_at", "2026-11-20T12:00:00.000Z"], ["order", "created_at", { ascending: false }]]);
 });

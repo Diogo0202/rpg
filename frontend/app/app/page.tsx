@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { CampaignInvitesInbox, type PendingInvite } from "../../components/campaign-invites-inbox";
 import { CreateCampaignForm } from "../../components/create-campaign-form";
 import { createClient, isSupabaseConfigured } from "../../lib/supabase/server";
+import { listMyCampaigns, listMyInvites } from "../../lib/data/campaign";
 
 export const metadata: Metadata = {
   title: "Minhas campanhas | RPG-Atlas",
@@ -29,11 +30,8 @@ export default async function CampaignPage() {
   const { data: userData, error: authError } = await supabase.auth.getUser();
   if (authError || !userData.user) redirect("/login");
 
-  const { data: campaigns, error } = await supabase
-    .from("campaigns")
-    .select("id, name, description, owner_id, updated_at")
-    .order("updated_at", { ascending: false });
-  const { data: pendingInvites } = await supabase.rpc("list_my_campaign_invites");
+  const { data: campaigns, error } = await listMyCampaigns(supabase);
+  const { data: pendingInvites } = await listMyInvites(supabase);
 
   return (
     <main className="campaign-hub">

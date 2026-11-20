@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { ProfileForm } from "../../../components/profile-form";
 import styles from "../../../components/campaign-members-panel.module.css";
 import { createClient, isSupabaseConfigured } from "../../../lib/supabase/server";
+import { profileName } from "../../../lib/data/campaign";
 
 export const metadata: Metadata = {
   title: "Perfil | RPG-Atlas",
@@ -16,11 +17,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data: userData, error: authError } = await supabase.auth.getUser();
   if (authError || !userData.user) redirect("/login");
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", userData.user.id)
-    .maybeSingle();
+  const { data: profile } = await profileName(supabase, userData.user.id);
 
   return (
     <>

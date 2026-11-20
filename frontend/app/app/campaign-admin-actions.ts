@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "../../lib/supabase/server";
+import * as campaign from "../../lib/data/campaign";
 import {
   campaignAdminErrorMessage,
   isInviteRole,
@@ -36,9 +37,7 @@ export async function createCampaignInvite(_previous: AdminActionState, formData
   if (email === false) return { error: "Informe um e-mail válido ou deixe o campo vazio para gerar só o código.", message: null };
 
   const { supabase } = await authenticatedClient();
-  const { data, error } = await supabase
-    .rpc("create_campaign_invite", { p_campaign_id: campaignId, p_role: role, p_email: email })
-    .single<{ code: string; email: string | null }>();
+  const { data, error } = await campaign.createInvite(supabase, campaignId, role, email);
   if (error || !data) return failure(error, "Não foi possível criar o convite.");
   revalidatePath(`/app/campaign/${campaignId}`);
   return {
@@ -53,7 +52,7 @@ export async function createCampaignInvite(_previous: AdminActionState, formData
 export async function revokeCampaignInvite(campaignId: string, inviteId: string): Promise<AdminActionState> {
   if (!isUuid(campaignId) || !isUuid(inviteId)) return { error: "Convite inválido.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("revoke_campaign_invite", { p_invite_id: inviteId });
+  const { error } = await campaign.revokeInvite(supabase, inviteId);
   if (error) return failure(error, "Não foi possível revogar o convite.");
   revalidatePath(`/app/campaign/${campaignId}`);
   return { error: null, message: "Convite revogado." };
@@ -62,7 +61,7 @@ export async function revokeCampaignInvite(campaignId: string, inviteId: string)
 export async function setCampaignMemberRole(campaignId: string, userId: string, role: InviteRole): Promise<AdminActionState> {
   if (!isUuid(campaignId) || !isUuid(userId) || !isInviteRole(role)) return { error: "Alteração inválida.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("set_campaign_member_role", { p_campaign_id: campaignId, p_user_id: userId, p_role: role });
+  const { error } = await campaign.setMemberRole(supabase, campaignId, userId, role);
   if (error) return failure(error, "Não foi possível alterar o papel.");
   revalidatePath(`/app/campaign/${campaignId}`);
   return { error: null, message: "Papel atualizado." };
@@ -71,7 +70,7 @@ export async function setCampaignMemberRole(campaignId: string, userId: string, 
 export async function removeCampaignMember(campaignId: string, userId: string): Promise<AdminActionState> {
   if (!isUuid(campaignId) || !isUuid(userId)) return { error: "Participante inválido.", message: null };
   const { supabase, user } = await authenticatedClient();
-  const { error } = await supabase.rpc("remove_campaign_member", { p_campaign_id: campaignId, p_user_id: userId });
+  const { error } = await campaign.removeMember(supabase, campaignId, userId);
   if (error) return failure(error, "Não foi possível remover o participante.");
   if (userId === user.id) {
     revalidatePath("/app");
@@ -89,7 +88,7 @@ export async function updateCampaignDetails(_previous: AdminActionState, formDat
   if (name.length < 3 || name.length > 120) return { error: "O nome precisa ter entre 3 e 120 caracteres.", message: null };
   if (description.length > 2000) return { error: "A descrição aceita até 2.000 caracteres.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("update_campaign_details", { p_campaign_id: campaignId, p_name: name, p_description: description });
+  const { error } = await campaign.updateCampaignDetails(supabase, campaignId, name, description);
   if (error) return failure(error, "Não foi possível salvar a campanha.");
   revalidatePath("/app");
   revalidatePath(`/app/campaign/${campaignId}`);
@@ -102,7 +101,7 @@ export async function deleteCampaign(_previous: AdminActionState, formData: Form
   if (!isUuid(campaignId)) return { error: "Campanha inválida.", message: null };
   if (!confirmName) return { error: "Digite o nome da campanha para confirmar.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("delete_campaign", { p_campaign_id: campaignId, p_confirm_name: confirmName });
+  const { error } = await campaign.deleteCampaign(supabase, campaignId, confirmName);
   if (error) return failure(error, "Não foi possível excluir a campanha.");
   revalidatePath("/app");
   redirect("/app");
@@ -114,10 +113,7 @@ export async function acceptCampaignInvite(_previous: AdminActionState, formData
   if (inviteId && !isUuid(inviteId)) return { error: "Convite inválido.", message: null };
   if (!inviteId && !code) return { error: "O código tem 12 caracteres (letras A-F e números).", message: null };
   const { supabase } = await authenticatedClient();
-  const { data, error } = await supabase.rpc(
-    "accept_campaign_invite",
-    inviteId ? { p_code: null, p_invite_id: inviteId } : { p_code: code, p_invite_id: null },
-  );
+  const { data, error } = await campaign.acceptInvite(supabase, inviteId ? { inviteId } : { code: code! });
   if (error || typeof data !== "string" || !isUuid(data)) return failure(error, "Não foi possível aceitar o convite.");
   revalidatePath("/app");
   redirect(`/app/campaign/${data}`);
@@ -127,7 +123,7 @@ export async function declineCampaignInvite(_previous: AdminActionState, formDat
   const inviteId = String(formData.get("inviteId") ?? "");
   if (!isUuid(inviteId)) return { error: "Convite inválido.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("decline_campaign_invite", { p_invite_id: inviteId });
+  const { error } = await campaign.declineInvite(supabase, inviteId);
   if (error) return failure(error, "Não foi possível recusar o convite.");
   revalidatePath("/app");
   return { error: null, message: "Convite recusado." };
@@ -137,7 +133,7 @@ export async function updateProfile(_previous: AdminActionState, formData: FormD
   const displayName = String(formData.get("displayName") ?? "").replace(/\s+/g, " ").trim();
   if (displayName.length < 2 || displayName.length > 80) return { error: "O nome de exibição precisa ter entre 2 e 80 caracteres.", message: null };
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.rpc("upsert_my_profile", { p_display_name: displayName });
+  const { error } = await campaign.saveMyProfile(supabase, displayName);
   if (error) return failure(error, "Não foi possível salvar o perfil.");
   revalidatePath("/app/perfil");
   return { error: null, message: "Perfil salvo." };

@@ -21,7 +21,8 @@ import {
   type InviteRole,
 } from "../lib/campaign-admin";
 import { sendCampaignInviteEmail } from "../lib/campaign-invite-email";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as campaignRepo from "../lib/data/campaign";
 import styles from "./campaign-members-panel.module.css";
 
 type Member = { user_id: string; role: CampaignRole; display_name: string | null; email: string | null; joined_at: string };
@@ -45,14 +46,11 @@ export function CampaignMembersPanel({ campaignId, viewerId, isOwner, canManage 
   const [busy, startTransition] = useTransition();
 
   const load = useCallback(async () => {
-    const client = createClient();
+    const db = browserDb();
     const [memberResult, inviteResult, campaignResult] = await Promise.all([
-      client.rpc("list_campaign_members", { p_campaign_id: campaignId }),
-      canManage
-        ? client.from("campaign_invites").select("id, email, code, role, expires_at, email_sent_count, last_email_sent_at").eq("campaign_id", campaignId)
-          .eq("status", "pending").gt("expires_at", new Date().toISOString()).order("created_at", { ascending: false })
-        : Promise.resolve({ data: [], error: null }),
-      client.from("campaigns").select("name, description").eq("id", campaignId).maybeSingle(),
+      campaignRepo.listCampaignMembers(db, campaignId),
+      canManage ? campaignRepo.listPendingInvites(db, campaignId) : Promise.resolve({ data: [], error: null }),
+      campaignRepo.campaignDetails(db, campaignId),
     ]);
     if (memberResult.error || inviteResult.error) {
       setLoadError("Não foi possível carregar os participantes. Confira a conexão e as migrações do Supabase.");

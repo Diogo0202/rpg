@@ -4,6 +4,8 @@ import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as journal from "../lib/data/journal";
 import { bindCampaignJournalRealtime } from "../lib/campaign-journal-sync";
 import { connectionLabel, startRealtimeSync, type RealtimeConnection } from "../lib/realtime-sync";
 import styles from "./campaign-journal-panel.module.css";
@@ -191,11 +193,11 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     async function load() {
       const currentRequest = ++requestId;
       try {
-        const supabase = createClient();
+        const db = browserDb();
         const [sessionResult, factionResult, eventResult] = await Promise.all([
-          supabase.from("campaign_sessions").select("*").eq("campaign_id", requestCampaignId).order("sequence", { ascending: true }),
-          supabase.from("campaign_factions").select("*").eq("campaign_id", requestCampaignId).order("name", { ascending: true }),
-          supabase.from("campaign_events").select("*").eq("campaign_id", requestCampaignId).order("occurred_on", { ascending: true }).order("created_at", { ascending: true }),
+          journal.listSessions(db, requestCampaignId),
+          journal.listFactions(db, requestCampaignId),
+          journal.listEvents(db, requestCampaignId),
         ]);
         if (!active || currentRequest !== requestId) return;
         if (sessionResult.error || factionResult.error || eventResult.error) throw new Error("query failed");
@@ -204,8 +206,8 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
         setEvents((eventResult.data ?? []) as CampaignEvent[]);
         // Links are optional: a missing migration must not hide the rest of the journal.
         const [entityResult, linkResult] = await Promise.all([
-          supabase.from("world_entities").select("id,kind,name").eq("campaign_id", requestCampaignId).in("kind", [...LINKABLE_KINDS]).order("name", { ascending: true }),
-          supabase.from("campaign_event_entity_links").select("id,event_id,entity_id,link_kind,notes").eq("campaign_id", requestCampaignId),
+          journal.listLinkableEntities(db, requestCampaignId, LINKABLE_KINDS),
+          journal.listEventLinks(db, requestCampaignId),
         ]);
         if (!active || currentRequest !== requestId) return;
         setWorldEntities(entityResult.error ? [] : (entityResult.data ?? []) as LinkableEntity[]);
@@ -266,7 +268,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     setSaving(true);
     setMessage("");
     try {
-      const supabase = createClient();
+      const db = browserDb();
       const values = {
         sequence,
         title: draft.title.trim(),
@@ -278,10 +280,10 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
       if (draft.id) {
         const existing = sessions.find((item) => item.id === draft.id);
         if (!existing) throw new Error("stale row");
-        const result = await supabase.from("campaign_sessions").update(values).eq("id", draft.id).eq("campaign_id", requestCampaignId).eq("updated_at", existing.updated_at).select("id").maybeSingle();
+        const result = await journal.updateDated(db, "campaign_sessions", existing, requestCampaignId, values);
         error = result.error ?? (!result.data ? new Error("stale row") : null);
       } else {
-        const result = await supabase.from("campaign_sessions").insert({ campaign_id: requestCampaignId, ...values });
+        const result = await journal.insertDated(db, "campaign_sessions", requestCampaignId, values);
         error = result.error;
       }
       if (!currentCampaign(requestCampaignId)) return;
@@ -302,7 +304,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     const requestCampaignId = campaignId;
     setSaving(true);
     try {
-      const { data, error } = await createClient().from("campaign_sessions").delete().eq("id", item.id).eq("campaign_id", requestCampaignId).eq("updated_at", item.updated_at).select("id").maybeSingle();
+      const { data, error } = await journal.deleteDated(browserDb(), "campaign_sessions", item, requestCampaignId);
       if (!currentCampaign(requestCampaignId)) return;
       if (error || !data) throw error ?? new Error("stale row");
       setMessage("Sessão removida.");
@@ -328,7 +330,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     setSaving(true);
     setMessage("");
     try {
-      const supabase = createClient();
+      const db = browserDb();
       const values = {
         name: draft.name.trim(),
         description: draft.description.trim(),
@@ -341,10 +343,10 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
       if (draft.id) {
         const existing = factions.find((item) => item.id === draft.id);
         if (!existing) throw new Error("stale row");
-        const result = await supabase.from("campaign_factions").update(values).eq("id", draft.id).eq("campaign_id", requestCampaignId).eq("version", existing.version).select("id").maybeSingle();
+        const result = await journal.updateFaction(db, existing, requestCampaignId, values);
         error = result.error ?? (!result.data ? new Error("stale row") : null);
       } else {
-        const result = await supabase.from("campaign_factions").insert({ campaign_id: requestCampaignId, ...values });
+        const result = await journal.insertFaction(db, requestCampaignId, values);
         error = result.error;
       }
       if (!currentCampaign(requestCampaignId)) return;
@@ -367,7 +369,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     if (tension === item.tension) return;
     setSaving(true);
     try {
-      const { data, error } = await createClient().from("campaign_factions").update({ tension }).eq("id", item.id).eq("campaign_id", requestCampaignId).eq("version", item.version).select("id").maybeSingle();
+      const { data, error } = await journal.updateFaction(browserDb(), item, requestCampaignId, { tension });
       if (!currentCampaign(requestCampaignId)) return;
       if (error || !data) throw error ?? new Error("stale row");
       setMessage(tension >= item.limit ? `Ruptura: ${item.name} atingiu o limite.` : `Tensão atualizada para ${item.name}.`);
@@ -384,7 +386,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     const requestCampaignId = campaignId;
     setSaving(true);
     try {
-      const { data, error } = await createClient().from("campaign_factions").delete().eq("id", item.id).eq("campaign_id", requestCampaignId).eq("version", item.version).select("id").maybeSingle();
+      const { data, error } = await journal.deleteFaction(browserDb(), item, requestCampaignId);
       if (!currentCampaign(requestCampaignId)) return;
       if (error || !data) throw error ?? new Error("stale row");
       setMessage("Facção removida.");
@@ -408,7 +410,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     setSaving(true);
     setMessage("");
     try {
-      const supabase = createClient();
+      const db = browserDb();
       const values = {
         session_id: draft.session_id || null,
         faction_id: draft.faction_id || null,
@@ -421,10 +423,10 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
       if (draft.id) {
         const existing = events.find((item) => item.id === draft.id);
         if (!existing) throw new Error("stale row");
-        const result = await supabase.from("campaign_events").update(values).eq("id", draft.id).eq("campaign_id", requestCampaignId).eq("updated_at", existing.updated_at).select("id").maybeSingle();
+        const result = await journal.updateDated(db, "campaign_events", existing, requestCampaignId, values);
         error = result.error ?? (!result.data ? new Error("stale row") : null);
       } else {
-        const result = await supabase.from("campaign_events").insert({ campaign_id: requestCampaignId, ...values });
+        const result = await journal.insertDated(db, "campaign_events", requestCampaignId, values);
         error = result.error;
       }
       if (!currentCampaign(requestCampaignId)) return;
@@ -445,7 +447,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     const requestCampaignId = campaignId;
     setSaving(true);
     try {
-      const { data, error } = await createClient().from("campaign_events").delete().eq("id", item.id).eq("campaign_id", requestCampaignId).eq("updated_at", item.updated_at).select("id").maybeSingle();
+      const { data, error } = await journal.deleteDated(browserDb(), "campaign_events", item, requestCampaignId);
       if (!currentCampaign(requestCampaignId)) return;
       if (error || !data) throw error ?? new Error("stale row");
       setMessage("Evento removido.");
@@ -464,7 +466,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     setSaving(true);
     setMessage("");
     try {
-      const { error } = await createClient().from("campaign_event_entity_links").insert({ campaign_id: requestCampaignId, event_id: item.id, entity_id: draft.entity_id, link_kind: draft.link_kind });
+      const { error } = await journal.linkEventEntity(browserDb(), { campaignId: requestCampaignId, eventId: item.id, entityId: draft.entity_id, kind: draft.link_kind });
       if (!currentCampaign(requestCampaignId)) return;
       if (error) throw error;
       setLinkDrafts((current) => { const next = { ...current }; delete next[item.id]; return next; });
@@ -482,7 +484,7 @@ export function CampaignJournalPanel({ campaignId, canManage }: { campaignId: st
     const requestCampaignId = campaignId;
     setSaving(true);
     try {
-      const { data, error } = await createClient().from("campaign_event_entity_links").delete().eq("id", link.id).eq("campaign_id", requestCampaignId).select("id").maybeSingle();
+      const { data, error } = await journal.unlinkEventEntity(browserDb(), link.id, requestCampaignId);
       if (!currentCampaign(requestCampaignId)) return;
       if (error || !data) throw error ?? new Error("stale row");
       setMessage("Vínculo removido.");

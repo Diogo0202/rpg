@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { createClient } from "../lib/supabase/client";
+import * as campaignRepo from "../lib/data/campaign";
 import {
   canSendPing, connectionLabel, liveTopic, presenceMembers, roleFromMembership, startRealtimeSync,
   type PresenceMember, type PresenceMeta, type PresenceRole, type RealtimeConnection,
@@ -51,9 +52,9 @@ export function CampaignPresence({ campaignId, viewerId, canManage }: { campaign
 
     async function loadMembership() {
       const [campaign, members, profile] = await Promise.all([
-        client.from("campaigns").select("owner_id").eq("id", campaignId).maybeSingle(),
-        client.from("campaign_members").select("user_id,role").eq("campaign_id", campaignId),
-        client.from("profiles").select("display_name").eq("id", viewerId).maybeSingle(),
+        campaignRepo.campaignOwner(client, campaignId),
+        campaignRepo.listMemberRoles(client, campaignId),
+        campaignRepo.profileName(client, viewerId),
       ]);
       if (!active) return;
       const ownerId = (campaign.data?.owner_id as string | undefined) ?? null;

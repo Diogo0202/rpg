@@ -10,6 +10,8 @@ import {
 } from "../lib/campaign-chat";
 import { connectionLabel, startRealtimeSync, type RealtimeConnection } from "../lib/realtime-sync";
 import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as chat from "../lib/data/campaign";
 import styles from "./campaign-chat.module.css";
 
 type ParticipantRow = { user_id: string; display_name: string | null; role: string | null };
@@ -56,8 +58,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     const requestCampaign = campaignRef.current;
     const request = ++requestRef.current;
     try {
-      const { data, error } = await createClient().from("campaign_chat_messages").select(CHAT_COLUMNS)
-        .eq("campaign_id", requestCampaign).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(CHAT_PAGE_SIZE);
+      const { data, error } = await chat.listChatMessages(browserDb(), requestCampaign, CHAT_COLUMNS, CHAT_PAGE_SIZE);
       if (campaignRef.current !== requestCampaign || request !== requestRef.current) return;
       if (error) throw error;
       const snapshot = ((data ?? []) as unknown[]).map(parseChatMessage).filter((row): row is ChatMessage => row !== null && row.campaign_id === requestCampaign);
@@ -78,7 +79,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     try { client = createClient(); } catch { setStatus("offline"); setLoading(false); return () => { active = false; }; }
 
     void (async () => {
-      const { data, error } = await client.rpc("campaign_chat_participants", { p_campaign: campaignId });
+      const { data, error } = await chat.chatParticipants(client, campaignId);
       if (!active) return;
       if (error) { setNotice("Não foi possível ler os participantes da campanha."); return; }
       setParticipants(((data ?? []) as ParticipantRow[]).map(toParticipant).filter((row): row is ChatParticipant => row !== null));
@@ -128,9 +129,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
   async function deliver(message: ChatMessage) {
     const requestCampaign = campaignRef.current;
     setMessages((rows) => setMessageStatus(rows, message.id, "sending"));
-    const { data, error } = await createClient().from("campaign_chat_messages")
-      .insert({ id: message.id, campaign_id: message.campaign_id, recipient_id: message.recipient_id, body: message.body })
-      .select(CHAT_COLUMNS).single();
+    const { data, error } = await chat.sendChatMessage(browserDb(), message, CHAT_COLUMNS);
     if (campaignRef.current !== requestCampaign) return false;
     if (error) {
       if (error.code === "23505") { await loadMessages(); return true; } // already stored by an earlier attempt
@@ -175,7 +174,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     const moderating = message.author_id !== viewerId;
     if (!window.confirm(moderating ? "Apagar a mensagem deste participante para toda a mesa?" : "Apagar sua mensagem?")) return;
     const requestCampaign = campaignRef.current;
-    const { error } = await createClient().from("campaign_chat_messages").delete().eq("id", message.id);
+    const { error } = await chat.deleteChatMessage(browserDb(), message.id);
     if (campaignRef.current !== requestCampaign) return;
     if (error) { setNotice(chatErrorMessage(error)); return; }
     setMessages((rows) => removeMessage(rows, message.id));
@@ -198,8 +197,7 @@ export function CampaignChat({ campaignId, viewerId, canManage }: { campaignId: 
     const requestCampaign = campaignRef.current;
     setSavingEdit(true); setNotice("");
     try {
-      const { data, error } = await createClient().from("campaign_chat_messages")
-        .update({ body: result.body }).eq("id", message.id).select(CHAT_COLUMNS).single();
+      const { data, error } = await chat.editChatMessage(browserDb(), message.id, result.body, CHAT_COLUMNS);
       if (campaignRef.current !== requestCampaign) return;
       if (error) { setNotice(chatErrorMessage(error)); return; }
       const saved = parseChatMessage(data);
