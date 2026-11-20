@@ -34,129 +34,255 @@ export function reconcileOneRing(before: RingValues, after: RingValues): RingVal
   return next;
 }
 
-export function evaluateOneRing(input: RingValues): RingReport {
-  const v: RingValues = { ...input };
-  if(typeof v.nome === "string")v.nome=v.nome.trim();
-  const errors: RingError[] = [];
-  const add = (field: string, message: string) => errors.push({ field, message });
-  const culture = ringCulture(v), calling = ringCalling(v);
-  if (!str(v.nome).trim() || str(v.nome).trim().length > 120) add("nome", "Informe um nome de até 120 caracteres.");
+type Culture = NonNullable<ReturnType<typeof ringCulture>>;
+type Calling = NonNullable<ReturnType<typeof ringCalling>>;
+type Weapon = (typeof C.weapons)[number];
+type Armor = (typeof C.armor)[number];
+type Shield = (typeof C.shields)[number];
+type Reward = (typeof C.rewards)[number];
+type Equipped = { id: string; name: string; type: string; load: number; damage?: number; wound?: number; wound_two_hands?: number; proficiency?: string; protection?: number; parry?: number };
+
+/** Estado da avaliação: os valores, a forma de registrar erros e as escolhas já resolvidas. */
+type Ctx = { v: RingValues; add: (field: string, message: string) => void; culture: Culture | undefined; calling: Calling | undefined };
+
+/** Duas escolhas distintas, todas dentro da lista permitida. */
+const pickedTwoFrom = (picks: string[], allowed: readonly string[]) =>
+  picks.length === 2 && uniq(picks).length === 2 && picks.every((id) => allowed.includes(id));
+
+const NAME_LIMIT = 120;
+const USEFUL_ITEM_LIMIT = 300;
+const RESET_ON_CREATION = ["sombra", "cicatrizes", "cansaco", "ferimento_dias", "pontos_aventura", "pontos_habilidade", "experiencia"];
+
+function checkIdentity({ v, add, culture, calling }: Ctx): number {
+  if (!str(v.nome).trim() || str(v.nome).trim().length > NAME_LIMIT) add("nome", "Informe um nome de até 120 caracteres.");
   if (!culture) add("linhagem", "Escolha uma cultura.");
   if (!calling) add("vocacao", "Escolha um Chamado.");
   const preset = Number(v.anel_atributos) - 1;
   if (!Number.isInteger(preset) || preset < 0 || preset > 5 || !str(v.anel_atributos)) add("anel_atributos", "Escolha um dos seis conjuntos de atributos.");
-  if (culture && preset >= 0 && preset < 6) {
-    C.attributes.forEach((id, i) => { v[id] = culture.attributes[preset][i]; });
-    if ("attribute_bonus" in culture) {
-      if (!C.attributes.includes(str(v.anel_bonus_atributo))) add("anel_bonus_atributo", "Escolha o atributo que recebe +1 de Reis dos Homens.");
-      else v[str(v.anel_bonus_atributo)] = num(v[str(v.anel_bonus_atributo)]) + 1;
-    }
-    ["base_vigor", "base_esperanca", "base_aparar"].forEach((id, i) => { v[id] = culture.bases[i]; });
-    v.bencao_cultural = culture.blessing;
-    v.padrao_vida = culture.living;
-    v.idiomas = [...culture.languages];
-    v.tesouro = C.living.find((l) => l.name === culture.living)?.treasure ?? 0;
+  return preset;
+}
+
+/** Atributos do conjunto escolhido, bônus de Reis dos Homens e o que a cultura concede. */
+function applyCulture({ v, add }: Ctx, culture: Culture, preset: number) {
+  C.attributes.forEach((id, i) => { v[id] = culture.attributes[preset][i]; });
+  if ("attribute_bonus" in culture) {
+    if (!C.attributes.includes(str(v.anel_bonus_atributo))) add("anel_bonus_atributo", "Escolha o atributo que recebe +1 de Reis dos Homens.");
+    else v[str(v.anel_bonus_atributo)] = num(v[str(v.anel_bonus_atributo)]) + 1;
   }
-  const culturalPick = str(v.anel_favorecida_cultura), callingPicks = array(v.anel_favorecidas_chamado);
-  if (culture && !culture.favoured.includes(culturalPick)) add("anel_favorecida_cultura", "Escolha uma perícia favorecida da cultura.");
-  if (calling && (callingPicks.length !== 2 || uniq(callingPicks).length !== 2 || callingPicks.some((id) => !calling.favoured.includes(id)))) add("anel_favorecidas_chamado", "Escolha duas perícias distintas do Chamado.");
-  if (calling) {
-    v.caminho_sombra = calling.shadow;
-    v.traco_chamado = calling.trait;
-    if ("enemy_choice" in calling) {
-      if (!C.enemies.includes(str(v.anel_inimigo))) add("anel_inimigo", "Escolha o tipo de inimigo do Campeão.");
-      else v.traco_chamado = `${calling.trait}: ${v.anel_inimigo}`;
-    }
+  ["base_vigor", "base_esperanca", "base_aparar"].forEach((id, i) => { v[id] = culture.bases[i]; });
+  v.bencao_cultural = culture.blessing;
+  v.padrao_vida = culture.living;
+  v.idiomas = [...culture.languages];
+  v.tesouro = C.living.find((l) => l.name === culture.living)?.treasure ?? 0;
+}
+
+function applyCalling({ v, add }: Ctx, calling: Calling) {
+  v.caminho_sombra = calling.shadow;
+  v.traco_chamado = calling.trait;
+  if ("enemy_choice" in calling) {
+    if (!C.enemies.includes(str(v.anel_inimigo))) add("anel_inimigo", "Escolha o tipo de inimigo do Campeão.");
+    else v.traco_chamado = `${calling.trait}: ${v.anel_inimigo}`;
   }
-  const traits = array(v.tracos_distintivos);
-  if (culture && (traits.length !== 2 || uniq(traits).length !== 2 || traits.some((t) => !culture.traits.includes(t)))) add("tracos_distintivos", "Escolha duas características notáveis da cultura.");
+}
+
+function checkTraitsAndCombat({ v, add, culture }: Ctx) {
+  if (culture && !pickedTwoFrom(array(v.tracos_distintivos), culture.traits)) add("tracos_distintivos", "Escolha duas características notáveis da cultura.");
   if (culture && !culture.combat.includes(str(v.anel_combate_principal))) add("anel_combate_principal", "Escolha a proficiência principal da cultura.");
   if (!combatIds.includes(str(v.anel_combate_secundario)) || v.anel_combate_principal === v.anel_combate_secundario) add("anel_combate_secundario", "Escolha outra proficiência para receber 1 ponto.");
+}
+
+/** Preenche níveis ausentes com a base e soma o custo de cada nível comprado acima dela. */
+function spendExperience({ v, add }: Ctx): number {
   const base = ringBase(v);
   let spent = 0;
   for (const id of [...skillIds, ...combatIds]) {
-    const isCombat = combatIds.includes(id), max = isCombat ? 3 : 4, costs = isCombat ? C.combat_costs : C.skill_costs;
+    const isCombat = combatIds.includes(id);
+    const max = isCombat ? 3 : 4;
+    const costs = isCombat ? C.combat_costs : C.skill_costs;
     if (!(id in v)) v[id] = base[id];
     const rank = num(v[id]);
     if (!Number.isInteger(v[id]) || rank < base[id] || rank > max) add(id, `Escolha um nível entre ${base[id]} e ${max}.`);
     else for (let level = base[id] + 1; level <= rank; level++) spent += costs[level];
   }
   if (spent > C.previous_experience) add("experiencia_anterior", `Você gastou ${spent} de ${C.previous_experience} pontos disponíveis.`);
+  return spent;
+}
+
+/** Virtude inicial, perícias favorecidas (com Maestria) e os bônus que a virtude concede. */
+function applyVirtue({ v, add }: Ctx, culturalPick: string, callingPicks: string[]) {
   const virtue = C.virtues.find((x) => x.id === v.anel_virtude);
   if (!virtue) add("anel_virtude", "Escolha uma Virtude inicial.");
   const favoured = uniq([culturalPick, ...callingPicks].filter((id) => skillIds.includes(id)));
   if (v.anel_virtude === "mastery") {
     const picks = array(v.anel_maestria);
-    if (picks.length !== 2 || uniq(picks).length !== 2 || picks.some((id) => !skillIds.includes(id) || favoured.includes(id))) add("anel_maestria", "Maestria pede duas perícias ainda não favorecidas.");
+    if (!pickedTwoFrom(picks, skillIds) || picks.some((id) => favoured.includes(id))) add("anel_maestria", "Maestria pede duas perícias ainda não favorecidas.");
     favoured.push(...picks.filter((id) => skillIds.includes(id)));
   }
   if (v.anel_virtude === "aptitude" && !C.attributes.includes(str(v.anel_dom_atributo))) add("anel_dom_atributo", "Escolha o atributo do Dom.");
   v.pericias_favorecidas = uniq(favoured).map((id) => C.skills.find((s) => s.id === id)!.legacy_label);
   v.virtudes = virtue ? [virtue.name] : [];
-  v.valor = 1; v.sabedoria = 1;
+  v.valor = 1;
+  v.sabedoria = 1;
   v.bonus_vigor = v.anel_virtude === "resilience" ? 2 : 0;
   v.bonus_esperanca = v.anel_virtude === "confidence" ? 2 : 0;
   v.bonus_aparar = v.anel_virtude === "dexterity" ? 1 : 0;
   for (const id of C.attributes) v[`desconto_tn_${id}`] = v.anel_virtude === "aptitude" && v.anel_dom_atributo === id ? 1 : 0;
-  const chosenWeapons = array(v.anel_armas);
-  if (uniq(chosenWeapons).length !== chosenWeapons.length) add("anel_armas", "Não repita a mesma arma na criação.");
-  const weapons = chosenWeapons.map((id) => C.weapons.find((w) => w.id === id));
+}
+
+function forbiddenForCulture(culture: Culture | undefined, weapon: Weapon): boolean {
+  if (!culture) return false;
+  return ("forbidden_equipment" in culture && Boolean(culture.forbidden_equipment?.includes(weapon.id)))
+    || ("allowed_weapons" in culture && !culture.allowed_weapons?.includes(weapon.id));
+}
+
+/** Armas escolhidas: sem repetição, uma por proficiência, com proficiência e permitidas pela cultura. */
+function checkWeapons({ v, add, culture }: Ctx): Array<Weapon | undefined> {
+  const chosen = array(v.anel_armas);
+  if (uniq(chosen).length !== chosen.length) add("anel_armas", "Não repita a mesma arma na criação.");
+  const weapons = chosen.map((id) => C.weapons.find((w) => w.id === id));
   const counts: Record<string, number> = {};
   for (const weapon of weapons) {
     if (!weapon) { add("anel_armas", "Arma desconhecida."); continue; }
     counts[weapon.proficiency] = (counts[weapon.proficiency] ?? 0) + 1;
     if (weapon.proficiency !== "briga" && num(v[weapon.proficiency]) < 1) add("anel_armas", `O herói não tem proficiência para ${weapon.name}.`);
     if (counts[weapon.proficiency] > 1) add("anel_armas", "Escolha no máximo uma arma por proficiência na criação.");
-    if (culture && (("forbidden_equipment" in culture && culture.forbidden_equipment?.includes(weapon.id)) || ("allowed_weapons" in culture && !culture.allowed_weapons?.includes(weapon.id)))) add("anel_armas", `${weapon.name} não é permitida para esta cultura.`);
+    if (forbiddenForCulture(culture, weapon)) add("anel_armas", `${weapon.name} não é permitida para esta cultura.`);
   }
+  return weapons;
+}
+
+/** Armadura e escudo existem, cabem no padrão de vida e são permitidos pela cultura. */
+function checkProtection({ v, add, culture }: Ctx): { armor: Armor | undefined; shield: Shield | undefined } {
   const armor = C.armor.find((x) => x.id === v.anel_armadura);
   const shield = C.shields.find((x) => x.id === v.anel_escudo);
   if (!armor) add("anel_armadura", "Escolha a armadura ou marque sem armadura.");
   if (!shield) add("anel_escudo", "Escolha o escudo ou marque sem escudo.");
   const living = C.living.findIndex((l) => l.name === culture?.living);
-  for (const item of [armor, shield]) if (item && C.living.findIndex((l) => l.name === item.minimum_living) > living) add(item === armor ? "anel_armadura" : "anel_escudo", "O padrão de vida não permite este equipamento inicial.");
+  for (const item of [armor, shield])
+    if (item && C.living.findIndex((l) => l.name === item.minimum_living) > living)
+      add(item === armor ? "anel_armadura" : "anel_escudo", "O padrão de vida não permite este equipamento inicial.");
   if (culture && shield && "forbidden_equipment" in culture && culture.forbidden_equipment?.includes(shield.id)) add("anel_escudo", "Esta cultura não pode usar escudo grande.");
-  const reward = C.rewards.find((r) => r.id === v.anel_recompensa);
-  if (!reward) add("anel_recompensa", "Escolha uma Recompensa inicial.");
-  const equipped: Array<{ id: string; name: string; type: string; load: number; damage?: number; wound?: number; wound_two_hands?: number; proficiency?: string; protection?: number; parry?: number }> = [
+  return { armor, shield };
+}
+
+function equippedItems(v: RingValues, weapons: Array<Weapon | undefined>, armor: Armor | undefined, shield: Shield | undefined): Equipped[] {
+  return [
     ...weapons.filter((w) => w !== undefined).map((w) => ({ ...w, type: "weapon" })),
     ...(armor && armor.id !== "none" ? [{ ...armor, type: "armor" }] : []),
     ...(v.anel_elmo === true ? [{ ...C.helmet, type: "helmet" }] : []),
     ...(shield && shield.id !== "none" ? [{ ...shield, type: "shield" }] : []),
   ];
+}
+
+const itemCategory = (type: string) => (type === "weapon" ? "weapon" : type === "armor" || type === "helmet" ? "armor" : "equipment");
+
+/** Linha de inventário de um item equipado, com a Recompensa aplicada quando é o alvo. */
+function inventoryItem(item: Equipped, applied: Reward | undefined, culture: Culture | undefined): RingItem {
+  let load = Math.max(0, item.load - (applied?.id === "cunning_make" ? 2 : 0));
+  if (culture && "armor_load_divisor" in culture && (item.type === "armor" || item.type === "helmet")) load = Math.ceil(load / (culture.armor_load_divisor ?? 1));
+  const grievous = applied?.id === "grievous" ? 2 : 0;
+  return {
+    name: item.name,
+    category: itemCategory(item.type),
+    quantity: 1,
+    acquired: true,
+    equipped: true,
+    damage_bonus: (item.damage ?? 0) + (applied?.id === "fell" ? 1 : 0),
+    protection: item.protection ?? 0,
+    custom_values: {
+      catalog_id: item.id,
+      carga: load,
+      ferimento: (item.wound ?? 0) + grievous,
+      ferimento_duas_maos: (item.wound_two_hands ?? item.wound ?? 0) + grievous,
+      protecao_dados: item.protection ?? 0,
+      bonus_bloqueio: (item.parry ?? 0) + (applied?.id === "reinforced" ? 1 : 0),
+      recompensa: applied?.id ?? "",
+      proficiencia: item.proficiency ?? "",
+    },
+  };
+}
+
+/** Item útil no formato "perícia: descrição". */
+function isUsefulItem(item: string): boolean {
+  const at = item.indexOf(":");
+  return at >= 1 && skillIds.includes(item.slice(0, at)) && Boolean(item.slice(at + 1).trim()) && item.length <= USEFUL_ITEM_LIMIT;
+}
+
+function usefulItems({ v, add, culture }: Ctx): RingItem[] {
+  const useful = array(v.anel_itens_uteis);
+  const limit = C.living.find((l) => l.name === culture?.living)?.useful_items ?? 0;
+  if (useful.length > limit || !useful.every(isUsefulItem)) add("anel_itens_uteis", `Escolha até ${limit} itens úteis, vinculados a uma perícia.`);
+  return useful.map((item) => ({
+    name: item.slice(item.indexOf(":") + 1).trim(), category: "equipment", quantity: 1, acquired: true, equipped: true, damage_bonus: 0, protection: 0,
+    custom_values: { catalog_id: "useful", carga: 0, proficiencia: item.slice(0, item.indexOf(":")) },
+  }));
+}
+
+/** Equipamento inicial: armas, proteção, Recompensa e itens úteis, com carga e bônus. */
+function applyEquipment(ctx: Ctx): { inventory: RingItem[]; load: number } {
+  const { v, add, culture } = ctx;
+  const weapons = checkWeapons(ctx);
+  const { armor, shield } = checkProtection(ctx);
+  const reward = C.rewards.find((r) => r.id === v.anel_recompensa);
+  if (!reward) add("anel_recompensa", "Escolha uma Recompensa inicial.");
+  const equipped = equippedItems(v, weapons, armor, shield);
   const target = equipped.find((x) => x.id === v.anel_recompensa_alvo);
   if (reward && (!target || !reward.targets.includes(target.type))) add("anel_recompensa_alvo", "Escolha um item equipado compatível com a Recompensa.");
-  let load = 0, protectionBonus = 0;
-  const inventory: RingItem[] = equipped.map((item) => {
-    const applied = item.id === target?.id ? reward : undefined;
-    let itemLoad = Math.max(0, item.load - (applied?.id === "cunning_make" ? 2 : 0));
-    if (culture && "armor_load_divisor" in culture && (item.type === "armor" || item.type === "helmet")) itemLoad = Math.ceil(itemLoad / (culture.armor_load_divisor ?? 1));
-    load += itemLoad;
-    if (applied?.id === "well_fitted") protectionBonus += 2;
-    const damage = (item.damage ?? 0) + (applied?.id === "fell" ? 1 : 0);
-    return { name: item.name, category: item.type === "weapon" ? "weapon" : item.type === "armor" || item.type === "helmet" ? "armor" : "equipment", quantity: 1, acquired: true, equipped: true,
-      damage_bonus: damage, protection: item.protection ?? 0,
-      custom_values: { catalog_id: item.id, carga: itemLoad, ferimento: (item.wound ?? 0) + (applied?.id === "grievous" ? 2 : 0), ferimento_duas_maos: (item.wound_two_hands ?? item.wound ?? 0) + (applied?.id === "grievous" ? 2 : 0), protecao_dados: item.protection ?? 0, bonus_bloqueio: (item.parry ?? 0) + (applied?.id === "reinforced" ? 1 : 0), recompensa: applied?.id ?? "", proficiencia: item.proficiency ?? "" } };
-  });
-  const useful = array(v.anel_itens_uteis);
-  const usefulLimit = C.living.find((l) => l.name === culture?.living)?.useful_items ?? 0;
-  if (useful.length > usefulLimit || useful.some((item) => { const at = item.indexOf(":"); return at < 1 || !skillIds.includes(item.slice(0, at)) || !item.slice(at + 1).trim() || item.length > 300; })) add("anel_itens_uteis", `Escolha até ${usefulLimit} itens úteis, vinculados a uma perícia.`);
-  for (const item of useful) inventory.push({ name: item.slice(item.indexOf(":") + 1).trim(), category: "equipment", quantity: 1, acquired: true, equipped: true, damage_bonus: 0, protection: 0, custom_values: { catalog_id: "useful", carga: 0, proficiencia: item.slice(0, item.indexOf(":")) } });
+  const inventory = equipped.map((item) => inventoryItem(item, item.id === target?.id ? reward : undefined, culture));
+  const load = inventory.reduce((sum, item) => sum + num(item.custom_values.carga), 0);
+  const protectionBonus = reward?.id === "well_fitted" && target ? 2 : 0;
+  inventory.push(...usefulItems(ctx));
   v.recompensas = reward ? [reward.name] : [];
   v.bonus_escudo = (shield?.parry ?? 0) + (reward?.id === "reinforced" && target?.id === shield?.id ? 1 : 0);
   v.bonus_protecao = protectionBonus;
   v.armadura = (armor?.protection ?? 0) + (v.anel_elmo === true ? C.helmet.protection : 0);
   v.carga = load;
   v.equipamento = inventory.map((item) => item.name);
-  const derived = {
-    tn_corpo: 20 - num(v.corpo) - num(v.desconto_tn_corpo), tn_coracao: 20 - num(v.coracao) - num(v.desconto_tn_coracao), tn_astucia: 20 - num(v.astucia) - num(v.desconto_tn_astucia),
-    vigor_max: num(v.corpo) + num(v.base_vigor) + num(v.bonus_vigor), esperanca_max: num(v.coracao) + num(v.base_esperanca) + num(v.bonus_esperanca),
-    aparar: num(v.astucia) + num(v.base_aparar) + num(v.bonus_escudo) + num(v.bonus_aparar), carga_total: load, sombra_total: 0,
+  return { inventory, load };
+}
+
+function derivedTotals(v: RingValues, load: number): Record<string, number> {
+  return {
+    tn_corpo: 20 - num(v.corpo) - num(v.desconto_tn_corpo),
+    tn_coracao: 20 - num(v.coracao) - num(v.desconto_tn_coracao),
+    tn_astucia: 20 - num(v.astucia) - num(v.desconto_tn_astucia),
+    vigor_max: num(v.corpo) + num(v.base_vigor) + num(v.bonus_vigor),
+    esperanca_max: num(v.coracao) + num(v.base_esperanca) + num(v.bonus_esperanca),
+    aparar: num(v.astucia) + num(v.base_aparar) + num(v.bonus_escudo) + num(v.bonus_aparar),
+    carga_total: load,
+    sombra_total: 0,
   };
-  v.vigor_marcha = derived.vigor_max; v.esperanca = derived.esperanca_max;
-  for (const key of ["sombra", "cicatrizes", "cansaco", "ferimento_dias", "pontos_aventura", "pontos_habilidade", "experiencia"]) v[key] = 0;
+}
+
+/**
+ * Confere e completa um herói de O Um Anel recém-criado. Cada etapa grava nos valores o que
+ * a regra concede e registra os erros na ordem em que o jogador preenche a ficha.
+ */
+export function evaluateOneRing(input: RingValues): RingReport {
+  const v: RingValues = { ...input };
+  if (typeof v.nome === "string") v.nome = v.nome.trim();
+  const errors: RingError[] = [];
+  const ctx: Ctx = { v, add: (field, message) => errors.push({ field, message }), culture: ringCulture(v), calling: ringCalling(v) };
+  const { culture, calling } = ctx;
+
+  const preset = checkIdentity(ctx);
+  if (culture && preset >= 0 && preset < 6) applyCulture(ctx, culture, preset);
+  const culturalPick = str(v.anel_favorecida_cultura);
+  const callingPicks = array(v.anel_favorecidas_chamado);
+  if (culture && !culture.favoured.includes(culturalPick)) ctx.add("anel_favorecida_cultura", "Escolha uma perícia favorecida da cultura.");
+  if (calling && !pickedTwoFrom(callingPicks, calling.favoured)) ctx.add("anel_favorecidas_chamado", "Escolha duas perícias distintas do Chamado.");
+  if (calling) applyCalling(ctx, calling);
+  checkTraitsAndCombat(ctx);
+  const spent = spendExperience(ctx);
+  applyVirtue(ctx, culturalPick, callingPicks);
+  const { inventory, load } = applyEquipment(ctx);
+
+  const derived = derivedTotals(v, load);
+  v.vigor_marcha = derived.vigor_max;
+  v.esperanca = derived.esperanca_max;
+  for (const key of RESET_ON_CREATION) v[key] = 0;
   v.ferido = false;
-  if (num(v.idade) < 1 || num(v.idade) > 10000 || !Number.isInteger(v.idade)) add("idade", "Informe uma idade inteira positiva.");
+  if (num(v.idade) < 1 || num(v.idade) > 10000 || !Number.isInteger(v.idade)) ctx.add("idade", "Informe uma idade inteira positiva.");
   for (const field of oneRingV3Fields()) if (field.kind === "select" && v[field.id] === "") delete v[field.id];
   return { values: v, derived, errors, spent, remaining: C.previous_experience - spent, inventory };
 }
