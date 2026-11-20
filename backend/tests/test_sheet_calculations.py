@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from app.models import TemplateDraft
-from app.services.sheet_calculations import MAX_ABS_RESULT, MAX_POWER, calculate_sheet
+from app.domain.models import TemplateDraft
+from app.domain.sheet_calculations import MAX_ABS_RESULT, MAX_POWER, calculate_sheet
 
 
 def draft(*formulas: tuple[str, str], numbers: tuple[str, ...] = ("forca", "destreza", "vigor"), extra: list[dict[str, Any]] | None = None) -> TemplateDraft:

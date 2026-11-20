@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from app.application.mobile_sync.validation import campaign_row, changes_page, push_response, snapshot_page
 from app.domain.errors import Forbidden, InvalidInput, UnexpectedUpstreamResponse
-from app.services.mobile_sync import ENTITY_FIELDS, PROTOCOL_VERSION, SyncMutation
+from app.domain.mobile_sync import ENTITY_FIELDS, PROTOCOL_VERSION, SyncMutation
 
 Row = dict[str, Any]
 MAX_VISIBLE_CAMPAIGNS = 500

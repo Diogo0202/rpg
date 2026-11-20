@@ -4,7 +4,7 @@ import ast
 import math
 import re
 
-from app.models import TemplateDraft
+from app.domain.models import TemplateDraft
 
 
 ALLOWED_FORMULA = re.compile(r"^[a-z0-9_ +\-*/().d]+$", re.IGNORECASE)

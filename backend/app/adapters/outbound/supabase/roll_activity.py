@@ -14,7 +14,7 @@ from datetime import date
 from typing import Any
 
 from app.adapters.outbound.supabase.campaign_rpc import call_rpc
-from app.application.roll_activity import ROLL_ACTIVITY_STATUSES, MAX_TRAIT_IDS, RollActivityResult, RollChronicleContext
+from app.domain.roll_activity import ROLL_ACTIVITY_STATUSES, MAX_TRAIT_IDS, RollActivityResult, RollChronicleContext
 from app.domain.errors import DomainError
 
 logger = logging.getLogger(__name__)

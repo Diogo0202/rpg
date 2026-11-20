@@ -11,9 +11,10 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from uuid import UUID
 
-from app.application.roll_activity import RollActivityRecorder, RollChronicleContext, chronicle_status
+from app.domain.roll_activity import RollChronicleContext
+from app.application.roll_activity import RollActivityRecorder, chronicle_status
 from app.domain.errors import InvalidInput
-from app.services.hunter_traits import desperation_choices
+from app.domain.hunter_traits import desperation_choices
 
 Row = dict[str, Any]
 

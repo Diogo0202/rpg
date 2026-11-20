@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.services.modifiers import ModifierPreview
+from app.domain.modifiers import ModifierPreview
 
 
 class RollProbabilities(BaseModel):

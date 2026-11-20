@@ -17,8 +17,8 @@ from app.adapters.inbound.http.dependencies import roll_activity_recorder
 from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 from app.adapters.inbound.http import sheets as sheets_routes
 from app.adapters.inbound.http.auth import require_signed_in_user
-from app.services import hunter_traits
-from app.services.hunter_traits import (
+from app.domain import hunter_traits
+from app.domain.hunter_traits import (
     HUNTER_EDGES,
     HUNTER_PERKS,
     desperation_choices,

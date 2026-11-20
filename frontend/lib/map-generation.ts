@@ -1,7 +1,7 @@
 /**
  * MAP-02: parameters for POST /api/v1/maps/generate. Limits mirror
- * MapGenerationRequest (backend/app/routes/generators.py) and the capacity
- * rule of backend/app/services/tactical_maps.py, so the form explains a
+ * MapGenerationRequest (backend/app/adapters/inbound/http/generators.py) and the capacity
+ * rule of backend/app/domain/tactical_maps.py, so the form explains a
  * refusal before the API returns 422.
  */
 export const MAP_GENERATION_LIMITS = { minDimension: 12, maxDimension: 64, minRooms: 1, maxRooms: 32, maxSeedLength: 128 } as const;

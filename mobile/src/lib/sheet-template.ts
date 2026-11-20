@@ -37,7 +37,7 @@ export type SheetField = {
 };
 
 /**
- * Declarative creation rules, numbers only (mirrors backend/app/services/creation_rules.py).
+ * Declarative creation rules, numbers only (mirrors backend/app/domain/creation_rules.py).
  * Checked when a sheet is created; later advancement may leave the distribution.
  */
 export type CreationDistribution = { label: string; counts: Record<string, number>; rest?: number };

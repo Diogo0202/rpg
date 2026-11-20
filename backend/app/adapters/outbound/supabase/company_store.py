@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.adapters.outbound.supabase.rest_client import RpcErrors, SupabaseRest
+from app.adapters.outbound.supabase.errors import RpcErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.one_ring_company import CompanyOrder
 from app.domain.errors import Conflict, Forbidden, InvalidInput, NotFound, ServiceUnavailable
 

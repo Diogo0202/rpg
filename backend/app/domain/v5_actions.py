@@ -6,8 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
-from app.services.modifiers import Effect, ModifierPreview, ModifierRequest, Tag, preview_modifiers
-from app.application.roll_activity import RollChronicleContext
+from app.domain.modifiers import Effect, ModifierPreview, ModifierRequest, Tag, preview_modifiers
+from app.domain.roll_activity import RollChronicleContext
 
 
 class DamageState(BaseModel):

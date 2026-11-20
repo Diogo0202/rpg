@@ -8,8 +8,8 @@ from uuid import UUID
 
 from app.application.generated_content import ContentApplication, ContentApplications, apply_content
 from app.domain.errors import InvalidInput
-from app.services.content_generator import generate_content
-from app.services.tactical_maps import generate_tactical_map
+from app.domain.content_generator import generate_content
+from app.domain.tactical_maps import generate_tactical_map
 
 Row = dict[str, Any]
 # world_entities é lido por todos os membros: estes detalhes ficam só com o narrador.

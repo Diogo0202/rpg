@@ -15,8 +15,8 @@ from app.adapters.inbound.http import auth as generators
 from app.adapters.inbound.http import system_rolls as routes
 from app.domain.errors import InvalidInput
 from tests.support.fake_supabase import stub_supabase
-from app.services import v3_vampire
-from app.services.system_rolls import V3RollRequest, roll_v3, v3_outcome
+from app.domain import v3_vampire
+from app.domain.system_rolls import V3RollRequest, roll_v3, v3_outcome
 
 SHEET_ID = "00000000-0000-0000-0000-000000000031"
 OPERATION_ID = "00000000-0000-0000-0000-000000000041"

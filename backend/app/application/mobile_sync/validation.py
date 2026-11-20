@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.services.mobile_sync import (
+from app.domain.mobile_sync import (
     ENTITY_FIELDS,
     FORBIDDEN_KEYS,
     MAX_MUTATIONS,

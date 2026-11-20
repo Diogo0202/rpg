@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.adapters.inbound.http import sheets
-from app.models import TemplateDraft
-from app.services.sheet_creation import prepare_sheet_creation
+from app.domain.models import TemplateDraft
+from app.domain.sheet_creation import prepare_sheet_creation
 from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 

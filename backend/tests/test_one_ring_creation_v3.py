@@ -2,8 +2,8 @@ import json
 import subprocess
 from pathlib import Path
 import pytest
-from app.services.one_ring_creation import prepare_creation, initial_inventory, evaluate_creation
-from app.services.sheet_creation import prepare_sheet_creation
+from app.domain.one_ring_creation import prepare_creation, initial_inventory, evaluate_creation
+from app.domain.sheet_creation import prepare_sheet_creation
 
 ROOT = Path(__file__).resolve().parents[2]
 CASES = json.loads(subprocess.check_output(['node','--experimental-strip-types',str(ROOT/'frontend/tests/one-ring-parity.mjs')],encoding='utf-8'))

@@ -6,11 +6,11 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.adapters.inbound.http import sheets
-from app.models import TemplateDraft
+from app.domain.models import TemplateDraft
 from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
-from app.services.creation_rules import evaluate_creation_rules
-from app.services.sheet_creation import prepare_sheet_creation
-from app.services.sheet_values import validate_sheet_values
+from app.domain.creation_rules import evaluate_creation_rules
+from app.domain.sheet_creation import prepare_sheet_creation
+from app.domain.sheet_values import validate_sheet_values
 
 ATTRIBUTES = ["forca", "destreza", "vigor", "carisma", "manipulacao", "autocontrole", "inteligencia", "raciocinio", "resolucao"]
 SKILLS = [f"pericia_{index:02d}" for index in range(27)]

@@ -12,7 +12,7 @@ type Option = { id: string; name: string; type?: "sheet" | "entity" };
 
 /**
  * V5 hunt, Blood Bond and actions against the Regnant (mobile), same routes as the web
- * (backend/app/routes/v5_sanguine.py). The hunt and the bond drink carry an operation_id and
+ * (backend/app/adapters/inbound/http/v5_sanguine.py). The hunt and the bond drink carry an operation_id and
  * wait in the offline queue; reading and the Regnant flow need the server.
  */
 export function V5SanguinePanel({ sheetId, sheetName, api, donors }: { sheetId: string; sheetName: string; api: TableApi; donors: Option[] }) {

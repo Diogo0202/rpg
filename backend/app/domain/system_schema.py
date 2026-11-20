@@ -4,9 +4,9 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models import FieldKind, TemplateDraft, TemplateField
-from app.services.creation_rules import CreationRule
-from app.models import MetaCurrency
+from app.domain.models import FieldKind, TemplateDraft, TemplateField
+from app.domain.creation_rules import CreationRule
+from app.domain.models import MetaCurrency
 
 
 class PartitionedSystemSchema(BaseModel):

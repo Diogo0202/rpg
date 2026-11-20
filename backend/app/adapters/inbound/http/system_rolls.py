@@ -14,7 +14,7 @@ from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.adapters.outbound.supabase.v3_sheets import SupabaseV3Sheets
 from app.application.roll_activity import RollActivityRecorder
 from app.application.system_rolls import RollOutcome, SystemRollService, V3SheetAction
-from app.services.system_rolls import (
+from app.domain.system_rolls import (
     HunterRollRequest,
     HunterRollResponse,
     HunterTraitsResponse,

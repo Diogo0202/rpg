@@ -15,7 +15,7 @@ export function distributionRulesFor(template: SheetTemplate, fieldIds: Iterable
 
 /**
  * Compares the filled values with one distribution, mirroring
- * backend/app/services/creation_rules.py: missing numbers count as `rest`.
+ * backend/app/domain/creation_rules.py: missing numbers count as `rest`.
  */
 export function tallyDistribution(rule: DistributionRule, option: CreationDistribution, values: Record<string, FieldValue>): DistributionTally {
   const rest = option.rest ?? 0;

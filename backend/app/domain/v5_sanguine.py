@@ -12,7 +12,7 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
-from app.services.v5_blood import blood_potency
+from app.domain.v5_blood import blood_potency
 
 SANGUINE_REVIEW_RULES = (
     "Até três pares de Convicção e Pedra de Toque; até cinco Princípios da Crônica.",
@@ -50,7 +50,7 @@ CLAN_BANES: dict[str, str] = {
 
 
 def bane_severity(potency: Any) -> int:
-    """Severidade da Perdição pela tabela de Potência de F1 (app.services.v5_blood)."""
+    """Severidade da Perdição pela tabela de Potência de F1 (app.domain.v5_blood)."""
     if type(potency) is not int or potency <= 0:
         return 0
     return blood_potency(potency).bane_severity

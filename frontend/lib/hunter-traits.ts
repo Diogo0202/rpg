@@ -1,7 +1,7 @@
 import type { FieldValue, SheetField } from "./sheet-template.ts";
 
 /**
- * Caçador: A Revanche v3, structured traits (mirrors backend/app/services/hunter_traits.py).
+ * Caçador: A Revanche v3, structured traits (mirrors backend/app/domain/hunter_traits.py).
  * Credo and Ímpeto are closed lists; Pedras de Toque and Convicções are up to three pairs of
  * short texts that must be filled together; Redenção is short free text and Despair (`em_desespero`)
  * a checkbox. Desesperação and Perigo live in the cell (hunter_cells), not in the sheet. Names and limits only, no rules text. The 1 to 3 pairs are marked for review
@@ -128,7 +128,7 @@ export function hunterTraitProblems(values: Record<string, FieldValue>): string[
 
 /**
  * F4: Triunfos (Edges) e Distinções (Perks), mechanical names only (same lists in
- * backend/app/services/hunter_traits.py). Portuguese names and the Perks of each Edge are
+ * backend/app/domain/hunter_traits.py). Portuguese names and the Perks of each Edge are
  * provisional and marked for review against the book (docs/CACADOR_CRIACAO_GUIADA.md, F4).
  */
 export const HUNTER_EDGES: Record<string, string[]> = {

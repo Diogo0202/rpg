@@ -6,9 +6,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.services.creation_rules import CollectionPoints, CreationRule, PowerPicks, PriorityPoints, SelectGrants, SelectRanges, SpecialtyPicks
-from app.services.modifiers import Effect, ModifierPreview, Tag
-from app.application.roll_activity import RollChronicleContext
+from app.domain.creation_rules import CollectionPoints, CreationRule, PowerPicks, PriorityPoints, SelectGrants, SelectRanges, SpecialtyPicks
+from app.domain.modifiers import Effect, ModifierPreview, Tag
+from app.domain.roll_activity import RollChronicleContext
 
 
 FIELD_ID = re.compile(r"^[a-z][a-z0-9_]{1,63}$")

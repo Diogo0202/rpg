@@ -10,8 +10,8 @@ from uuid import UUID
 from app.application.generated_content import ContentApplication, ContentApplications, apply_content
 from app.application.identity import CurrentUser
 from app.domain.errors import Conflict, Forbidden, InvalidInput, LimitExceeded, NotFound, UnexpectedUpstreamResponse
-from app.services.combat_blocks import deterministic_seed, second_inquisition_block
-from app.services.second_inquisition import EventKind, ResponseKind, ThreatAssessment, VerificationBasis, VerifiedEvent, assess_threat
+from app.domain.combat_blocks import deterministic_seed, second_inquisition_block
+from app.domain.second_inquisition import EventKind, ResponseKind, ThreatAssessment, VerificationBasis, VerifiedEvent, assess_threat
 
 Row = dict[str, Any]
 MAX_EVENTS = 1000

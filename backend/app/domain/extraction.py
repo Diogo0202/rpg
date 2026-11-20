@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from app.models import ExtractionRequest, FieldKind, TemplateDraft, TemplateField
-from app.services.prompt_security import normalize_untrusted_text
+from app.domain.models import ExtractionRequest, FieldKind, TemplateDraft, TemplateField
+from app.domain.prompt_security import normalize_untrusted_text
 
 
 def create_review_draft(request: ExtractionRequest) -> dict[str, object]:

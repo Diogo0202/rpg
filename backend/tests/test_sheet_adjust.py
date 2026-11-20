@@ -10,7 +10,7 @@ from app.adapters.inbound.http import sheets
 from app.adapters.inbound.http.errors import http_status
 from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
 from app.domain.errors import DomainError
-from app.models import TemplateDraft
+from app.domain.models import TemplateDraft
 from tests.support.fake_supabase import FakeSupabase, use_fake_supabase
 
 

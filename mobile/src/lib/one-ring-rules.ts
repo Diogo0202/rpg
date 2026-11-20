@@ -1,7 +1,7 @@
 import type { CreationRule, FieldValue, GrantCase, MetaCurrency, SheetField } from "./sheet-template.ts";
 
 /**
- * O Um Anel 2ª edição, ficha v2 (mirrors backend/app/services/one_ring.py).
+ * O Um Anel 2ª edição, ficha v2 (mirrors backend/app/domain/one_ring.py).
  * Names and numbers only, no book text. Every number is marked for review against the
  * Core Rules (docs/UM_ANEL_FICHA.md): culture bases, TN = 20 - attribute, attributes
  * summing 14, at most three favoured skills and the field limits.

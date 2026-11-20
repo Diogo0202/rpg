@@ -215,7 +215,7 @@ export function describeBloodEvent(event: Pick<BloodEvent, "kind" | "outcome">):
 export { V5_RESONANCES, V5_INTENSITIES, BOND_DEGREE_LABELS };
 
 export type HuntForm = { prey: string; resonance: string; intensity: string; dyscrasia: string; slake: number; killed: boolean; notes?: string };
-/** Same checks as HuntRequest in backend/app/routes/v5_sanguine.py; returns the error or the body. */
+/** Same checks as HuntRequest in backend/app/adapters/inbound/http/v5_sanguine.py; returns the error or the body. */
 export function huntBody(form: HuntForm): { error: string } | { body: Record<string, unknown> } {
   const prey = form.prey.trim();
   if (!prey) return { error: "Informe a presa." };

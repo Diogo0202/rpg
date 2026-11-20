@@ -21,7 +21,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
 
-from app.application.roll_activity import RollChronicleContext
+from app.domain.roll_activity import RollChronicleContext
 
 HEALTH_LEVELS: list[tuple[str, int | None]] = [
     ("Escoriado", 0), ("Machucado", -1), ("Ferido", -1), ("Ferido Gravemente", -2),

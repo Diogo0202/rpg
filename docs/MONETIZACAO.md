@@ -52,7 +52,7 @@ Código: `frontend/lib/affiliate-links.ts`, `frontend/components/affiliate-links
 
 ## IA de uso justo (backend)
 
-`backend/app/services/tutor_policy.py` aplica três camadas ao tutor (`POST /api/v1/campaigns/{id}/ai/tutor`):
+`backend/app/domain/tutor_policy.py` aplica três camadas ao tutor (`POST /api/v1/campaigns/{id}/ai/tutor`):
 
 1. Instrução de sistema: só regras mecânicas, de 1 a 8 tópicos iniciados por `- `, proibido lore/narrativa literária/trechos de livros.
 2. Verificação do pedido: expressão, nomes de variáveis e o campo opcional `question` (até 280 caracteres) são recusados com 422 se pedirem lore, história, narrativa, poema, backstory etc., antes de qualquer chamada paga.

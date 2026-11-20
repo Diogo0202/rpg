@@ -13,7 +13,7 @@ from uuid import UUID
 
 from app.application.v5.rolls import UNEXPECTED_RESPONSE, reworded
 from app.domain.errors import Conflict, DomainError, Forbidden, InvalidInput, UnexpectedUpstreamResponse
-from app.services.v5_sanguine import bond_degree
+from app.domain.v5_sanguine import bond_degree
 
 Row = dict[str, Any]
 

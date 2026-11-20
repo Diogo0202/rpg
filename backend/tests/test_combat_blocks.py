@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from app.services.combat_blocks import (
+from app.domain.combat_blocks import (
     COMBAT_SYSTEMS,
     COMBAT_TIERS,
     CombatBlock,
@@ -11,7 +11,7 @@ from app.services.combat_blocks import (
     second_inquisition_block,
     second_inquisition_tier,
 )
-from app.services.content_generator import generate_content
+from app.domain.content_generator import generate_content
 
 
 @pytest.mark.parametrize("system", COMBAT_SYSTEMS)

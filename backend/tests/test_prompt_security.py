@@ -5,9 +5,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.adapters.inbound.http import rules
-from app.models import ExtractionRequest
-from app.services.extraction import create_review_draft
-from app.services.prompt_security import (
+from app.domain.models import ExtractionRequest
+from app.domain.extraction import create_review_draft
+from app.domain.prompt_security import (
     UntrustedDataError,
     normalize_untrusted_text,
     validate_rule_page_result,

@@ -5,7 +5,7 @@ import type { CollectionPointsRule, PriorityPoints, SpecialtyPicksRule } from ".
  * clan disciplines, backgrounds, virtues, Paths, Merits and Flaws, clan
  * weaknesses and the priority budgets. No rules text or book prose is copied;
  * every catalog is marked for checking in the book. V3 has no predator type:
- * old sheets that carried the V5 one are migrated by backend/app/services/system_rolls.py.
+ * old sheets that carried the V5 one are migrated by backend/app/domain/system_rolls.py.
  */
 
 export const V3_ATTRIBUTE_GROUPS: Array<{ label: string; fields: Array<[id: string, label: string]> }> = [

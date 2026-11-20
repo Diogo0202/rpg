@@ -5,11 +5,12 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.adapters.outbound.supabase.rest_client import SqlStateErrors, SupabaseRest
+from app.adapters.outbound.supabase.errors import RpcErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.experience.ports import AdvanceOrder, AdvanceQuote, ExperiencePolicy, Row
 from app.domain.errors import Conflict, Forbidden, InvalidInput, NotFound
 
-ADVANCE_ERRORS: SqlStateErrors = {
+ADVANCE_ERRORS = RpcErrors(by_code={
     "42501": (Forbidden, "operação não permitida nesta ficha"),
     "40001": (Conflict, "a ficha mudou desde a prévia; recarregue e confira o custo de novo"),
     "23505": (Conflict, "ID da operação já foi usado para outra compra"),
@@ -17,7 +18,7 @@ ADVANCE_ERRORS: SqlStateErrors = {
     "23514": (InvalidInput, "o traço sairia do limite permitido"),
     "XP001": (InvalidInput, "XP insuficiente para este avanço"),
     "P0002": (NotFound, "avanço não encontrado"),
-}
+})
 ADVANCE_COLUMNS = (
     "id,sheet_id,actor_id,system_key,trait,category,item_name,item_value,from_level,to_level,cost,status,"
     "xp_before,xp_after,sheet_version,reason,reviewed_by,reviewed_at,review_note,created_at"

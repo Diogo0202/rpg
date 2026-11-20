@@ -22,11 +22,11 @@ from app.application.ai.ports import (
     Row,
 )
 from app.domain.errors import Conflict, DomainError, Forbidden, InvalidInput, NotFound, ServiceUnavailable, UnexpectedUpstreamResponse
-from app.models import TemplateDraft
-from app.services import tutor_policy
-from app.services.prompt_security import UntrustedDataError, normalize_untrusted_text
-from app.services.sheet_calculations import calculate_sheet
-from app.services.sheet_creation import approved_template_draft, prepare_sheet_creation
+from app.domain.models import TemplateDraft
+from app.domain import tutor_policy
+from app.domain.prompt_security import UntrustedDataError, normalize_untrusted_text
+from app.domain.sheet_calculations import calculate_sheet
+from app.domain.sheet_creation import approved_template_draft, prepare_sheet_creation
 
 LOGGER = logging.getLogger(__name__)
 

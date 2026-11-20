@@ -13,7 +13,7 @@ from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.application.roll_activity import RollActivityRecorder
 from app.application.tools import calculated_values, checked_template, review_draft, roll_expression
 from app.domain.errors import Forbidden, ServiceUnavailable
-from app.models import DiceRequest, DiceResponse, ExtractionRequest, SheetCalculationRequest, SheetCalculationResponse, TemplateDraft
+from app.domain.models import DiceRequest, DiceResponse, ExtractionRequest, SheetCalculationRequest, SheetCalculationResponse, TemplateDraft
 
 CHRONICLE_ACTIVITY_HEADER = "X-Chronicle-Activity"
 

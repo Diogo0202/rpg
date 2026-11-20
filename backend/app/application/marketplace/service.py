@@ -19,7 +19,7 @@ from app.application.marketplace.ports import (
     SearchQuery,
 )
 from app.domain.errors import Conflict, InvalidInput, NotFound, ServiceUnavailable
-from app.services.marketplace import PublishRequest, template_digest, validate_import_schema, validate_publication
+from app.domain.marketplace import PublishRequest, template_digest, validate_import_schema, validate_publication
 
 logger = logging.getLogger(__name__)
 

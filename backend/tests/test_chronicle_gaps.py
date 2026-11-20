@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from app.services.chronicle_gaps import (
+from app.domain.chronicle_gaps import (
     ActivityRecord,
     ChronicleCharacter,
     ChronicleGapRequest,
@@ -48,7 +48,7 @@ def test_activity_references_must_belong_to_its_character(record_field, characte
         id="r1", occurred_on=date(2026, 10, 1), character_id="c1", **{record_field: [entry.id]}
     )
     request = ChronicleGapRequest(characters=[character], activity=[record], as_of=date(2026, 10, 2))
-    report = __import__("app.services.chronicle_gaps", fromlist=["analyze_chronicle_gaps"]).analyze_chronicle_gaps(request)
+    report = __import__("app.domain.chronicle_gaps", fromlist=["analyze_chronicle_gaps"]).analyze_chronicle_gaps(request)
     assert report.activity_record_count == 1
 
 

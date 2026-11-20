@@ -14,7 +14,7 @@ from app.adapters.outbound.supabase.marketplace import MEMBER_ERRORS, USAGE_BATC
 from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
 from app.application.marketplace.service import MarketplaceService
 from app.domain.errors import DomainError, Forbidden
-from app.services import marketplace
+from app.domain import marketplace
 from tests.support.marketplace_fakes import fakes, marketplace_client
 
 

@@ -27,7 +27,7 @@ Marque `[x]` só depois de verificado (teste passando ou conferência no app).
 - [x] `scripts/package-mobile-source.mjs` leva os arquivos de dados importados por `system-starters`
 
 ## 3. Rolador d20 (P → A)
-- [x] `backend/app/services/system_rolls.py`: `roll_sotdl` e `roll_sotdl_fate`
+- [x] `backend/app/domain/system_rolls.py`: `roll_sotdl` e `roll_sotdl_fate`
 - [x] Rotas `/api/v1/system-rolls/shadow-demon-lord` e `/shadow-demon-lord/fate`
 - [x] `frontend/components/system-roll-panel.tsx`: modo SotDL (dádivas, perdições, alvo, teste de destino)
 - [x] `mobile/src/lib/dice.ts`: `rollSotdl` + aba "d20 Demon Lord" no `DicePanel`

@@ -71,7 +71,7 @@ function accumulate(target: RollProbabilities, events: RollProbabilities, probab
   target.bestial_failure += events.bestial_failure * probability;
 }
 
-/** Same event model and reroll policy as backend/app/services/v5_probability.py. */
+/** Same event model and reroll policy as backend/app/domain/v5_probability.py. */
 export function estimateV5Probabilities(
   pool: number,
   hunger: number,

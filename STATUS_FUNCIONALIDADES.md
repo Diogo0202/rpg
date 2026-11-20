@@ -80,7 +80,7 @@ Evidências: [criação de campanha](frontend/app/app/actions.ts), [login](front
 - **FIC-17 | 75% | Em processo:** importar/exportar JSON Nexus com modelo, valores, efeitos e inventário; restauração cria ficha nova com modelo idêntico aprovado. Compatibilidade direta Atlas e formato universal pendentes.
 - **FIC-18 | 0% | Não implementada:** histórico navegável de alterações e restauração de versões anteriores da ficha.
 
-Evidências: [editor de fichas](frontend/components/sheet-builder.tsx), [cálculos](backend/app/services/sheet_calculations.py), [rotas de fichas](backend/app/routes/sheets.py), [migration de fichas](supabase/migrations/20261014100000_modular_character_sheets.sql) e [testes](backend/tests/test_sheets.py).
+Evidências: [editor de fichas](frontend/components/sheet-builder.tsx), [cálculos](backend/app/domain/sheet_calculations.py), [rotas de fichas](backend/app/adapters/inbound/http/sheets.py), [migration de fichas](supabase/migrations/20261014100000_modular_character_sheets.sql) e [testes](backend/tests/test_sheets.py).
 
 ## Música e Spotify
 
@@ -92,7 +92,7 @@ Evidências: [editor de fichas](frontend/components/sheet-builder.tsx), [cálcul
 - **MUS-06 | 75% | Em processo (11/11/2026):** o narrador publica o que toca em `campaign_now_playing` (Realtime); o jogador vê o aviso e pode "Acompanhar" (toca a mesma playlist/faixa na posição atual, com Premium) ou abrir o player incorporado. Migration `20261111120000` com pgTAP; falta testar com duas contas reais.
 - **MUS-07 | 75% | Em processo (11/11/2026):** criar playlist, renomear, ver/adicionar/remover faixas (endpoints `/items` do Spotify), busca de faixas, "Na fila" e cues musicais com `spotify_uri` e botão "Tocar cena". Exige reconectar a conta (escopos `playlist-read-private`, `playlist-modify-private`, `playlist-modify-public`). Testado com respostas simuladas.
 
-Evidências: [painel de playlists](frontend/components/spotify-playlist-panel.tsx), [cartão da conta](frontend/components/spotify-account-card.tsx), [rotas do Spotify](backend/app/routes/spotify.py), [serviço OAuth e Web API](backend/app/services/spotify.py), [testes da API](backend/tests/test_spotify.py), [migration de playlists](supabase/migrations/20261014031622_campaign_playlist_links.sql) e [migration da conexão](supabase/migrations/20261102100000_spotify_connections.sql).
+Evidências: [painel de playlists](frontend/components/spotify-playlist-panel.tsx), [cartão da conta](frontend/components/spotify-account-card.tsx), [rotas do Spotify](backend/app/adapters/inbound/http/spotify.py), [serviço OAuth e Web API](backend/app/adapters/outbound/spotify/web_api.py), [testes da API](backend/tests/test_spotify.py), [migration de playlists](supabase/migrations/20261014031622_campaign_playlist_links.sql) e [migration da conexão](supabase/migrations/20261102100000_spotify_connections.sql).
 
 ## Probabilidade preditiva V5
 
@@ -104,7 +104,7 @@ Evidências: [painel de playlists](frontend/components/spotify-playlist-panel.ts
 - **V5-06 | 75% | Em processo:** Fome, efeitos e dano da ficha entram na previsão. O painel de ações combina atributo e habilidade; a previsão conserva parada manual e tags de contexto.
 - **V5-07 | 75% | Em processo:** rolagem autenticada V5 com dados individuais comuns e de Fome, sucessos, crítico sujo e falha bestial; histórico transitório por personagem. Falta o fluxo de rerrolagem efetiva de Vontade e histórico remoto.
 
-Evidências: [motor de probabilidade](backend/app/services/v5_probability.py), [testes por enumeração](backend/tests/test_v5_probability.py), [rota V5](backend/app/routes/v5.py) e [painel V5](frontend/components/v5-probability-panel.tsx).
+Evidências: [motor de probabilidade](backend/app/domain/v5_probability.py), [testes por enumeração](backend/tests/test_v5_probability.py), [rota V5](backend/app/adapters/inbound/http/v5.py) e [painel V5](frontend/components/v5-probability-panel.tsx).
 
 ## Mapas
 
@@ -120,7 +120,7 @@ Evidências: [motor de probabilidade](backend/app/services/v5_probability.py), [
 - **MAP-10 | 25% | Em processo:** exportação JSON do documento. PNG foi retirado com o editor novo; importação, WebP, PDF e UVTT pendentes.
 - **MAP-11 | 75% | Em processo:** pins de personagem com o retrato obrigatório enviado na criação da ficha (bucket privado `character-portraits`, 512×512 WebP). Fichas antigas, restauração de backup e o app mobile ainda não exigem foto e mostram iniciais.
 
-Evidências: [gerador de mapas](backend/app/services/tactical_maps.py), [editor](frontend/components/map-editor/map-editor.tsx), [renderizador SVG](frontend/components/map-editor/map-canvas.tsx), [kits](frontend/lib/map-kits.ts) e [migration](supabase/migrations/20261023100000_map_editor_portraits.sql).
+Evidências: [gerador de mapas](backend/app/domain/tactical_maps.py), [editor](frontend/components/map-editor/map-editor.tsx), [renderizador SVG](frontend/components/map-editor/map-canvas.tsx), [kits](frontend/lib/map-kits.ts) e [migration](supabase/migrations/20261023100000_map_editor_portraits.sql).
 
 ## Geração de NPCs, inimigos e itens
 
@@ -131,7 +131,7 @@ Evidências: [gerador de mapas](backend/app/services/tactical_maps.py), [editor]
 - **GER-05 | 0% | Não implementada:** fichas de combate completas e validadas para cada sistema, com balanceamento por nível ou dificuldade.
 - **GER-06 | 75% | Em processo:** salvar geração de mapas e conteúdo original na campanha e editar entidades no painel Mundo. Inserção automática no combate e teste remoto pendentes.
 
-Evidências: [gerador de conteúdo](backend/app/services/content_generator.py), [rotas de geração](backend/app/routes/generators.py) e [painel](frontend/components/generation-panel.tsx).
+Evidências: [gerador de conteúdo](backend/app/domain/content_generator.py), [rotas de geração](backend/app/adapters/inbound/http/generators.py) e [painel](frontend/components/generation-panel.tsx).
 
 ## Segunda Inquisição
 
@@ -142,7 +142,7 @@ Evidências: [gerador de conteúdo](backend/app/services/content_generator.py), 
 - **SI-05 | 75% | Em processo:** eventos imutáveis com autor e data de confirmação carimbados pelo banco; API reconstrói o estado de todos os eventos e recusa exceder 1000. Falta aplicar e testar a migration.
 - **SI-06 | 0% | Não implementada:** aplicação automática das respostas geradas ao combate ou às entidades da campanha.
 
-Evidências: [motor da SI](backend/app/services/second_inquisition.py), [API](backend/app/routes/second_inquisition.py), [painel](frontend/components/second-inquisition-panel.tsx), [migration](supabase/migrations/20261015120000_second_inquisition.sql) e [testes da API](backend/tests/test_second_inquisition_api.py).
+Evidências: [motor da SI](backend/app/domain/second_inquisition.py), [API](backend/app/adapters/inbound/http/second_inquisition.py), [painel](frontend/components/second-inquisition-panel.tsx), [migration](supabase/migrations/20261015120000_second_inquisition.sql) e [testes da API](backend/tests/test_second_inquisition_api.py).
 
 ## Diagnóstico dramático da crônica
 
@@ -153,7 +153,7 @@ Evidências: [motor da SI](backend/app/services/second_inquisition.py), [API](ba
 - **DRA-05 | 75% | Em processo:** API lê fichas/modelos aprovados e atividade estruturada da campanha; o narrador registra a atividade. Captura automática de todas as rolagens e eventos da sessão ainda pendente.
 - **DRA-06 | 75% | Em processo:** painel privado do narrador com relatório e registro de uso de atributos, metas e complicações, além de ameaças a Apoiadores. Limites de 20 fichas e 500 atividades explícitos; migration ainda não aplicada.
 
-Evidências: [motor](backend/app/services/chronicle_gaps.py), [API](backend/app/routes/chronicle.py), [painel](frontend/components/chronicle-diagnostic-panel.tsx), [migration](supabase/migrations/20261015121000_chronicle_activity.sql) e [testes da API](backend/tests/test_chronicle_api.py).
+Evidências: [motor](backend/app/domain/chronicle_gaps.py), [API](backend/app/adapters/inbound/http/chronicle.py), [painel](frontend/components/chronicle-diagnostic-panel.tsx), [migration](supabase/migrations/20261015121000_chronicle_activity.sql) e [testes da API](backend/tests/test_chronicle_api.py).
 
 ## Biblioteca, PDFs e assistente de regras
 
@@ -169,7 +169,7 @@ Evidências: [motor](backend/app/services/chronicle_gaps.py), [API](backend/app/
 - **RAG-10 | 0% | Não implementada:** conector do Google Drive para importar material autorizado.
 - **RAG-11 | 0% | Não implementada:** acervo V5 autorizado, indexado e validado para responder com a página correta do livro.
 
-Evidências: [rotas de regras](backend/app/routes/rules.py), [painel de busca](frontend/components/rules-search-panel.tsx), [migration de busca](supabase/migrations/20261014120000_campaign_rule_search.sql) e [rascunho de extração](backend/app/services/extraction.py).
+Evidências: [rotas de regras](backend/app/adapters/inbound/http/rules.py), [painel de busca](frontend/components/rules-search-panel.tsx), [migration de busca](supabase/migrations/20261014120000_campaign_rule_search.sql) e [rascunho de extração](backend/app/domain/extraction.py).
 
 ## Mundo, combate e colaboração
 
@@ -202,7 +202,7 @@ Evidências: [painel do grupo](frontend/components/party-status-panel.tsx) e [mi
 - **MOD-06 | 75% | Em processo:** explicação dos bônus e penalidades na interface, com limites recalculados no servidor antes da rolagem.
 - **MOD-07 | 75% | Em processo:** trilhas visuais de dano superficial/agravado com ajustes persistidos e penalidades automáticas no contexto físico ou mental. Rolagem e previsão compartilham o cálculo. Conversão automática do excesso de dano e teste remoto pendentes.
 
-Evidências: [motor de modificadores](backend/app/services/modifiers.py), [rotas](backend/app/routes/modifiers.py), [painel](frontend/components/character-effects-panel.tsx), [estado da sessão](frontend/lib/character-session.tsx) e [migration de efeitos](supabase/migrations/20261014141000_character_effects.sql).
+Evidências: [motor de modificadores](backend/app/domain/modifiers.py), [rotas](backend/app/adapters/inbound/http/modifiers.py), [painel](frontend/components/character-effects-panel.tsx), [estado da sessão](frontend/lib/character-session.tsx) e [migration de efeitos](supabase/migrations/20261014141000_character_effects.sql).
 
 ## Compêndio por tags
 
@@ -263,7 +263,7 @@ Evidências: [inventário](frontend/components/character-inventory-panel.tsx), [
 - **ATL-09 | 0% | Não implementada:** catálogo de ritos de O Um Anel com favoritos e referências autorizadas.
 - **ATL-10 | 0% | Não implementada:** envio de imagens para storage e geração de mapas/imagens por provedor externo com procedência e prompt preservados.
 
-Evidências: [diário](frontend/components/campaign-journal-panel.tsx), [música](frontend/components/music-cues-panel.tsx), [roladores](frontend/components/system-roll-panel.tsx), [motores](backend/app/services/system_rolls.py) e [comparação completa](COMPARACAO_RPG_ATLAS.md).
+Evidências: [diário](frontend/components/campaign-journal-panel.tsx), [música](frontend/components/music-cues-panel.tsx), [roladores](frontend/components/system-roll-panel.tsx), [motores](backend/app/domain/system_rolls.py) e [comparação completa](COMPARACAO_RPG_ATLAS.md).
 
 ## Verificação e entrega
 

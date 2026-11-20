@@ -9,7 +9,7 @@ from app.adapters.inbound.http.dependencies import roll_activity_recorder
 from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.application.modifiers import ModifierRollRequest, ModifierRollResult, ModifierRollService
 from app.application.roll_activity import RollActivityRecorder
-from app.services.modifiers import ModifierPreview, ModifierRequest, preview_modifiers
+from app.domain.modifiers import ModifierPreview, ModifierRequest, preview_modifiers
 
 CHRONICLE_ACTIVITY_HEADER = "X-Chronicle-Activity"
 

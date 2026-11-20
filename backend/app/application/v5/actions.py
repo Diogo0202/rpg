@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from app.application.v5.ports import RollActivityRecorder, V5Store, WeaponReader
 from app.application.v5.rolls import UNEXPECTED_RESPONSE
 from app.domain.errors import InvalidInput, NotFound, UnexpectedUpstreamResponse
-from app.services.v5_actions import (
+from app.domain.v5_actions import (
     AttackContext,
     StoredAttackResponse,
     V5ActionRollRequest,

@@ -11,7 +11,7 @@ from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.adapters.inbound.http.v5 import CHRONICLE_ACTIVITY_HEADER
 from app.application.v5.actions import V5ActionService
 from app.adapters.inbound.http.auth import require_signed_in_user
-from app.services.v5_actions import StoredAttackRequest, StoredAttackResponse, V5ActionRollRequest, V5ActionRollResponse
+from app.domain.v5_actions import StoredAttackRequest, StoredAttackResponse, V5ActionRollRequest, V5ActionRollResponse
 
 router = APIRouter(
     prefix="/api/v1/v5", tags=["vampire-v5-actions"], route_class=DomainErrorRoute,

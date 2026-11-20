@@ -16,13 +16,13 @@ from app.adapters.inbound.http import v5_sanguine as routes
 from app.domain.errors import Conflict, Forbidden
 from tests.support.fake_supabase import stub_supabase
 from app.adapters.inbound.http.auth import require_signed_in_user
-from app.services.sheet_values import validate_sheet_values
-from app.services.v5_sanguine import (
+from app.domain.sheet_values import validate_sheet_values
+from app.domain.v5_sanguine import (
     CLAN_BANES, INTENSITIES, RESONANCE_DISCIPLINES, RESONANCES, bane_severity, bond_degree, hunger_after_hunt,
     resonance_effect, v5_trait_problems,
 )
-from app.services.sheet_calculations import calculate_sheet
-from app.models import TemplateDraft
+from app.domain.sheet_calculations import calculate_sheet
+from app.domain.models import TemplateDraft
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "v5_starter.json").read_text(encoding="utf-8"))
 FIELDS = {field["id"]: field for field in FIXTURE["template"]["fields"]}

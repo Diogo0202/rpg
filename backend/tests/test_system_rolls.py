@@ -7,8 +7,8 @@ from pydantic import ValidationError
 
 from app.adapters.inbound.http.auth import require_signed_in_user
 from app.adapters.inbound.http.system_rolls import router
-from app.services import system_rolls
-from app.services.system_rolls import (
+from app.domain import system_rolls
+from app.domain.system_rolls import (
     HunterRollRequest,
     OneRingRollRequest,
     SotdlRollRequest,
@@ -213,8 +213,8 @@ def test_hunter_route_returns_separate_additional_dice(client, monkeypatch: pyte
 # --- Frente J: O Um Anel (Miserável, Ferido, Sombra, jornada, ficha) e Caçador (traços) ---
 
 from app.adapters.inbound.http.dependencies import roll_activity_recorder
-from app.application.roll_activity import RollActivityResult
-from app.services.system_rolls import (
+from app.domain.roll_activity import RollActivityResult
+from app.domain.system_rolls import (
     JourneyEventRequest,
     OneRingShadowTestRequest,
     SheetValuesRequest,

@@ -5,8 +5,8 @@ import secrets
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from app.models import DiceResponse
-from app.services.modifiers import Effect, ModifierPreview, ModifierRequest, Tag, preview_modifiers
+from app.domain.models import DiceResponse
+from app.domain.modifiers import Effect, ModifierPreview, ModifierRequest, Tag, preview_modifiers
 
 
 EXPRESSION = re.compile(r"^(?P<count>[1-9][0-9]?)d(?P<sides>[1-9][0-9]{0,3})(?P<modifier>[+-][0-9]{1,5})?$")

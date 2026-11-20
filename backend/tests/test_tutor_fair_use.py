@@ -13,7 +13,7 @@ from app.adapters.inbound.http import ai_assistance as ai
 from app.adapters.outbound.ai import provider as ai_provider
 from app.adapters.outbound.supabase.ai_store import SupabaseAiPrivateStore
 from app.application.ai.ports import Actor
-from app.services import tutor_policy
+from app.domain import tutor_policy
 
 C = "10000000-0000-4000-8000-000000000001"
 U = "20000000-0000-4000-8000-000000000001"

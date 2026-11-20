@@ -13,9 +13,9 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, ValidationError, field_validator, model_validator
 
 from app.domain.errors import InvalidInput
-from app.models import TemplateDraft
-from app.services.system_schema import normalize_template_document
-from app.services.templates import validate_template
+from app.domain.models import TemplateDraft
+from app.domain.system_schema import normalize_template_document
+from app.domain.templates import validate_template
 
 MAX_NESTING_DEPTH = 64
 MAX_TAG_LENGTH = 40

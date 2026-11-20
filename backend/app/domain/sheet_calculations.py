@@ -5,7 +5,7 @@ import math
 import operator
 from typing import Any
 
-from app.models import FieldKind, TemplateDraft
+from app.domain.models import FieldKind, TemplateDraft
 
 
 MAX_ABS_RESULT = 1_000_000_000_000

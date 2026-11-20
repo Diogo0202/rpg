@@ -8,9 +8,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from app.application.roll_activity import RollActivityRecorder, RollChronicleContext, chronicle_status
+from app.domain.roll_activity import RollChronicleContext
+from app.application.roll_activity import RollActivityRecorder, chronicle_status
 from app.domain.errors import Conflict, InvalidInput
-from app.services.system_rolls import V3RollRequest, V3RollResponse, roll_v3
+from app.domain.system_rolls import V3RollRequest, V3RollResponse, roll_v3
 
 Result = TypeVar("Result")
 LIFE_ACTIONS = frozenset({"alimentar", "torpor", "despertar", "morte_final"})

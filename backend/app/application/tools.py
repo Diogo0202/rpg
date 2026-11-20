@@ -7,11 +7,11 @@ from typing import Any
 
 from app.application.roll_activity import RollActivityRecorder
 from app.domain.errors import InvalidInput
-from app.models import DiceRequest, DiceResponse, ExtractionRequest, SheetCalculationRequest, TemplateDraft
-from app.services.dice import roll
-from app.services.extraction import create_review_draft
-from app.services.sheet_calculations import calculate_sheet
-from app.services.templates import validate_template
+from app.domain.models import DiceRequest, DiceResponse, ExtractionRequest, SheetCalculationRequest, TemplateDraft
+from app.domain.dice import roll
+from app.domain.extraction import create_review_draft
+from app.domain.sheet_calculations import calculate_sheet
+from app.domain.templates import validate_template
 
 
 @dataclass(frozen=True)

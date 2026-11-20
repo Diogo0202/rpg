@@ -7,7 +7,7 @@ from datetime import date
 from typing import Any
 
 from app.domain.errors import InvalidInput
-from app.services.chronicle_gaps import (
+from app.domain.chronicle_gaps import (
     ActivityRecord,
     ChronicleCharacter,
     ChronicleGapRequest,

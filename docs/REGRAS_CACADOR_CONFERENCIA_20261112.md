@@ -23,7 +23,7 @@ Conferência visual do livro básico *Caçador: A Revanche*, PDF local `hunter.p
 ## Arquivos alterados nesta etapa
 
 - `frontend/lib/hunter-traits.ts`
-- `backend/app/services/hunter_traits.py`
+- `backend/app/domain/hunter_traits.py`
 - `frontend/lib/hunter-creation-data.ts`
 - `frontend/lib/system-starters.ts`
 - `mobile/src/lib/hunter-traits.ts`
@@ -32,6 +32,6 @@ Conferência visual do livro básico *Caçador: A Revanche*, PDF local `hunter.p
 - `frontend/components/system-roll-panel.tsx`
 - `mobile/src/lib/game/table-rules.ts`
 - `mobile/src/components/game/HunterTablePanel.tsx`
-- `backend/app/services/hunter_traits.py`
+- `backend/app/domain/hunter_traits.py`
 - `supabase/migrations/20261112130000_hunter_rules_source_corrections.sql`
 - `docs/REGRAS_CACADOR_CONFERENCIA_20261112.md`

@@ -4,7 +4,7 @@ import { creationCheckProblems, creationCheckViolations } from "./creation-check
 
 /**
  * Clan and predator packages (select_grants) and locked power lists (power_picks).
- * Mirrors backend/app/services/creation_rules.py: at creation every field a
+ * Mirrors backend/app/domain/creation_rules.py: at creation every field a
  * select_grants rule lists must equal its base plus what the selected cases and
  * chosen options add (plus the `base_by` band, such as Blood Potency by generation),
  * across all such rules. Adds on fields no rule lists are applied but not enforced.
@@ -177,7 +177,7 @@ export function collectionPointRules(template: SheetTemplate): CollectionPointsR
   return (template.creation_rules ?? []).filter((rule): rule is CollectionPointsRule => rule.type === "collection_points");
 }
 
-/** Same pattern as item_points in backend/app/services/creation_rules.py and the SQL mirror. */
+/** Same pattern as item_points in backend/app/domain/creation_rules.py and the SQL mirror. */
 const TRAILING_POINTS = /(?:^|[ (])([0-9]{1,2})\)? *$/;
 
 /** "Aliados ••", "Aliados (2)" and "Aliados 2" are worth 2; an item with neither is worth 0. */

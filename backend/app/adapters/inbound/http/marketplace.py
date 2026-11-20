@@ -16,7 +16,7 @@ from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.application.marketplace.ports import CopyrightReport
 from app.application.marketplace.service import ExistingTemplatePublication, MarketplaceService
 from app.domain.errors import Forbidden, ServiceUnavailable
-from app.services.marketplace import PublishRequest, reject_embedded_files
+from app.domain.marketplace import PublishRequest, reject_embedded_files
 
 router = APIRouter(prefix="/api/v1/marketplace", tags=["marketplace"], route_class=DomainErrorRoute)
 # Fora de /api/v1: não usa sessão de usuário; exige o segredo de manutenção do serviço.

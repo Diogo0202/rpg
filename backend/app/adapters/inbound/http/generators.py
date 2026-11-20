@@ -15,7 +15,7 @@ from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.adapters.outbound.supabase.content_applications import SupabaseContentApplications
 from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.generators import ContentApplyOrder, GeneratorService, campaign_content, tactical_map
-from app.services.combat_blocks import CombatSystem, CombatTier
+from app.domain.combat_blocks import CombatSystem, CombatTier
 
 router = APIRouter(
     prefix="/api/v1", tags=["generation"], route_class=DomainErrorRoute, dependencies=[Depends(require_signed_in_user)],

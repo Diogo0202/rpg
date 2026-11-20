@@ -16,17 +16,17 @@ from app.application.v5.models import BloodActionResult, Curve, ProbabilityCompa
 from app.application.v5.ports import BloodAction
 from app.application.v5.rolls import RollOrder, V5RollService, free_probabilities, probability_curve
 from app.adapters.inbound.http.auth import require_signed_in_user
-from app.services.modifiers import Tag
-from app.application.roll_activity import RollChronicleContext
-from app.services.v5_actions import V5ActionRollRequest
-from app.services.v5_blood import (
+from app.domain.modifiers import Tag
+from app.domain.roll_activity import RollChronicleContext
+from app.domain.v5_actions import V5ActionRollRequest
+from app.domain.v5_blood import (
     BLOOD_POTENCY_TABLE,
     CLAN_COMPULSIONS,
     COMPULSION_OPTIONS,
     GENERAL_COMPULSIONS,
     REVIEW_RULES as BLOOD_REVIEW_RULES,
 )
-from app.services.v5_probability import MAX_CURVE_DIFFICULTIES, MAX_CURVE_POOLS
+from app.domain.v5_probability import MAX_CURVE_DIFFICULTIES, MAX_CURVE_POOLS
 
 router = APIRouter(
     prefix="/api/v1/v5", tags=["vampire-v5"], route_class=DomainErrorRoute,

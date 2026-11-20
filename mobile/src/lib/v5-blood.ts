@@ -1,5 +1,5 @@
 // F1: ciclo do Sangue de Vampiro: A Máscara 5ª ed. Espelho de
-// backend/app/services/v5_blood.py e das RPCs de 20261029100000_v5_blood_cycle.sql.
+// backend/app/domain/v5_blood.py e das RPCs de 20261029100000_v5_blood_cycle.sql.
 // Regras puras, sem rede e sem React. Os dados são rolados no banco; aqui só
 // se calculam derivados e se conferem resultados. Números marcados para conferência.
 

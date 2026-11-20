@@ -11,7 +11,7 @@ from uuid import UUID
 
 from app.application.identity import CurrentUser
 from app.domain.errors import InvalidInput, NotFound, UnexpectedUpstreamResponse
-from app.services.prompt_security import (
+from app.domain.prompt_security import (
     UntrustedDataError,
     normalize_untrusted_text,
     validate_rule_page_result,

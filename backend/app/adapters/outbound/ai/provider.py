@@ -12,8 +12,8 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, ValidationError, create_model
 
 from app.application.ai.ports import AIProviderError, AIUnavailable, ProviderResult
-from app.models import FieldKind, TemplateDraft
-from app.services import tutor_policy
+from app.domain.models import FieldKind, TemplateDraft
+from app.domain import tutor_policy
 
 __all__ = ["AIProviderError", "AIUnavailable", "OpenAiProvider", "ProviderResult"]
 

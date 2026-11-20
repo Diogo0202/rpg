@@ -1,7 +1,7 @@
 import type { FieldValue, PriorityPoints, PriorityPool, SheetTemplate } from "./sheet-template.ts";
 
 /**
- * Local mirror of backend/app/services/creation_rules.py (priority_points): the
+ * Local mirror of backend/app/domain/creation_rules.py (priority_points): the
  * wizard shows what is left while the API stays the authority. Free budgets can
  * be matched to groups in any order, so spending sorted high to low must cover
  * the budgets sorted high to low; freebies spent = sum of
@@ -96,7 +96,7 @@ export function tallyPriority(template: SheetTemplate, rule: PriorityPoints, val
   return { rule, pools, bonus, remaining: available - bonus, complete: problems.length === 0, problems };
 }
 
-/** Same pattern as item_points in backend/app/services/creation_rules.py: "••" or a trailing number. */
+/** Same pattern as item_points in backend/app/domain/creation_rules.py: "••" or a trailing number. */
 const TRAILING_POINTS = /(?:^|[ (])([0-9]{1,2})\)? *$/;
 function itemWorth(item: string): number {
   const dots = [...item].filter((char) => char === "•").length;

@@ -59,7 +59,7 @@ def test_probability_rejects_duplicate_effects(client):
 
 
 def test_full_tracks_are_shared_between_action_and_probability_with_thirty_user_effects(monkeypatch, client):
-    monkeypatch.setattr("app.services.v5_actions.secrets.randbelow", lambda sides: 5)
+    monkeypatch.setattr("app.domain.v5_actions.secrets.randbelow", lambda sides: 5)
     payload = {
         "pool": 6,
         "hunger": 2,

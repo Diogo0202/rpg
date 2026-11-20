@@ -8,7 +8,7 @@ from app.adapters.inbound.http.errors import http_status
 from app.adapters.outbound.supabase.marketplace import MEMBER_ERRORS, SupabaseMarketplaceServiceRole
 from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
 from app.domain.errors import DomainError, Forbidden, InvalidInput
-from app.services import marketplace
+from app.domain import marketplace
 from tests.support.marketplace_fakes import fakes, marketplace_client
 
 

@@ -15,7 +15,7 @@ from app.adapters.outbound.supabase.content_applications import SupabaseContentA
 from app.adapters.outbound.supabase.inquisition_store import SupabaseInquisitionStore
 from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.second_inquisition import ResponseOrder, SecondInquisitionService
-from app.services.second_inquisition import EventKind, ResponseKind
+from app.domain.second_inquisition import EventKind, ResponseKind
 
 router = APIRouter(
     prefix="/api/v1/campaigns/{campaign_id}/second-inquisition", tags=["second-inquisition"], route_class=DomainErrorRoute,

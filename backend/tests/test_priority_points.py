@@ -10,9 +10,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.models import TemplateDraft
-from app.services.creation_rules import evaluate_creation_rules
-from app.services.sheet_creation import prepare_sheet_creation
+from app.domain.models import TemplateDraft
+from app.domain.creation_rules import evaluate_creation_rules
+from app.domain.sheet_creation import prepare_sheet_creation
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "v3_starter.json").read_text(encoding="utf-8"))
 

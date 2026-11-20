@@ -10,7 +10,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.application.roll_activity import RollActivityRecorder
-from app.services.v5_actions import AttackContext, EquippedWeapon
+from app.domain.v5_actions import AttackContext, EquippedWeapon
 
 Row = dict[str, Any]
 

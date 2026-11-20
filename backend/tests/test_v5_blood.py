@@ -4,7 +4,7 @@ from itertools import product
 
 import pytest
 
-from app.services.v5_blood import (
+from app.domain.v5_blood import (
     BLOOD_POTENCY_TABLE, CLAN_COMPULSIONS, COMPULSION_OPTIONS, blood_potency, blood_state, compulsion_from_die,
     compulsion_probabilities, count_successes, enumerate_remorse, enumerate_rouse, frenzy_pool,
     frenzy_resist_probability, halve_superficial, remorse_pool, resolve_frenzy, resolve_remorse, resolve_rouse,

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.adapters.outbound.supabase.rest_client import RpcErrors, SupabaseRestClient
+from app.adapters.outbound.supabase.errors import RpcErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
 from app.domain.errors import Conflict, Forbidden, InvalidInput, NotFound, ServiceUnavailable
 
 NOT_ALLOWED = "operação não permitida nesta campanha"

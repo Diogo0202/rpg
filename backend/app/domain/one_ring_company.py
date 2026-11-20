@@ -6,7 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from app.domain.errors import InvalidInput
-from app.services.one_ring_creation import catalog
+from app.domain.one_ring_creation import catalog
 
 MAX_NAME_LENGTH = 120
 MAX_SAFE_HAVENS = 30

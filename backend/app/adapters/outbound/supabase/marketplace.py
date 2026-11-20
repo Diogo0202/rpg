@@ -8,7 +8,8 @@ from uuid import UUID
 
 import httpx
 
-from app.adapters.outbound.supabase.rest_client import RpcErrors, SupabaseRest
+from app.adapters.outbound.supabase.errors import RpcErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.marketplace.ports import CopyrightReport, Row, SearchQuery
 from app.domain.errors import Conflict, Forbidden, NotFound, RateLimited, ServiceUnavailable, Unauthenticated
 

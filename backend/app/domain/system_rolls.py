@@ -5,9 +5,9 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
-from app.services import hunter_traits as hunter_traits_service
-from app.services import one_ring
-from app.application.roll_activity import RollChronicleContext
+from app.domain import hunter_traits as hunter_traits_service
+from app.domain import one_ring
+from app.domain.roll_activity import RollChronicleContext
 
 
 # Hunter: regras de dados consultadas no infográfico oficial de mecânicas básicas
@@ -391,7 +391,7 @@ def roll_sotdl_fate() -> SotdlFateResponse:
 
 # Vampiro V3 (Revisado): the rules live in app/services/v3_vampire.py (marked for checking in the book);
 # re-exported here so every system roller is reachable from one module.
-from app.services.v3_vampire import (  # noqa: E402
+from app.domain.v3_vampire import (  # noqa: E402
     V3RollRequest,
     V3RollResponse,
     V3SheetResponse,

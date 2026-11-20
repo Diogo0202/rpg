@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
-from app.models import TemplateDraft
-from app.services.creation_rules import evaluate_creation_rules
-from app.services.sheet_calculations import calculate_sheet
-from app.services.sheet_creation import prepare_sheet_creation
+from app.domain.models import TemplateDraft
+from app.domain.creation_rules import evaluate_creation_rules
+from app.domain.sheet_calculations import calculate_sheet
+from app.domain.sheet_creation import prepare_sheet_creation
 
 SCHEMA = json.loads((Path(__file__).parent / "fixtures/sotdl_starter.json").read_text(encoding="utf-8"))
 TEMPLATE = TemplateDraft.model_validate(SCHEMA)

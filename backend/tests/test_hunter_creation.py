@@ -3,11 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from app.models import TemplateDraft
-from app.services.creation_rules import evaluate_creation_rules
-from app.services.hunter_traits import HUNTER_EDGES, template_creation_problems
-from app.services.sheet_creation import prepare_sheet_creation
-from app.services.sheet_calculations import calculate_sheet
+from app.domain.models import TemplateDraft
+from app.domain.creation_rules import evaluate_creation_rules
+from app.domain.hunter_traits import HUNTER_EDGES, template_creation_problems
+from app.domain.sheet_creation import prepare_sheet_creation
+from app.domain.sheet_calculations import calculate_sheet
 
 SCHEMA = json.loads((Path(__file__).parent / "fixtures/hunter_starter.json").read_text(encoding="utf-8"))
 TEMPLATE = TemplateDraft.model_validate(SCHEMA)

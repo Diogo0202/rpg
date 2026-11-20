@@ -11,7 +11,7 @@ import httpx
 
 from app.adapters.inbound.http import mobile_sync
 from app.adapters.inbound.http.dependencies import sync_transport
-from app.services.mobile_sync import SyncPushRequest
+from app.domain.mobile_sync import SyncPushRequest
 
 
 USER_ID = "10000000-0000-0000-0000-000000000001"

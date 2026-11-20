@@ -44,8 +44,10 @@ flowchart LR
 | `frontend/components/` e `frontend/lib/` | Painéis, editor de mapas, cálculos e clientes de integração. |
 | `mobile/src/` | Interface complementar, armazenamento local e sincronização. A pasta não comprova a instalação de um aplicativo nativo. |
 | `backend/app/main.py` | Cria a aplicação e registra rotas e camadas de segurança. |
-| `backend/app/routes/` | Endpoints por domínio. |
-| `backend/app/services/` | Cálculo de fichas, dados, regras, sincronização e integrações. |
+| `backend/app/adapters/inbound/http/` | Endpoints por domínio. |
+| `backend/app/domain/` | Regras puras: cálculo de fichas, dados, regras de criação e de rolagem. |
+| `backend/app/application/` | Casos de uso e portas. |
+| `backend/app/adapters/outbound/` | Supabase, Discord, Spotify, provedor de IA e e-mail. |
 | `supabase/migrations/` | Evolução do schema, funções e políticas. |
 | `supabase/tests/` | Testes SQL das regras do banco. |
 | `shared/` | Artefatos compartilhados entre partes do projeto. |
@@ -94,7 +96,7 @@ flowchart TD
   G -- Sim --> H --> J --> K((Ficha criada))
 ```
 
-O percurso resume os endpoints de validação e criação em [sheets.py](../backend/app/routes/sheets.py) e as regras em [sheet_creation.py](../backend/app/services/sheet_creation.py). A validação antecipada e a criação são solicitações distintas. Erros de rede ou de persistência podem interromper o fluxo; o desenho não detalha todos os retornos HTTP.
+O percurso resume os endpoints de validação e criação em [sheets.py](../backend/app/adapters/inbound/http/sheets.py) e as regras em [sheet_creation.py](../backend/app/domain/sheet_creation.py). A validação antecipada e a criação são solicitações distintas. Erros de rede ou de persistência podem interromper o fluxo; o desenho não detalha todos os retornos HTTP.
 
 ### Sincronização de alterações offline
 
@@ -120,7 +122,7 @@ flowchart TD
   G -- Conflito ou rejeição --> J --> K
 ```
 
-A API reconhece resultados `applied`, `duplicate`, `conflict`, `denied`, `invalid` e `dependency_failed`. Os detalhes estão em [mobile_sync.py](../backend/app/routes/mobile_sync.py) e no [registro de entrega](CONCLUSAO_OITO_AREAS_20261112.md). O desenho resume o fluxo; a resolução de conflitos depende do tipo de operação e do estado do cliente.
+A API reconhece resultados `applied`, `duplicate`, `conflict`, `denied`, `invalid` e `dependency_failed`. Os detalhes estão em [mobile_sync.py](../backend/app/adapters/inbound/http/mobile_sync.py) e no [registro de entrega](CONCLUSAO_OITO_AREAS_20261112.md). O desenho resume o fluxo; a resolução de conflitos depende do tipo de operação e do estado do cliente.
 
 ## Diagrama de classes
 
@@ -184,7 +186,7 @@ classDiagram
   SheetCalculationRequest *-- TemplateDraft
 ```
 
-Campos opcionais aparecem sem a notação de nulidade para manter o desenho legível. Os validadores e tipos completos estão em [models.py](../backend/app/models.py). As regras de criação estão em [creation_rules.py](../backend/app/services/creation_rules.py).
+Campos opcionais aparecem sem a notação de nulidade para manter o desenho legível. Os validadores e tipos completos estão em [models.py](../backend/app/domain/models.py). As regras de criação estão em [creation_rules.py](../backend/app/domain/creation_rules.py).
 
 ## Relações centrais do banco
 
@@ -216,7 +218,7 @@ O ponto de entrada [main.py](../backend/app/main.py) registra rotas de fichas, r
 | Grupo | Caminho ou módulo | Finalidade |
 | --- | --- | --- |
 | Saúde e cálculos | `/health`, `/api/v1/dice/roll`, `/api/v1/sheets/calculate` | Saúde, rolagem e cálculo de ficha. |
-| Fichas | `backend/app/routes/sheets.py` | Criação, edição, histórico e restauração. |
+| Fichas | `backend/app/adapters/inbound/http/sheets.py` | Criação, edição, histórico e restauração. |
 | Sistemas | `system_rolls.py`, `v5.py`, `hunter.py` | Regras e ações específicas. |
 | Sincronização | `mobile_sync.py` | Envio de operações e leitura de alterações. |
 | Comunidade | `marketplace.py` | Modelos, importação e moderação. |

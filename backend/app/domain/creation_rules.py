@@ -14,7 +14,7 @@ from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-# Same shape as app.models.FIELD_ID; kept here so models can import these rules.
+# Same shape as app.domain.models.FIELD_ID; kept here so models can import these rules.
 FIELD_ID = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 
 FieldIds = list[Annotated[str, Field(min_length=2, max_length=64)]]

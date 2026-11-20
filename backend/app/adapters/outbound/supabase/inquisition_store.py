@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from app.adapters.outbound.supabase.rest_client import SupabaseRest, TableErrors
+from app.adapters.outbound.supabase.errors import TableErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.domain.errors import Conflict, Forbidden, InvalidInput
 
 EVENTS_TABLE = "second_inquisition_events"

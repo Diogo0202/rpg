@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from app.adapters.outbound.supabase.rest_client import SupabaseRest, TableErrors
+from app.adapters.outbound.supabase.errors import TableErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.chronicle.ports import ChronicleRecord, Row
 from app.domain.errors import Forbidden, InvalidInput, ServiceUnavailable
 

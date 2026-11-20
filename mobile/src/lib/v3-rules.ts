@@ -2,7 +2,7 @@ import { V3_ABILITY_GROUPS, V3_ATTRIBUTE_GROUPS, V3_BLOOD_BY_GENERATION, V3_DISC
 import type { FieldValue } from "./sheet-template.ts";
 
 /**
- * Vampiro V3 (Revisado) play rules, mirroring backend/app/services/v3_vampire.py (the API rolls; this
+ * Vampiro V3 (Revisado) play rules, mirroring backend/app/domain/v3_vampire.py (the API rolls; this
  * module only reads a sheet and explains a result). Numbers are marked for checking in the book.
  * The mobile app needs the same file in mobile/src/lib/v3-rules.ts.
  */

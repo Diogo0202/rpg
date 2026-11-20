@@ -27,7 +27,7 @@ def client():
 
 def rng_values(monkeypatch: pytest.MonkeyPatch, values: list[int]) -> None:
     sequence: Iterator[int] = iter(value - 1 for value in values)
-    monkeypatch.setattr("app.services.v5_actions.secrets.randbelow", lambda sides: next(sequence))
+    monkeypatch.setattr("app.domain.v5_actions.secrets.randbelow", lambda sides: next(sequence))
 
 
 def request(client: TestClient, **overrides: object):
@@ -127,7 +127,7 @@ def test_zero_pool_rejects_before_random_roll_with_table_guidance(
     def unexpected_rng(_: int) -> int:
         raise AssertionError("RNG must not run for a zero pool")
 
-    monkeypatch.setattr("app.services.v5_actions.secrets.randbelow", unexpected_rng)
+    monkeypatch.setattr("app.domain.v5_actions.secrets.randbelow", unexpected_rng)
     response = request(client, pool=2, effects=[{"id": "penalty", "label": "Penalidade", "delta": -2}])
     assert response.status_code == 422
     assert "mesa" in response.json()["detail"]
@@ -178,7 +178,7 @@ ATTACK = {"sheet_id": SHEET_ID, "campaign_id": CAMPAIGN_ID}
 
 
 def fake_weapon(monkeypatch: pytest.MonkeyPatch, weapon: dict[str, object] | None, calls: list[str] | None = None) -> None:
-    from app.services.v5_actions import EquippedWeapon
+    from app.domain.v5_actions import EquippedWeapon
 
     class Reader:
         async def equipped_weapon(self, attack):  # type: ignore[no-untyped-def]
@@ -253,7 +253,7 @@ def load_weapon(token: str | None):  # type: ignore[no-untyped-def]
 
     from app.adapters.outbound.supabase.rest_client import SupabaseRestClient
     from app.adapters.outbound.supabase.weapon_reader import SupabaseWeaponReader
-    from app.services.v5_actions import AttackContext
+    from app.domain.v5_actions import AttackContext
 
     reader = SupabaseWeaponReader(SupabaseRestClient(token))
     return asyncio.run(reader.equipped_weapon(AttackContext.model_validate(ATTACK)))

@@ -11,7 +11,7 @@ from app.adapters.inbound.http.dependencies import mobile_sync_service
 from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.application.mobile_sync.service import MobileSyncService
 from app.domain.errors import Unauthenticated
-from app.services.mobile_sync import ENTITY_FIELDS, MAX_PAGE_SIZE, MAX_SAFE_INTEGER, SyncPushRequest
+from app.domain.mobile_sync import ENTITY_FIELDS, MAX_PAGE_SIZE, MAX_SAFE_INTEGER, SyncPushRequest
 
 __all__ = ["ENTITY_FIELDS", "router"]
 

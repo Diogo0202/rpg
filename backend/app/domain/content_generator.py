@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.combat_blocks import CombatSystem, CombatTier, build_combat_block
+from app.domain.combat_blocks import CombatSystem, CombatTier, build_combat_block
 
 
 ContentKind = Literal["npc", "enemy", "item"]

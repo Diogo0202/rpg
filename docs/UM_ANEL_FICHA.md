@@ -4,7 +4,7 @@ Este documento registra o perfil legado v2. Para a criação nova, consulte [O U
 
 Revisão de 26/10/2026 (Frente J). O contrato guarda nomes curtos e números. Nenhum texto do livro foi copiado. **Todos os números abaixo precisam ser conferidos no Core Rules** antes de aprovar o modelo numa campanha.
 
-Código: [regras web](../frontend/lib/one-ring-rules.ts) (cópia em `mobile/src/lib`), [serviço](../backend/app/services/one_ring.py) e [rolador](../backend/app/services/system_rolls.py).
+Código: [regras web](../frontend/lib/one-ring-rules.ts) (cópia em `mobile/src/lib`), [serviço](../backend/app/domain/one_ring.py) e [rolador](../backend/app/domain/system_rolls.py).
 
 ## Ficha (starter `one-ring`, versão 2)
 

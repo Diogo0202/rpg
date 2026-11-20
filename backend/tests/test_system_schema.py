@@ -3,7 +3,7 @@ from pydantic import ValidationError
 
 from app.domain.errors import InvalidInput
 
-from app.services.marketplace import PublishRequest, validate_publication
+from app.domain.marketplace import PublishRequest, validate_publication
 
 
 def publication():

@@ -14,7 +14,8 @@ from app.adapters.inbound.http.errors import DomainErrorRoute
 from app.adapters.outbound.supabase.hunter_table import SupabaseHunterTable
 from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.application.hunter import HunterRollOrder, HunterService
-from app.application.roll_activity import RollActivityRecorder, RollChronicleContext
+from app.domain.roll_activity import RollChronicleContext
+from app.application.roll_activity import RollActivityRecorder
 
 CHRONICLE_ACTIVITY_HEADER = "X-Chronicle-Activity"
 

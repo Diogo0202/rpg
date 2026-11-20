@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.sheet_values import validate_sheet_values
+from app.domain.sheet_values import validate_sheet_values
 
 
 FIELDS = {

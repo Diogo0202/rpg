@@ -3,8 +3,8 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import TemplateDraft, TemplateField
-from app.services.sheet_values import validate_sheet_values
+from app.domain.models import TemplateDraft, TemplateField
+from app.domain.sheet_values import validate_sheet_values
 
 FIELDS = {
     "lema": {"id": "lema", "label": "Lema", "kind": "text", "max_length": 5, "paired_with": "fonte"},

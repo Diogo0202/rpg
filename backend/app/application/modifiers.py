@@ -7,9 +7,10 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
-from app.application.roll_activity import RollActivityRecorder, RollChronicleContext, chronicle_status
+from app.domain.roll_activity import RollChronicleContext
+from app.application.roll_activity import RollActivityRecorder, chronicle_status
 from app.domain.errors import InvalidInput
-from app.services.modifiers import ModifierPreview, ModifierRequest, preview_modifiers
+from app.domain.modifiers import ModifierPreview, ModifierRequest, preview_modifiers
 
 
 class ModifierRollRequest(ModifierRequest):

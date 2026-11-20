@@ -1,6 +1,6 @@
 # 0002. Arquitetura hexagonal e Clean Code no código do RPG-Atlas
 
-Estado: pedida pelo usuário em 18/11/2026; fase 1 (backend) em andamento na branch `refactor/hexagonal`.
+Estado: pedida pelo usuário em 18/11/2026; fase 1 (backend) concluída na branch `refactor/hexagonal` em 19/11/2026.
 
 ## Decisão
 
@@ -8,7 +8,7 @@ O backend FastAPI passa a ter três camadas com dependência num único sentido,
 
 | Camada | Pasta | Conteúdo | Pode importar |
 | --- | --- | --- | --- |
-| Domínio | `backend/app/domain/` | regras de negócio e erros (`DomainError` e subclasses) | apenas a biblioteca padrão e Pydantic |
+| Domínio | `backend/app/domain/` | regras de negócio, modelos (`models.py`) e erros (`DomainError` e subclasses) | apenas a biblioteca padrão, Pydantic e o próprio domínio |
 | Aplicação | `backend/app/application/<contexto>/` | casos de uso (`SheetService`) e portas (`Protocol`) | domínio |
 | Adaptadores | `backend/app/adapters/inbound/http/` e `backend/app/adapters/outbound/<serviço>/` | rotas FastAPI, cliente Supabase, repositórios, provedores externos | aplicação e domínio |
 
@@ -35,7 +35,7 @@ Cada contexto migra numa etapa própria, e a suíte do backend precisa continuar
    - O antigo `services/supabase_rpc.py` virou a tabela `CAMPAIGN_RPC_ERRORS`, usada pelo `SupabaseRestClient`. Não resta cliente HTTP do Supabase fora de `adapters/outbound/`.
    - O registro de rolagens na crônica foi dividido: o contrato (`RollChronicleContext`, `RollActivityResult` e a porta) fica em `application/roll_activity.py`, e a gravação fica em `adapters/outbound/supabase/roll_activity.py`.
    - A composição do e-mail de convite foi para `domain/invite_email.py`, e o envio por SMTP ou Resend foi para `adapters/outbound/email/invite_mailer.py`.
-6. Mover para `domain/` os módulos de `services/` que já são regras puras (`creation_rules`, `sheet_values`, `sheet_calculations`, `dice`, `v5_*`, `one_ring*`, `sotdl_progression` e similares) e unificar as tabelas de SQLSTATE num único adaptador.
+6. Regras puras e tabelas de SQLSTATE: concluída. Os 28 módulos de `services/` e o `app/models.py` foram para `domain/`, e a pasta `services/` deixou de existir. Para o domínio não depender da aplicação, `RollChronicleContext` e `RollActivityResult` saíram de `application/roll_activity.py` para `domain/roll_activity.py`; a porta `RollActivityRecorder` continua na aplicação. As traduções de erro do PostgREST ficaram em `adapters/outbound/supabase/errors.py`, com um formato único (`RpcErrors`). O dicionário `SqlStateErrors` e o segundo caminho de tradução em `rest_client.py` foram removidos. As RPCs sem tabela própria usam `SHEET_RPC_ERRORS`. Cada repositório mantém as próprias mensagens, porque o mesmo código tem sentidos diferentes em cada contexto (`23505` é compra repetida no avanço e ajuste repetido na ficha). As referências aos caminhos antigos em documentos e comentários do frontend e do mobile foram atualizadas, exceto nas migrações, que não se editam.
 
 Frontend (`frontend/lib`, `frontend/components`), mobile (`mobile/src`) e `shared/` formam as fases seguintes. O desenho dessas fases depende de um levantamento ainda não feito: [falta detalhe real].
 
@@ -51,8 +51,10 @@ Frontend (`frontend/lib`, `frontend/components`), mobile (`mobile/src`) e `share
 
 Testes de contrato com o PostgREST continuam possíveis, porque o Supabase falso grava método, caminho, parâmetros e corpo de cada chamada. Testes de caso de uso podem montar `SheetService` com repositórios em memória, sem FastAPI.
 
-Durante a migração convivem dois estilos: rotas antigas em `app/routes/` e rotas novas em `app/adapters/inbound/http/`. Uma rota só sai de `app/routes/` quando todos os seus testes passam a injetar adaptadores falsos.
+Durante a migração conviveram dois estilos: rotas antigas em `app/routes/` e rotas novas em `app/adapters/inbound/http/`. Uma rota só saiu de `app/routes/` quando todos os seus testes passaram a injetar adaptadores falsos. Ao fim da etapa 6 resta um estilo só.
+
+Os modelos de `domain/models.py` também servem de corpo de requisição e resposta da API. Separar esses formatos do modelo de domínio fica para quando um contrato HTTP precisar divergir da regra.
 
 ## Critérios de verificação
 
-A suíte completa do backend passa após cada etapa. Nenhum arquivo em `domain/`, `application/` ou `services/` importa `fastapi`, `httpx`, `os.getenv` ou `app.adapters`. Cada rota migrada recebe seus colaboradores por `Depends` e não por variáveis de módulo.
+A suíte completa do backend passa após cada etapa. Nenhum arquivo em `domain/` ou `application/` importa `fastapi`, `httpx`, `os.getenv` ou `app.adapters`, e nenhum arquivo em `domain/` importa `app.application`. Cada rota migrada recebe seus colaboradores por `Depends` e não por variáveis de módulo.

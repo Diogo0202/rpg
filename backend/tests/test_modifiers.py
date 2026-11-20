@@ -7,7 +7,7 @@ from pydantic import ValidationError
 
 from app.adapters.inbound.http.auth import require_signed_in_user
 from app.adapters.inbound.http.modifiers import router as modifiers_router
-from app.services.modifiers import ModifierRequest, preview_modifiers
+from app.domain.modifiers import ModifierRequest, preview_modifiers
 
 
 app = FastAPI()

@@ -12,7 +12,7 @@ from app.application.chronicle.analysis import AnalysisSettings, CampaignChronic
 from app.application.chronicle.ports import ChronicleRecord, ChronicleStore
 from app.application.identity import CurrentUser
 from app.domain.errors import Forbidden, InvalidInput, LimitExceeded, NotFound
-from app.services.chronicle_gaps import analyze_chronicle_gaps
+from app.domain.chronicle_gaps import analyze_chronicle_gaps
 
 MAX_CHARACTERS = 20
 MAX_ACTIVITY_RECORDS = 500

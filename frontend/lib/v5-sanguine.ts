@@ -2,9 +2,9 @@ import type { FieldValue, SheetField } from "./sheet-template.ts";
 import { bloodPotency } from "./v5-blood.ts";
 
 /**
- * Vampiro V5, ficha complementar e SAN (frente F2). Espelha backend/app/services/v5_sanguine.py
+ * Vampiro V5, ficha complementar e SAN (frente F2). Espelha backend/app/domain/v5_sanguine.py
  * e a migration 20261029110000_v5_feeding_bonds.sql. Só nomes e mecânica resumida; tudo que
- * vem do livro está marcado para conferência (SANGUINE_REVIEW_RULES em backend/app/services/v5_sanguine.py).
+ * vem do livro está marcado para conferência (SANGUINE_REVIEW_RULES em backend/app/domain/v5_sanguine.py).
  */
 
 /** Convicções e Pedras de Toque: até três pares, preenchidos juntos. Conferir a quantidade. */

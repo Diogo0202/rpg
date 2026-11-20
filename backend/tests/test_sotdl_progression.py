@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.sotdl_progression import validate_sotdl_advance, validate_sotdl_creation
+from app.domain.sotdl_progression import validate_sotdl_advance, validate_sotdl_creation
 
 
 def test_creation_starts_at_zero_without_paths():

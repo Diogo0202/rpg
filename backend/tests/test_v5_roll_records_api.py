@@ -243,7 +243,7 @@ def test_create_roll_records_chronicle_activity_when_requested(client, monkeypat
         return _row(pool=payload["p_pool"], hunger=payload["p_hunger"])
 
     async def fake_activity(context):
-        from app.application.roll_activity import RollActivityResult
+        from app.domain.roll_activity import RollActivityResult
         recorded.append(context)
         return None if context is None else RollActivityResult(status="recorded")
 

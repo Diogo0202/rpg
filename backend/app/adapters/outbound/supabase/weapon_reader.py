@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
-from app.adapters.outbound.supabase.rest_client import SupabaseRest, TableErrors
+from app.adapters.outbound.supabase.errors import TableErrors
+from app.adapters.outbound.supabase.rest_client import SupabaseRest
 from app.domain.errors import Forbidden, ServiceUnavailable
-from app.services.v5_actions import AttackContext, EquippedWeapon
+from app.domain.v5_actions import AttackContext, EquippedWeapon
 
 INVENTORY_ERRORS = TableErrors(
     by_status={401: (Forbidden, "ficha não acessível"), 403: (Forbidden, "ficha não acessível")},

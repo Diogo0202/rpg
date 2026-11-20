@@ -337,7 +337,7 @@ def initial_inventory(values, culture=None, weapon_rows=None, armor=None, shield
 
 def evaluate_creation(values: dict[str, Any], name: str | None = None) -> dict[str, Any]:
     """Return field problems and server-derived values for the creation endpoint."""
-    from app.services.one_ring import derived as sheet_derived
+    from app.domain.one_ring import derived as sheet_derived
     normalized = dict(values)
     errors = []
     mandatory = ["nome", "linhagem", "vocacao", "anel_atributos", "anel_favorecida_cultura", "anel_favorecidas_chamado", "anel_combate_principal", "anel_combate_secundario", "anel_virtude", "anel_recompensa", "anel_recompensa_alvo", "anel_armadura", "anel_escudo", "tracos_distintivos"]

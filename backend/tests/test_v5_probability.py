@@ -4,7 +4,7 @@ from itertools import combinations, product
 
 import pytest
 
-from app.services.v5_probability import estimate_curve, estimate_probabilities, recommend_reroll
+from app.domain.v5_probability import estimate_curve, estimate_probabilities, recommend_reroll
 
 
 def enumerate_events(pool: int, hunger: int, difficulty: int) -> tuple[float, float, float]:

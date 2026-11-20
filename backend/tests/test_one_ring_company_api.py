@@ -51,7 +51,7 @@ def test_invalid_configuration_returns_422(payload):
 
 
 def test_patron_catalog_is_accepted():
-    from app.services.one_ring_creation import catalog
+    from app.domain.one_ring_creation import catalog
     for patron in catalog()["patrons"]:
         assert command("create", {"name": "Companhia", "patron_id": patron["id"], "safe_havens": []}).validated_payload()["patron_id"] == patron["id"]
 

@@ -12,7 +12,7 @@ from app.application.v5.models import BloodActionResult
 from app.application.v5.ports import BloodAction, V5Store
 from app.application.v5.rolls import UNEXPECTED_RESPONSE, reworded
 from app.domain.errors import Conflict, DomainError, Forbidden, InvalidInput, NotFound, UnexpectedUpstreamResponse
-from app.services.v5_blood import blood_state
+from app.domain.v5_blood import blood_state
 
 BLOOD_MESSAGES: dict[type[DomainError], str] = {
     Forbidden: "só o dono da ficha ou o narrador age sobre o Sangue dela",
