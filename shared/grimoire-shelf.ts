@@ -38,7 +38,7 @@ const SYSTEM_COVERS: Record<string, GrimoireCover> = {
 
 /** Ilustração da capa, servida da pasta public/covers de cada app (web e mobile). */
 function coverArt(systemKey: string): string {
-  return `/covers/${systemKey}.jpg`;
+  return `/covers/${systemKey}.webp`;
 }
 
 const FALLBACK: Leather[] = Object.values(LEATHER);

@@ -148,7 +148,7 @@
 }
 
 /* Depende da largura da estante, não da janela: ela também aparece em colunas estreitas. */
-@container grimoire (min-width: 660px) {
+@container grimoire (min-width: 600px) {
   .grimoire-row {
     grid-auto-flow: row;
     grid-template-columns: repeat(4, minmax(0, 176px));
