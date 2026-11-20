@@ -7,6 +7,7 @@ import type { CreationDistribution, FieldValue, SheetField, SheetTemplate, Store
 import styles from "./sheet-creation-wizard.module.css";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { PortraitPicker } from "./portrait-picker";
+import { GrimoireShelf } from "./grimoire-shelf";
 import { stepHelp } from "../lib/step-help";
 import { checkCreation, type CreationReport } from "../lib/sheet-adjustments";
 import { activeGrants, applyGrants, choiceOptions, collectionPointRules, collectionPointStatus, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../lib/creation-grants";
@@ -381,10 +382,16 @@ export function SheetCreationWizard(props: Props) {
       {stepHelp(template.system_key, step.key) && <p className={styles.intro}>{stepHelp(template.system_key, step.key)}</p>}
 
       {loading ? <p className={styles.empty}>Carregando modelos da campanha…</p> : null}
-      {!loading && step.kind === "template" && <div className={styles.templateGrid}>
-        {templates.map((item) => <button key={item.id} type="button" className={`${styles.templateChoice} ${templateId === item.id ? styles.templateSelected : ""}`} aria-pressed={templateId === item.id} disabled={busy} onClick={() => onChooseTemplate(item.id)}><span className={styles.templateMark}>✦</span><span><strong>{item.name}</strong><small>Versão {item.version} · {item.schema.fields.length} campos</small></span><span className={styles.templateArrow}>›</span></button>)}
-        {templates.length === 0 && !loadError && <p className={styles.empty}>Ainda não há modelos publicados nesta campanha.</p>}
-      </div>}
+      {!loading && step.kind === "template" && (templates.length > 0
+        ? <GrimoireShelf
+            label="Estante de sistemas"
+            openLabel="Escolher sistema"
+            selectOnly
+            disabled={busy}
+            books={templates.map((item) => ({ id: item.id, title: item.name, subtitle: `Versão ${item.version} · ${item.schema.fields.length} campos`, systemKey: item.schema.system_key, selected: templateId === item.id, art: true }))}
+            onOpen={(book) => onChooseTemplate(book.id)}
+          />
+        : !loadError && <p className={styles.empty}>Ainda não há modelos publicados nesta campanha.</p>)}
 
       {step.kind === "identity" && <div className={styles.fieldGrid}>
         <label className={`${styles.field} ${styles.wide}`} htmlFor="sheet-character-name"><span className={styles.label}>Nome do personagem<span className={styles.required}>Obrigatório</span></span><input id="sheet-character-name" maxLength={120} value={name} disabled={busy} aria-invalid={Boolean(identityFieldErrors.$name)} aria-describedby={identityFieldErrors.$name ? "sheet-character-name-error" : undefined} placeholder="Como a mesa vai chamar seu personagem?" onChange={(event) => setName(event.target.value)} />{identityFieldErrors.$name && <span className={styles.fieldError} id="sheet-character-name-error">{identityFieldErrors.$name}</span>}</label>

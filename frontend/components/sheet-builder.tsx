@@ -16,6 +16,7 @@ import { AiSheetRequest } from "./ai-assistance-panel";
 import { OneRingCharacterBuilder } from "./one-ring-character-builder";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { PortraitPicker } from "./portrait-picker";
+import { GrimoireShelf } from "./grimoire-shelf";
 import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetVersionHistory } from "./sheet-version-history";
 import { deleteCampaignSheet } from "../lib/sheet-history";
@@ -582,6 +583,19 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={startCreation}>Criar personagem</button>
         <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => setMode("editor")}>Fichas e modelos</button>
       </nav>
+      {!loading && sheets.length > 0 && <div style={{ margin: "18px 0" }}>
+        <GrimoireShelf
+          label="Estante de fichas"
+          openLabel="Abrir ficha"
+          disabled={busy}
+          books={sheets.map((item) => {
+            const source = templates.find((stored) => stored.id === item.template_id);
+            return { id: item.id, title: item.name, subtitle: source ? source.name : "Modelo indisponível", systemKey: source?.schema.system_key ?? null, selected: sheetId === item.id };
+          })}
+          onOpen={(book) => { chooseSheet(book.id); setMode("editor"); }}
+          addSlot={canEditSheets ? { title: "Nova ficha", hint: "Escolher um sistema", onClick: startCreation } : undefined}
+        />
+      </div>}
       {mode === "guided" && !sheetId ? (template.system_key === "one-ring" && template.rules_profile_version === 3 && templateId ? <>
         <label>Modelo aprovado<select value={templateId} disabled={busy} onChange={(e)=>chooseTemplate(e.target.value)}>{templates.map((item)=><option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
         <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={values} busy={busy} canSave={canEditSheets} onSave={saveSheet} />

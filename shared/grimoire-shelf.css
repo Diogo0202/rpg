@@ -1,0 +1,628 @@
+/* Estante de grimórios. Usada por sistemas e fichas na web (frontend) e no mobile. */
+
+.grimoire-case {
+  --grimoire-wood-light: #78350f;
+  --grimoire-wood: #451a03;
+  --grimoire-wood-dark: #230c02;
+  --grimoire-brass: #fcd34d;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  color: #f8fafc;
+  perspective: 1600px;
+  container: grimoire / inline-size;
+}
+
+.grimoire-cornice,
+.grimoire-base {
+  position: relative;
+  margin: 0 -1%;
+  border: 1px solid #fbbf2433;
+}
+
+.grimoire-cornice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, #5c280b 0%, #3b1705 55%, var(--grimoire-wood-dark) 100%);
+  box-shadow: 0 12px 25px #000000e6;
+}
+
+.grimoire-cornice-label {
+  padding: 2px 14px;
+  border: 1px solid #f59e0b33;
+  border-radius: 999px;
+  background: #00000073;
+  color: #fcd34dcc;
+  font-family: var(--font-display, Georgia), serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.24em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.grimoire-base {
+  height: 26px;
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(180deg, var(--grimoire-wood) 0%, #270e02 60%, #140701 100%);
+  box-shadow: 0 25px 45px #000000f2;
+}
+
+.grimoire-body {
+  position: relative;
+  border-inline: clamp(8px, 2vw, 16px) solid #361504;
+  background: #140a05;
+  box-shadow: 0 30px 70px #000000f2;
+  transform-style: preserve-3d;
+}
+
+.grimoire-body::before,
+.grimoire-body::after {
+  position: absolute;
+  inset-block: 0;
+  z-index: 3;
+  width: 12px;
+  pointer-events: none;
+  content: "";
+}
+
+.grimoire-body::before { left: 0; background: linear-gradient(90deg, #000000cc, transparent); }
+.grimoire-body::after { right: 0; background: linear-gradient(270deg, #000000cc, transparent); }
+
+.grimoire-shelf {
+  position: relative;
+  z-index: 1;
+}
+
+.grimoire-shelf:focus-within,
+.grimoire-shelf:hover,
+.grimoire-shelf[data-active="true"] {
+  z-index: 2;
+}
+
+.grimoire-niche {
+  padding: 18px clamp(12px, 3vw, 28px) 10px;
+  background: radial-gradient(ellipse at 50% 0%, #d9770624 0%, #120904f5 75%);
+  box-shadow: inset 0 22px 34px -10px #000000f2, inset 0 -10px 20px #000000d9;
+}
+
+.grimoire-plaque {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin: 0 0 14px;
+  padding: 0 2px;
+}
+
+.grimoire-plaque-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 10px;
+  border: 1px solid #f59e0b40;
+  border-radius: 4px;
+  background: #451a03cc;
+  color: #fde68ad9;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.grimoire-plaque-name::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fbbf24cc;
+  content: "";
+}
+
+.grimoire-plaque-count {
+  color: #a8a29ecc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.66rem;
+}
+
+.grimoire-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(136px, 44%);
+  align-items: end;
+  gap: 18px;
+  margin: 0;
+  padding: 8px 4px 6px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: #92400e #1c0d05;
+  transform-style: preserve-3d;
+}
+
+/* Depende da largura da estante, não da janela: ela também aparece em colunas estreitas. */
+@container grimoire (min-width: 660px) {
+  .grimoire-row {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(4, minmax(0, 176px));
+    justify-content: center;
+    gap: clamp(16px, 2.6vw, 28px);
+    overflow: visible;
+  }
+}
+
+.grimoire-slot {
+  min-width: 0;
+  scroll-snap-align: center;
+  transform-style: preserve-3d;
+}
+
+.grimoire-plank {
+  position: relative;
+  height: 22px;
+  border-top: 1px solid #fbbf2433;
+  background: linear-gradient(180deg, var(--grimoire-wood-light) 0%, var(--grimoire-wood) 48%, var(--grimoire-wood-dark) 100%);
+  box-shadow: 0 14px 24px #000000f2;
+}
+
+.grimoire-plank::after {
+  position: absolute;
+  inset: 2px 0 auto;
+  height: 1px;
+  background: #fcd34d26;
+  content: "";
+}
+
+/* Livro */
+
+.grimoire-book {
+  --grimoire-cloth: #285753;
+  --grimoire-cloth-deep: #0f2a28;
+  --grimoire-spine: #143b38;
+  --grimoire-accent: #fcd34d;
+  --grimoire-tilt: -10deg;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 11 / 16;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transform: rotateY(var(--grimoire-tilt)) rotateX(2deg);
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease, filter 260ms ease;
+}
+
+.grimoire-slot:nth-child(4n + 2) .grimoire-book { --grimoire-tilt: -7deg; }
+.grimoire-slot:nth-child(4n + 3) .grimoire-book { --grimoire-tilt: -4deg; }
+.grimoire-slot:nth-child(4n + 4) .grimoire-book { --grimoire-tilt: -1deg; }
+
+.grimoire-book:disabled { cursor: wait; }
+
+.grimoire-book:focus-visible {
+  outline: 2px solid var(--grimoire-accent);
+  outline-offset: 5px;
+}
+
+.grimoire-pages,
+.grimoire-cover,
+.grimoire-spine {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.grimoire-pages {
+  inset: 6px 6px 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  border-radius: 2px 6px 6px 2px;
+  background: linear-gradient(90deg, #e7dec8 0%, #f5efe0 14%, #efe6d0 100%);
+  box-shadow: inset 8px 0 16px #291b0e40;
+  color: #44403c;
+  transform: translateZ(-2px);
+}
+
+.grimoire-pages-engine {
+  color: #78350f99;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.grimoire-pages-title {
+  display: block;
+  margin-top: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #78350f40;
+  color: #292524;
+  font-family: var(--font-display, Georgia), serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grimoire-pages-lines {
+  display: grid;
+  gap: 6px;
+  opacity: 0.75;
+}
+
+.grimoire-pages-lines::before,
+.grimoire-pages-lines::after {
+  height: 5px;
+  border-radius: 2px;
+  background: #451a0333;
+  content: "";
+}
+
+.grimoire-pages-lines::before { width: 80%; }
+.grimoire-pages-lines::after { width: 60%; }
+
+.grimoire-pages-note {
+  color: #78350fb3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  text-align: right;
+}
+
+.grimoire-spine {
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  width: 22px;
+  padding: 12px 0;
+  border-right: 1px solid #00000066;
+  border-radius: 3px 0 0 3px;
+  background: var(--grimoire-spine);
+  box-shadow: inset -3px 0 8px #00000099;
+  transform-origin: left center;
+  transform: rotateY(-75deg) translateX(-10px);
+}
+
+.grimoire-spine-code {
+  color: var(--grimoire-accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  opacity: 0.8;
+  writing-mode: vertical-rl;
+}
+
+.grimoire-spine-mark,
+.grimoire-mark {
+  color: var(--grimoire-accent);
+  font-family: var(--font-display, Georgia), serif;
+  font-weight: 700;
+}
+
+.grimoire-spine-mark { font-size: 0.56rem; }
+
+.grimoire-cover {
+  inset: 0;
+  display: flex;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--grimoire-accent) 45%, transparent);
+  border-radius: 3px 9px 9px 3px;
+  background:
+    radial-gradient(circle at 25% 18%, #ffffff26, transparent 62%),
+    linear-gradient(145deg, color-mix(in srgb, var(--grimoire-cloth) 55%, var(--grimoire-cloth-deep)) 0%, var(--grimoire-cloth) 48%, var(--grimoire-cloth-deep) 100%);
+  box-shadow: 0 16px 28px #000000d9;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  transition: transform 550ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.grimoire-cover::before {
+  position: absolute;
+  inset: 0 auto 0 8px;
+  width: 1px;
+  background: #00000080;
+  box-shadow: 1px 0 0 #ffffff1f;
+  content: "";
+}
+
+/* Capa ilustrada: a arte já traz o nome do sistema; no rodapé ficam o modelo e a ação. */
+.grimoire-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  pointer-events: none;
+  user-select: none;
+}
+
+.grimoire-cover[data-art="true"] {
+  padding: 6px;
+}
+
+.grimoire-cover[data-art="true"]::after {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 25% 12%, #ffffff1f, transparent 55%),
+    linear-gradient(to top, #000000eb 0%, #000000a6 22%, transparent 48%);
+  pointer-events: none;
+  content: "";
+}
+
+.grimoire-cover[data-art="true"] .grimoire-frame {
+  z-index: 1;
+  justify-content: flex-end;
+  padding: 7px;
+  border-color: color-mix(in srgb, var(--grimoire-accent) 30%, transparent);
+}
+
+.grimoire-cover[data-art="true"] .grimoire-top,
+.grimoire-cover[data-art="true"] .grimoire-title,
+.grimoire-cover[data-art="true"] .grimoire-rule {
+  display: none;
+}
+
+.grimoire-cover[data-art="true"] .grimoire-heading {
+  margin-block: 0 4px;
+}
+
+.grimoire-cover[data-art="true"] .grimoire-subtitle {
+  color: #f5f5f4;
+  text-shadow: 0 1px 3px #000;
+}
+
+.grimoire-frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid color-mix(in srgb, var(--grimoire-accent) 45%, transparent);
+  border-radius: 3px;
+}
+
+.grimoire-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  min-width: 0;
+}
+
+.grimoire-engine {
+  min-width: 0;
+  padding: 2px 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #00000073;
+  color: var(--grimoire-accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.grimoire-mark {
+  flex: none;
+  font-size: 0.85rem;
+  text-shadow: 0 1px 3px #000000a6;
+}
+
+.grimoire-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-block: auto;
+  text-align: center;
+}
+
+.grimoire-title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #f8fafc;
+  font-family: var(--font-display, Georgia), serif;
+  font-size: clamp(0.92rem, 1.6vw, 1.05rem);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px #000000a6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.grimoire-rule {
+  display: block;
+  width: 32px;
+  height: 2px;
+  margin: 7px auto;
+  border-radius: 999px;
+  background: var(--grimoire-accent);
+  opacity: 0.75;
+}
+
+.grimoire-subtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #d6d3d1e6;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.grimoire-genre {
+  display: block;
+  overflow: hidden;
+  color: var(--grimoire-accent);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.grimoire-genre-hover { display: none; }
+
+/* Interação */
+
+@media (hover: hover) {
+  .grimoire-book:not(:disabled):hover,
+  .grimoire-book:focus-visible {
+    transform: translateY(-12px) translateZ(45px) scale(1.06) rotateY(-3deg) rotateX(2deg);
+  }
+
+  .grimoire-book:not(:disabled):hover .grimoire-genre-rest { display: none; }
+  .grimoire-book:not(:disabled):hover .grimoire-genre-hover { display: inline; }
+}
+
+.grimoire-book[data-selected="true"] {
+  transform: translateY(-16px) translateZ(80px) scale(1.08) rotateY(0deg);
+}
+
+.grimoire-book[data-selected="true"] .grimoire-cover {
+  transform: rotateY(-28deg);
+}
+
+.grimoire-book[data-selected="true"] .grimoire-cover {
+  outline: 2px solid var(--grimoire-accent);
+  outline-offset: 3px;
+}
+
+.grimoire-book[data-opening="true"] {
+  z-index: 2;
+  transform: translateY(-20px) translateZ(150px) scale(1.16) rotateY(0deg);
+}
+
+.grimoire-book[data-opening="true"] .grimoire-cover {
+  animation: grimoire-cover-open 550ms 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.grimoire-case[data-active="true"] .grimoire-book:not([data-opening]),
+.grimoire-case[data-active="true"] .grimoire-empty {
+  opacity: 0.15;
+  filter: blur(3px);
+  pointer-events: none;
+}
+
+@keyframes grimoire-cover-open {
+  to { transform: rotateY(-162deg); }
+}
+
+/* Espaços vagos */
+
+.grimoire-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  aspect-ratio: 11 / 16;
+  padding: 12px;
+  border: 1px dashed #44403c4d;
+  border-radius: 6px;
+  background: #00000033;
+  color: #57534e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  opacity: 0.6;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.grimoire-empty--action {
+  border-color: #f59e0b59;
+  background: #f59e0b0a;
+  color: #fde68ae6;
+  font: inherit;
+  letter-spacing: normal;
+  text-decoration: none;
+  text-transform: none;
+  opacity: 1;
+  cursor: pointer;
+  transition: background 200ms ease, border-color 200ms ease;
+}
+
+.grimoire-empty--action:hover,
+.grimoire-empty--action:focus-visible {
+  border-color: #fbbf2499;
+  background: #f59e0b1a;
+}
+
+.grimoire-empty--action:focus-visible {
+  outline: 2px solid #fcd34d;
+  outline-offset: 4px;
+}
+
+.grimoire-empty-plus {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 8px;
+  border: 1px solid #fbbf2466;
+  border-radius: 50%;
+  color: #fcd34d;
+  font-size: 1.1rem;
+  transition: transform 200ms ease;
+}
+
+.grimoire-empty--action:hover .grimoire-empty-plus { transform: scale(1.1); }
+
+.grimoire-empty-title {
+  font-family: var(--font-display, Georgia), serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.grimoire-empty-hint {
+  margin-top: 4px;
+  color: #a8a29e;
+  font-size: 0.66rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grimoire-book,
+  .grimoire-cover,
+  .grimoire-empty-plus {
+    transition: none;
+  }
+
+  .grimoire-book,
+  .grimoire-book[data-selected="true"],
+  .grimoire-book[data-opening="true"] {
+    transform: none;
+  }
+
+  .grimoire-book[data-opening="true"] .grimoire-cover {
+    animation: none;
+  }
+}

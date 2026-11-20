@@ -6,6 +6,7 @@ import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
 import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
 import { creationGroups, creationStepLabel, identityFields, masterGrantedFieldIds, reconcileDependentValues, validateFields, characterNameField } from "@/lib/sheet-creation.ts";
 import { FieldInput } from "@/components/nexus/FieldInput";
+import { GrimoireShelf } from "@/components/nexus/GrimoireShelf";
 import { GrantPicker, GrantSummary, PowerPicker } from "@/components/nexus/CreationGrants";
 import { applyGrants, creationRuleViolations, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerRules, ruleMessage, selectedCase, staleGrantChoices } from "@/lib/creation-grants.ts";
 import { Btn, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
@@ -46,14 +47,12 @@ function NewSheet() {
       <PageHeader title="Nova ficha" subtitle="Assistente guiado. Modelos-base parciais; regras completas dependem das fontes oficiais." />
       <LocalGate>
         {starter ? (starter.template.system_key === "one-ring" && starter.template.rules_profile_version === 3 ? <OneRingNewCharacter starter={starter} onCancel={()=>setStarter(null)} /> : <Wizard starter={starter} onCancel={() => setStarter(null)} />) : templates.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {templates.map((s) => (
-              <Btn key={s.id} variant="outline" onClick={() => setStarter(s)} className="parchment flex h-auto flex-col items-start bg-card p-4 text-left hover:ring-2 hover:ring-ring">
-                <p className="font-display text-xl font-semibold text-ink">{s.label}</p>
-                <p className="mt-1 text-sm text-ink-muted">{s.template.name} Â· {s.template.fields.length} campos</p>
-              </Btn>
-            ))}
-          </div>
+          <GrimoireShelf
+            label="Estante de sistemas"
+            openLabel="Criar personagem"
+            books={templates.map((s) => ({ id: s.id, title: s.label, subtitle: `${s.template.name} · ${s.template.fields.length} campos`, systemKey: s.systemKey, art: true }))}
+            onOpen={(book) => { const chosen = templates.find((s) => s.id === book.id); if (chosen) setStarter(chosen); }}
+          />
         ) : <p className="parchment p-4 text-sm text-ink-muted">{mode === "connected" ? "Esta campanha nÃ£o tem modelos aprovados compatÃ­veis para criar fichas." : "Nenhum modelo local estÃ¡ disponÃ­vel."}</p>
         }
       </LocalGate>
