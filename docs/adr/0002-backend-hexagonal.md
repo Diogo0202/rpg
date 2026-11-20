@@ -48,6 +48,18 @@ O levantamento de 19/11/2026 encontrou quatro problemas. O web e o mobile mantin
 
 As etapas F3 e F4 alteram telas que nenhum teste cobre. As duas foram conferidas pelos testes, pelo `tsc` e pelo `next build`. O editor de mapas e o assistente de criação têm páginas de desenvolvimento com dados falsos (`/dev/map-editor` e `/dev/sheet-wizard`) e foram abertos no navegador. As demais telas, como diário, ação V5, oficina de fichas, chat, presença e cenas, dependem de um Supabase de desenvolvimento para abrir: [falta detalhe real]. O mobile (`mobile/src`) e o restante de `shared/` ficam para a fase 3.
 
+## Fase 3: mobile e `shared/`
+
+O mobile já tinha a porta certa: `SyncEngine` grava numa `SyncStore` (IndexedDB ou memória) e envia por um `SyncTransport` (FastAPI ou só local), e a interface só conversa com o `NexusContext`. O problema estava no `store.tsx`, com 902 linhas que juntavam a conversão de registros, o cache por conta, a semente de demonstração e a sincronização automática. Quatro telas passavam de 290 linhas. A fase seguiu o formato da F4:
+
+1. M1, `lib/nexus/store.tsx`: `records.ts` reúne as regras puras (registro para entidade, próxima sessão, ajustes atômicos de ficha, resumo da fila). `account-cache.ts` concentra as chaves de preferência por conta. `local-demo.ts` abre a partição local e semeia o exemplo uma vez. `use-auto-sync.ts` escuta os avisos de ficha. A partição aberta (motor, modo, conta, campanha, capacidades e aparelho) passou a ser um único estado, trocado por `activate()`.
+2. M2, rolador de dados: `components/nexus/dice/` com `dice-model.ts` (entradas num só objeto e `rollFor()` por modo), dois hooks (histórico local e chances da ficha no servidor) e as vistas.
+3. M3, telas Mais e Diário: `components/nexus/more/` (música, biblioteca, configurações) e `components/nexus/journal/`. O formulário de nota passou a gravar na sessão que o seletor mostra quando o jogador não troca a opção; antes ele recusava a nota.
+4. M4, tela de sincronização: `components/nexus/sync/`, com `withBusy()` no lugar de cinco blocos `try/finally`.
+5. S1, `shared/`: as regras já são puras e sem dependência de tela. Só `evaluateOneRing` passava de 60 linhas (126); ela foi dividida em etapas. O JSON de 780 avaliações ficou idêntico antes e depois.
+
+Cada etapa ganhou testes das regras extraídas (`records.test.ts`, `dice-model.test.ts`, `more-model.test.ts`, `sync-model.test.ts`). O `tsc`, o `vitest` (178 de 183) e o `test:mobile` (55 de 59) ficaram iguais à linha de base. As falhas que restam já existiam: `MapInteractions` e `WorldPanel` no `vitest`, a fila da mesa entre abas e a paridade com o motor Python no `test:mobile`. As telas Mais, Música, Diário, Sincronização e Dados foram abertas no navegador em modo local. O modo conectado depende de API e Supabase de desenvolvimento: [falta detalhe real].
+
 ## Regras de Clean Code adotadas
 
 - Nomes descrevem a intenção no vocabulário de `CONTEXT.md` (ficha, modelo, narrador, campanha).
