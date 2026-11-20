@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { createClient } from "../../lib/supabase/client";
+import { browserDb } from "../../lib/data/browser";
+import { listMapSheetOptions, saveMap } from "../../lib/data/maps";
+import { createEntity, listMapEntityOptions } from "../../lib/data/world";
 import {
   houseStructures, MAX_POINTS, newMapId, parseMapDocument, removeElement, validateMapDocument,
   type MapDocumentV2, type MapPin, type MapStructure,
@@ -110,7 +112,6 @@ function chosenMove(document: MapDocumentV2, ids: string[], activeId: string, dx
   return moveSelection(document, new Set(ids.length ? ids : [activeId]), dx, dy);
 }
 
-const MAP_COLUMNS = "id,campaign_id,name,document,version,system_key,shared_with_players,updated_at";
 type MapPatch = Pick<EditableMap, "name" | "system_key" | "shared_with_players"> & { document: MapDocumentV2 };
 
 /** Data access used by the editor; Supabase by default, replaceable by the dev fixture. */
@@ -125,24 +126,20 @@ export type MapEditorData = {
 
 export const supabaseMapData: MapEditorData = {
   async loadReferences(campaignId) {
-    const client = createClient();
+    const db = browserDb();
     const [sheetResult, entityResult] = await Promise.all([
-      client.from("character_sheets").select("id,name,portrait_path,owner_id").eq("campaign_id", campaignId).order("name"),
-      client.from("world_entities").select("id,name,kind").eq("campaign_id", campaignId).in("kind", ["npc", "item"]).order("name"),
+      listMapSheetOptions(db, campaignId),
+      listMapEntityOptions(db, campaignId),
     ]);
     return { sheets: (sheetResult.data ?? []) as SheetOption[], entities: (entityResult.data ?? []) as EntityOption[] };
   },
   async createEntity(campaignId, viewerId, kind, name) {
-    const { data, error } = await createClient().from("world_entities")
-      .insert({ campaign_id: campaignId, kind, name: name.slice(0, 160), body: {}, created_by: viewerId })
-      .select("id,name,kind").single();
+    const { data, error } = await createEntity(browserDb(), { campaignId, createdBy: viewerId, kind, name: name.slice(0, 160), body: {} }, "id,name,kind");
     if (error || !data) throw new Error("Não foi possível criar a entidade no mundo da campanha.");
     return data as EntityOption;
   },
   async saveMap(map, patch) {
-    const { data, error } = await createClient().from("maps").update(patch)
-      .eq("id", map.id).eq("campaign_id", map.campaign_id).eq("version", map.version)
-      .select(MAP_COLUMNS).maybeSingle();
+    const { data, error } = await saveMap(browserDb(), map, patch);
     if (error) throw new Error("O banco recusou o mapa. Confira estruturas e pins.");
     return (data as EditableMap | null) ?? null;
   },

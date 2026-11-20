@@ -109,3 +109,13 @@ export function listSheetSecrets(db: Db, campaignId: string) {
 export function saveSheetSecret(db: Db, sheetId: string, campaignId: string, notes: string) {
   return db.from("character_sheet_secrets").upsert({ sheet_id: sheetId, campaign_id: campaignId, notes }, { onConflict: "sheet_id" });
 }
+
+/** Fichas da campanha para a cópia local, com os efeitos. */
+export function listBackupSheets(db: Db, campaignId: string) {
+  return db.from("character_sheets").select("id, name, template_id, values, effects").eq("campaign_id", campaignId).order("name");
+}
+
+/** Cria uma ficha a partir de uma cópia local; a RPC confere o modelo aprovado. */
+export function restoreSheetBackup(db: Db, campaignId: string, templateId: string, backup: unknown) {
+  return db.rpc("restore_character_backup", { p_campaign_id: campaignId, p_template_id: templateId, p_backup: backup });
+}

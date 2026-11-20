@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { listActiveCombats } from "../lib/data/combat";
+import { createGeneratedMap } from "../lib/data/maps";
+import { createEntity } from "../lib/data/world";
 import { objectBody } from "../lib/api/http";
 import { apiBase, sessionJson, sessionSend, type SessionMessages } from "../lib/api/session";
 import { combatBlockOf, narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content";
@@ -71,7 +74,7 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
   useEffect(() => {
     if (!canManage) return;
     let active = true;
-    createClient().from("combat_sessions").select("id,title").eq("campaign_id", campaignId).eq("active", true).order("created_at", { ascending: false }).limit(50)
+    listActiveCombats(browserDb(), campaignId)
       .then(({ data, error }) => {
         if (!active) return;
         const rows = error ? [] : (data ?? []) as ActiveCombat[];
@@ -138,10 +141,10 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     }
     setLoading(true);setMessage("");
     try {
-      const client=createClient();
+      const db=browserDb();
       const result=target==="map"&&map
-        ?await client.from("maps").insert({campaign_id:campaignId,name:mapName.trim()||`Mapa ${map.seed}`,document:map,created_by:viewerId}).select("id").single()
-        :savedEntry?await client.from("world_entities").insert({campaign_id:campaignId,kind:savedEntry.kind==="item"?"item":"npc",name:savedEntry.name,created_by:viewerId,body:{description:savedEntry.summary,generated:publicGeneratedEntry(savedEntry),role:savedEntry.kind==="enemy"?"antagonist":"neutral",source:savedEntry.ai?"Rascunho de IA revisado pelo narrador":"Gerador original RPG-Atlas"}}).select("id").single():null;
+        ?await createGeneratedMap(db,{campaignId,name:mapName.trim()||`Mapa ${map.seed}`,document:map,createdBy:viewerId})
+        :savedEntry?await createEntity(db,{campaignId,kind:savedEntry.kind==="item"?"item":"npc",name:savedEntry.name,createdBy:viewerId,body:{description:savedEntry.summary,generated:publicGeneratedEntry(savedEntry),role:savedEntry.kind==="enemy"?"antagonist":"neutral",source:savedEntry.ai?"Rascunho de IA revisado pelo narrador":"Gerador original RPG-Atlas"}}):null;
       if(!result||result.error||!result.data)throw new Error("Falha ao gravar. Confira suas permissões e as migrations.");
       setMessage(target==="map"?"Mapa salvo. Abra Mapas para editar seus marcadores.":"Conteúdo salvo na biblioteca do mundo.");
     } catch(error){setMessage(error instanceof Error?error.message:"Não foi possível gravar.");}

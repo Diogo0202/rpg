@@ -2,7 +2,11 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as mapRepo from "../lib/data/maps";
+import { listApprovedTemplateSchemas } from "../lib/data/sheets";
+import { listEntityIds } from "../lib/data/world";
+import { listMemberIds } from "../lib/data/campaign";
 import { downloadText } from "../lib/download";
 import { createEmptyDocument, parseMapDocument } from "../lib/map-document";
 import { webMapRpc } from "../lib/map-interactions-rpc";
@@ -11,7 +15,6 @@ import { MapInteractionsPanel } from "./map-interactions-panel";
 import { MapEditor, type EditableMap } from "./map-editor/map-editor";
 import styles from "./saved-maps-panel.module.css";
 
-const MAP_COLUMNS = "id, campaign_id, name, document, version, system_key, shared_with_players, updated_at";
 const SYSTEM_OPTIONS = [
   { id: "one-ring", label: "O Um Anel · medieval" },
   { id: "vampire-v5", label: "Vampiro V5 · cidade moderna" },
@@ -43,10 +46,10 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     setLoading(true);
     setMessage("");
     if (!canManage) { setMaps([]); setLoading(false); return; }
-    const client = createClient();
+    const db = browserDb();
     void Promise.all([
-      client.from("maps").select(MAP_COLUMNS).eq("campaign_id", campaignId).order("updated_at", { ascending: false }),
-      client.from("system_templates").select("schema").eq("campaign_id", campaignId).eq("status", "approved"),
+      mapRepo.listMaps(db, campaignId),
+      listApprovedTemplateSchemas(db, campaignId),
     ]).then(([mapResult, templateResult]) => {
       if (!active) return;
       if (mapResult.error) { setMessage("Não foi possível carregar os mapas salvos desta campanha."); setLoading(false); return; }
@@ -68,9 +71,7 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     setBusy(true);
     const requestCampaign = campaignId;
     try {
-      const { data, error } = await createClient().from("maps")
-        .insert({ campaign_id: campaignId, name, created_by: viewerId, system_key: newSystem, document: createEmptyDocument(newSystem) })
-        .select(MAP_COLUMNS).single();
+      const { data, error } = await mapRepo.createMap(browserDb(), { campaignId, name, createdBy: viewerId, systemKey: newSystem, document: createEmptyDocument(newSystem) });
       if (campaignRef.current !== requestCampaign) return;
       if (error || !data) throw error ?? new Error("insert failed");
       setMaps((items) => [data as EditableMap, ...items]);
@@ -86,7 +87,7 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     if (!window.confirm(`Excluir o mapa ${map.name}? Esta ação não pode ser desfeita.`)) return;
     setBusy(true);
     try {
-      const { data, error } = await createClient().from("maps").delete().eq("id", map.id).eq("campaign_id", campaignId).eq("version", map.version).select("id").maybeSingle();
+      const { data, error } = await mapRepo.deleteMap(browserDb(), map, campaignId);
       if (error || !data) throw error ?? new Error("stale map");
       setMaps((items) => items.filter((item) => item.id !== map.id));
       setSelectedId(null);
@@ -101,12 +102,12 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
     setBusy(true);
     const requestCampaign = campaignId;
     try {
-      const client = createClient();
+      const db = browserDb();
       const [text, sheetResult, entityResult, memberResult] = await Promise.all([
         file.text(),
-        client.from("character_sheets").select("id,owner_id").eq("campaign_id", campaignId),
-        client.from("world_entities").select("id").eq("campaign_id", campaignId),
-        client.from("campaign_members").select("user_id").eq("campaign_id", campaignId),
+        mapRepo.listSheetOwners(db, campaignId),
+        listEntityIds(db, campaignId),
+        listMemberIds(db, campaignId),
       ]);
       if (sheetResult.error || entityResult.error) throw new Error("Não foi possível conferir fichas e entidades da campanha.");
       const sheets = (sheetResult.data ?? []) as { id: string; owner_id: string }[];
@@ -116,9 +117,7 @@ export function SavedMapsPanel({ campaignId, viewerId, canManage }: { campaignId
         playerIds: new Set([...sheets.map((row) => row.owner_id), ...((memberResult.data ?? []) as { user_id: string }[]).map((row) => row.user_id)]),
       });
       if (!prepared.ok) throw new Error(prepared.error);
-      const { data, error } = await client.from("maps")
-        .insert({ campaign_id: campaignId, name: prepared.name, created_by: viewerId, system_key: prepared.system_key, document: prepared.document })
-        .select(MAP_COLUMNS).single();
+      const { data, error } = await mapRepo.createMap(db, { campaignId, name: prepared.name, createdBy: viewerId, systemKey: prepared.system_key, document: prepared.document });
       if (campaignRef.current !== requestCampaign) return;
       if (error || !data) throw new Error("O banco recusou o mapa importado. Confira estruturas, pins e névoa.");
       setMaps((items) => [data as EditableMap, ...items]);

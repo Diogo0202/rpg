@@ -1,7 +1,8 @@
 "use client";
 
 import {useEffect,useState,type FormEvent} from "react";
-import {createClient} from "../lib/supabase/client";
+import {browserDb} from "../lib/data/browser";
+import * as world from "../lib/data/world";
 import {downloadText} from "../lib/download";
 
 type Entity={id:string;kind:string;name:string;body:Record<string,unknown>;version:number};
@@ -21,10 +22,10 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
   const [journalLinks,setJournalLinks]=useState<JournalLink[]>([]),[journalEvents,setJournalEvents]=useState<JournalEvent[]>([]);
 
   useEffect(()=>{let active=true;async function load(){try{
-    const client=createClient();const [a,b]=await Promise.all([client.from("world_entities").select("id,kind,name,body,version").eq("campaign_id",campaignId).order("name"),client.from("world_relations").select("id,from_entity_id,to_entity_id,relation_type,notes").eq("campaign_id",campaignId)]);
+    const db=browserDb();const [a,b]=await Promise.all([world.listEntities(db,campaignId),world.listRelations(db,campaignId)]);
     if(!active)return;if(a.error||b.error)throw new Error();setEntities((a.data??[])as Entity[]);setRelations((b.data??[])as Relation[]);
     // Cross view of journal consequences; optional so a missing migration does not hide the world.
-    const [c,d]=await Promise.all([client.from("campaign_event_entity_links").select("id,event_id,entity_id,link_kind").eq("campaign_id",campaignId),client.from("campaign_events").select("id,title,status,occurred_on").eq("campaign_id",campaignId)]);
+    const [c,d]=await Promise.all([world.listJournalEntityLinks(db,campaignId),world.listJournalEventTitles(db,campaignId)]);
     if(!active)return;setJournalLinks(c.error?[]:(c.data??[])as JournalLink[]);setJournalEvents(d.error?[]:(d.data??[])as JournalEvent[]);
   }catch{if(active)setMessage("Não foi possível carregar o mundo. Confira conexão, permissões e migrations.");}}void load();return()=>{active=false;};},[campaignId,revision]);
 
@@ -33,8 +34,8 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
   }catch(error){setMessage(error instanceof Error?error.message:"Falha ao gravar.");}finally{setBusy(false);}}
 
   function save(event:FormEvent<HTMLFormElement>){event.preventDefault();const patch={name:name.trim(),kind,body:{...(editing?.body??{}),description,creature,threat,system,hook,source}};void write(()=>editing
-    ?createClient().from("world_entities").update(patch).eq("id",editing.id).eq("campaign_id",campaignId).eq("version",editing.version).select("id")
-    :createClient().from("world_entities").insert({...patch,campaign_id:campaignId,created_by:viewerId}).select("id"),"Registro salvo no mundo.");}
+    ?world.updateEntity(browserDb(),editing,campaignId,patch)
+    :world.insertEntity(browserDb(),campaignId,viewerId,patch),"Registro salvo no mundo.");}
 
   const visible=entities.filter(item=>(filter==="all"||item.kind===filter)&&(threatFilter==="all"||item.body.threat===threatFilter)&&(creatureFilter==="all"||item.body.creature===creatureFilter)&&`${item.name} ${JSON.stringify(item.body)}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")));
   const entityName=(id:string)=>entities.find(item=>item.id===id)?.name??"Registro removido";
@@ -48,9 +49,9 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
       <div className="actions"><button className="quiet" type="button" onClick={()=>setRevision(value=>value+1)}>Atualizar</button><button className="quiet" type="button" onClick={()=>downloadText("mundo-da-campanha.json",JSON.stringify({format:"rpg-nexus-world",version:1,entities:visible.map(({kind,name,body})=>({kind,name,body})),relations:relations.map(item=>({from:entityName(item.from_entity_id),to:entityName(item.to_entity_id),relation:item.relation_type,notes:item.notes}))},null,2))}>Exportar JSON</button></div>
       {visible.map(item=><article className="inventory-item" key={item.id}><h3>{item.name}</h3><small>{labels[item.kind]} · {String(item.body.system??"")} · {String(item.body.threat??"")}</small><p className="inventory-notes">{String(item.body.description??"")}</p>{Boolean(item.body.hook)&&<p>Gancho: {String(item.body.hook)}</p>}{Boolean(item.body.source)&&<p>Fonte: {String(item.body.source)}</p>}
         {(()=>{const linked=journalLinks.filter(link=>link.entity_id===item.id);return linked.length>0&&<div aria-label={`Diário ligado a ${item.name}`}><small>No diário:</small><ul>{linked.map(link=>{const entry=journalEvents.find(event=>event.id===link.event_id);return <li key={link.id}>{linkLabels[link.link_kind]??link.link_kind} · {entry?.title??"Evento do diário"}{entry?` (${entry.occurred_on})`:""}</li>;})}</ul></div>;})()}
-        {canManage&&<div className="actions"><button className="quiet" type="button" disabled={busy} onClick={()=>{setEditing(item);setName(item.name);setKind(item.kind);setDescription(String(item.body.description??""));setCreature(String(item.body.creature??"other"));setThreat(String(item.body.threat??"moderate"));setSystem(String(item.body.system??""));setHook(String(item.body.hook??""));setSource(String(item.body.source??""));}}>Editar {item.name}</button><button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>createClient().from("world_entities").delete().eq("id",item.id).eq("campaign_id",campaignId).eq("version",item.version).select("id"),"Registro removido.")}>Excluir {item.name}</button></div>}
+        {canManage&&<div className="actions"><button className="quiet" type="button" disabled={busy} onClick={()=>{setEditing(item);setName(item.name);setKind(item.kind);setDescription(String(item.body.description??""));setCreature(String(item.body.creature??"other"));setThreat(String(item.body.threat??"moderate"));setSystem(String(item.body.system??""));setHook(String(item.body.hook??""));setSource(String(item.body.source??""));}}>Editar {item.name}</button><button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>world.deleteEntity(browserDb(),item,campaignId),"Registro removido.")}>Excluir {item.name}</button></div>}
       </article>)}{visible.length===0&&<p>Nenhum registro encontrado.</p>}
-      <h3>Relações</h3>{relations.map(item=><p key={item.id}>{entityName(item.from_entity_id)} · {item.relation_type} · {entityName(item.to_entity_id)} {canManage&&<button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>createClient().from("world_relations").delete().eq("id",item.id).eq("campaign_id",campaignId).select("id"),"Relação removida.")}>Remover relação</button>}</p>)}
+      <h3>Relações</h3>{relations.map(item=><p key={item.id}>{entityName(item.from_entity_id)} · {item.relation_type} · {entityName(item.to_entity_id)} {canManage&&<button className="quiet" type="button" disabled={busy} onClick={()=>void write(()=>world.deleteRelation(browserDb(),item.id,campaignId),"Relação removida.")}>Remover relação</button>}</p>)}
       <p role="status">{message}</p>
     </article>
     {canManage&&<article className="generation-card"><h2>{editing?"Editar registro":"Novo registro"}</h2><form className="inventory-form" onSubmit={save}>
@@ -60,7 +61,7 @@ export function WorldLibraryPanel({campaignId,viewerId,canManage}:{campaignId:st
       <label>Ameaça<select value={threat} onChange={event=>setThreat(event.target.value)}>{["minor","moderate","major","critical","cataclysmic"].map(value=><option key={value}>{value}</option>)}</select></label>
       {[["Sistema",system,setSystem],["Gancho",hook,setHook],["Fonte e página",source,setSource]].map(([label,value,setter])=><label key={label as string}>{label as string}<input value={value as string} maxLength={1000} onChange={event=>(setter as (value:string)=>void)(event.target.value)}/></label>)}
       <div className="actions"><button className="primary" disabled={busy} type="submit">Salvar registro</button><button className="quiet" type="button" onClick={()=>{setEditing(null);setName("");setDescription("");setHook("");setSource("");}}>Novo</button></div>
-    </form><h3>Ligar registros</h3><form className="inventory-form" onSubmit={event=>{event.preventDefault();if(from===to){setMessage("Escolha registros diferentes.");return;}void write(()=>createClient().from("world_relations").insert({campaign_id:campaignId,from_entity_id:from,to_entity_id:to,relation_type:relation,created_by:viewerId}).select("id"),"Relação salva.");}}>
+    </form><h3>Ligar registros</h3><form className="inventory-form" onSubmit={event=>{event.preventDefault();if(from===to){setMessage("Escolha registros diferentes.");return;}void write(()=>world.createRelation(browserDb(),{campaignId,fromId:from,toId:to,type:relation,createdBy:viewerId}),"Relação salva.");}}>
       <label>Origem<select required value={from} onChange={event=>setFrom(event.target.value)}><option value="">Selecione</option>{entities.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Destino<select required value={to} onChange={event=>setTo(event.target.value)}><option value="">Selecione</option>{entities.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Relação<input value={relation} required maxLength={80} onChange={event=>setRelation(event.target.value)}/></label><button className="primary" disabled={busy} type="submit">Salvar relação</button>
     </form></article>}
   </section>;

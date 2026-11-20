@@ -81,3 +81,10 @@ export function shareShoppingList(db: Db, list: { id: string; version: number },
 export function deleteShoppingList(db: Db, list: { id: string; version: number }) {
   return db.from("character_shopping_lists").delete().eq("id", list.id).eq("version", list.version).select("id");
 }
+
+/** Itens da ficha no formato da cópia local. */
+export function listBackupItems(db: Db, sheetId: string, campaignId: string) {
+  return db.from("character_inventory")
+    .select("sheet_id, name, category, quantity, resource_cost, damage_bonus, damage_type, protection, notes, acquired, equipped, sort_order, custom_values")
+    .eq("sheet_id", sheetId).eq("campaign_id", campaignId).order("sort_order");
+}

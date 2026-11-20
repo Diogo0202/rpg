@@ -24,7 +24,8 @@ import {
   COMPENDIUM_TYPE_LABELS,
 } from "../lib/compendium-types";
 import { CompendiumImportEntry, CompendiumImportError, parseCompendiumImport } from "../lib/compendium-import";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { importCompendiumEntries, listCompendiumEntries, proposeCompendiumEntry, reviewCompendiumEntry } from "../lib/data/world";
 import styles from "./compendium-panel.module.css";
 
 type CompendiumPanelProps = {
@@ -67,7 +68,7 @@ function ImportSection({ campaignId, onDone }: { campaignId: string; onDone: (me
     setBusy(true);
     setServerErrors([]);
     try {
-      const { data, error } = await createClient().rpc("compendium_import_entries", { p_campaign_id: campaignId, p_entries: preview.entries });
+      const { data, error } = await importCompendiumEntries(browserDb(), campaignId, preview.entries);
       if (error) throw error;
       const result = data as { inserted: number; errors: CompendiumImportError[] };
       if (result.errors?.length) { setServerErrors(result.errors); return; }
@@ -178,7 +179,7 @@ function ProposalForm({ campaignId, onSaved }: { campaignId: string; onSaved: (m
     if (!payload) return;
     setBusy(true);
     try {
-      const { error } = await createClient().rpc("compendium_propose_entry", payload);
+      const { error } = await proposeCompendiumEntry(browserDb(), payload);
       if (error) throw error;
       setDraft(emptyProposalDraft());
       onSaved("Proposta enviada. O narrador precisa aprovar antes de ela aparecer para a mesa.");
@@ -232,7 +233,7 @@ function ReviewItem({ row, onDone }: { row: CampaignCompendiumRow; onDone: (mess
     if (busy) return;
     setBusy(true);
     try {
-      const { error } = await createClient().rpc("compendium_review_entry", { p_entry_id: row.id, p_action: action, p_note: note.trim() || null });
+      const { error } = await reviewCompendiumEntry(browserDb(), row.id, action, note.trim() || null);
       if (error) throw error;
       onDone(action === "approve" ? `“${row.title}” aprovado para a campanha.` : `“${row.title}” rejeitado.`);
     } catch {
@@ -277,8 +278,7 @@ export function CompendiumPanel({ selectedNames = [], onSelect, campaignId, view
     const request = ++requestRef.current;
     setLoading(true);
     try {
-      const { data, error } = await createClient().from("campaign_compendium_entries").select(CAMPAIGN_COMPENDIUM_COLUMNS)
-        .eq("campaign_id", campaignId).order("updated_at", { ascending: false }).limit(500);
+      const { data, error } = await listCompendiumEntries(browserDb(), campaignId, CAMPAIGN_COMPENDIUM_COLUMNS);
       if (error) throw error;
       if (request === requestRef.current) setRows((data ?? []) as unknown as CampaignCompendiumRow[]);
     } catch {

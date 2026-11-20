@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as mapRepo from "../lib/data/maps";
 import { parseMapDocument, type MapDocumentV2 } from "../lib/map-document";
 import { distance } from "../lib/map-geometry";
 import { kitForSystem } from "../lib/map-kits";
@@ -33,10 +35,10 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
 
   useEffect(() => {
     let active = true;
-    const client = createClient();
+    const db = browserDb();
     void Promise.all([
-      client.rpc("list_player_maps", { p_campaign_id: campaignId }),
-      client.from("character_sheets").select("id").eq("campaign_id", campaignId).eq("owner_id", viewerId),
+      mapRepo.listPlayerMaps(db, campaignId),
+      mapRepo.listOwnSheetIds(db, campaignId, viewerId),
     ]).then(([mapResult, sheetResult]) => {
       if (!active) return;
       if (mapResult.error) { setMessage("Não foi possível listar os mapas compartilhados."); return; }
@@ -60,7 +62,7 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
   useEffect(() => {
     let active = true;
     if (!selectedId) { setLoaded(null); return; }
-    void createClient().rpc("get_player_map", { p_map_id: selectedId }).then(({ data, error }) => {
+    void mapRepo.getPlayerMap(browserDb(), selectedId).then(({ data, error }) => {
       if (!active) return;
       if (error || !data) { setLoaded(null); setMessage("Este mapa não está mais compartilhado."); return; }
       const row = data as { id: string; name: string; version: number; system_key: string | null; document: unknown };
@@ -103,7 +105,7 @@ export function PlayerMapView({ campaignId, viewerId }: { campaignId: string; vi
       if (!moved) return;
       const pin = loaded.document.pins.find((item) => item.id === pinId);
       if (!pin) return;
-      void createClient().rpc("move_own_pin", { p_map_id: loaded.id, p_pin_id: pinId, p_x: pin.x, p_y: pin.y }).then(({ error }) => {
+      void mapRepo.moveOwnPin(browserDb(), { mapId: loaded.id, pinId, x: pin.x, y: pin.y }).then(({ error }) => {
         setMessage(error ? "Não foi possível mover o pin; o mapa foi recarregado." : "Posição do seu personagem salva.");
         setRevision((value) => value + 1);
       });

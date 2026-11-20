@@ -5,6 +5,9 @@ import * as inventory from "../lib/data/inventory.ts";
 import * as sheets from "../lib/data/sheets.ts";
 import * as v5 from "../lib/data/v5.ts";
 import * as hunter from "../lib/data/hunter.ts";
+import * as maps from "../lib/data/maps.ts";
+import * as combat from "../lib/data/combat.ts";
+import * as world from "../lib/data/world.ts";
 
 const item = { id: "item-1", version: 4 };
 
@@ -107,5 +110,35 @@ test("hunter cell updates are guarded by version and bonds point to one kind of 
   assert.deepEqual(calls, [
     [["from", "hunter_cells"], ["update", { danger: 1, desperation: 3, notes: "" }], ["eq", "id", "cell"], ["eq", "version", 2]],
     [["from", "hunter_cell_bonds"], ["insert", { cell_id: "cell", campaign_id: "c1", from_sheet_id: "s1", kind: "confianca", description: "", to_sheet_id: null, to_target_id: "t1" }]],
+  ]);
+});
+
+test("map and scene writes only land on the version that was read", () => {
+  const { db, calls } = fakeDb();
+  maps.saveMap(db, { id: "m1", campaign_id: "c1", version: 5 }, { name: "Porto" });
+  maps.deleteMap(db, { id: "m1", version: 5 }, "c1");
+  combat.updateScene(db, { id: "sc1", campaignId: "c1", version: 9 }, { active: false });
+  assert.deepEqual(calls, [
+    [["from", "maps"], ["update", { name: "Porto" }], ["eq", "id", "m1"], ["eq", "campaign_id", "c1"], ["eq", "version", 5], ["select", maps.MAP_COLUMNS], ["maybeSingle"]],
+    [["from", "maps"], ["delete"], ["eq", "id", "m1"], ["eq", "campaign_id", "c1"], ["eq", "version", 5], ["select", "id"], ["maybeSingle"]],
+    [["from", "combat_sessions"], ["update", { active: false }], ["eq", "id", "sc1"], ["eq", "campaign_id", "c1"], ["eq", "version", 9], ["select", combat.SCENE_COLUMNS], ["maybeSingle"]],
+  ]);
+});
+
+test("players move only their own pin through the RPC", () => {
+  const { db, calls } = fakeDb();
+  maps.moveOwnPin(db, { mapId: "m1", pinId: "p1", x: 3, y: 4 });
+  assert.deepEqual(calls, [[["rpc", "move_own_pin", { p_map_id: "m1", p_pin_id: "p1", p_x: 3, p_y: 4 }]]]);
+});
+
+test("world entity changes keep campaign and version guards", () => {
+  const { db, calls } = fakeDb();
+  world.updateEntity(db, { id: "e1", version: 2 }, "c1", { name: "Ana" });
+  world.deleteEntity(db, { id: "e1", version: 2 }, "c1");
+  world.createEntity(db, { campaignId: "c1", createdBy: "u1", kind: "npc", name: "Ana", body: {} }, "id,name,kind");
+  assert.deepEqual(calls, [
+    [["from", "world_entities"], ["update", { name: "Ana" }], ["eq", "id", "e1"], ["eq", "campaign_id", "c1"], ["eq", "version", 2], ["select", "id"]],
+    [["from", "world_entities"], ["delete"], ["eq", "id", "e1"], ["eq", "campaign_id", "c1"], ["eq", "version", 2], ["select", "id"]],
+    [["from", "world_entities"], ["insert", { campaign_id: "c1", kind: "npc", name: "Ana", body: {}, created_by: "u1" }], ["select", "id,name,kind"], ["single"]],
   ]);
 });

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -8,6 +8,8 @@ import {
 } from "../lib/combat-state";
 import { applyRowChange, connectionLabel, startRealtimeSync, type RealtimeConnection, type RowChange } from "../lib/realtime-sync";
 import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as combat from "../lib/data/combat";
 import { downloadText } from "../lib/download";
 import { CampaignPresence } from "./campaign-presence";
 import { CampaignChat } from "./campaign-chat";
@@ -16,7 +18,6 @@ import styles from "./scene-mode-panel.module.css";
 type Scene = { id: string; campaign_id: string; title: string; state: unknown; active: boolean; created_by: string; version: number; created_at: string };
 type SceneNote = { id: string; combat_id: string; actor_id: string; event_type: string; payload: { description?: string }; created_at: string };
 
-const SCENE_COLUMNS = "id,campaign_id,title,state,active,created_by,version,created_at";
 function slug(value: string) { return value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "cena"; }
 
 export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId: string; viewerId: string; canManage: boolean }) {
@@ -50,8 +51,8 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     const request = ++requestRef.current;
     if (!silent) setLoading(true);
     try {
-      const client = createClient();
-      const { data, error } = await client.from("combat_sessions").select(SCENE_COLUMNS).eq("campaign_id", requestCampaign).order("created_at", { ascending: false });
+      const db = browserDb();
+      const { data, error } = await combat.listScenes(db, requestCampaign);
       if (error) throw error;
       if (request !== requestRef.current || campaignRef.current !== requestCampaign) return;
       const rows = (data ?? []) as Scene[];
@@ -59,7 +60,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
       setSelectedId((current) => rows.some((row) => row.id === current) ? current : rows[0]?.id ?? null);
       const activeIds = rows.map((row) => row.id);
       if (activeIds.length) {
-        const result = await client.from("combat_events").select("id,combat_id,actor_id,event_type,payload,created_at").in("combat_id", activeIds).eq("event_type", "notes").order("created_at", { ascending: false }).limit(500);
+        const result = await combat.listSceneNotes(db, activeIds);
         if (result.error) throw result.error;
         if (request === requestRef.current && campaignRef.current === requestCampaign) setNotes((result.data ?? []) as SceneNote[]);
       } else setNotes([]);
@@ -117,7 +118,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     const requestCampaign = campaignId;
     setBusy(true); setMessage("");
     try {
-      const { data, error } = await createClient().from("combat_sessions").insert({ campaign_id: requestCampaign, title, state: blankCombatState(), active: true, created_by: viewerId }).select(SCENE_COLUMNS).single();
+      const { data, error } = await combat.createScene(browserDb(), { campaignId: requestCampaign, title, state: blankCombatState(), createdBy: viewerId });
       if (error) throw error;
       if (campaignRef.current !== requestCampaign) return;
       setTitleDraft("");
@@ -134,7 +135,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     const sceneId = selected.id;
     setBusy(true); setMessage("");
     try {
-      const { data, error } = await createClient().from("combat_sessions").update({ state: next }).eq("id", sceneId).eq("campaign_id", requestCampaign).eq("version", selected.version).select(SCENE_COLUMNS).maybeSingle();
+      const { data, error } = await combat.updateScene(browserDb(), { id: sceneId, campaignId: requestCampaign, version: selected.version }, { state: next });
       if (error || !data) throw error ?? new Error("stale scene");
       if (campaignRef.current !== requestCampaign) return false;
       setScenes((rows) => applyRowChange(rows, { eventType: "UPDATE", new: data as Scene }));
@@ -153,7 +154,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     setBusy(true); setMessage("");
     try {
       // Same path the generators use: re-reads, merges and retries on version conflicts.
-      await appendParticipantsToCombat(createClient(), { campaignId: requestCampaign, combatId: selected.id }, [{ name: participantName, initiative: Number(initiativeDraft) }]);
+      await appendParticipantsToCombat(browserDb(), { campaignId: requestCampaign, combatId: selected.id }, [{ name: participantName, initiative: Number(initiativeDraft) }]);
       if (campaignRef.current !== requestCampaign) return;
       setParticipantName(""); setInitiativeDraft("0");
       setMessage("Participante incluído na ordem de iniciativa.");
@@ -177,7 +178,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     const sceneId = selected.id;
     setBusy(true); setMessage("");
     try {
-      const { data, error } = await createClient().from("combat_sessions").update({ active: false }).eq("id", sceneId).eq("campaign_id", requestCampaign).eq("version", selected.version).select(SCENE_COLUMNS).maybeSingle();
+      const { data, error } = await combat.updateScene(browserDb(), { id: sceneId, campaignId: requestCampaign, version: selected.version }, { active: false });
       if (error || !data) throw error ?? new Error("stale scene");
       if (campaignRef.current === requestCampaign) { setScenes((rows) => applyRowChange(rows, { eventType: "UPDATE", new: data as Scene })); setMessage("Cena encerrada."); }
     } catch { if (campaignRef.current === requestCampaign) { setMessage("A cena mudou ou não foi encerrada. A versão atual foi carregada."); await refresh(requestCampaign, true); } }
@@ -191,7 +192,7 @@ export function SceneModePanel({ campaignId, viewerId, canManage }: { campaignId
     const combatId = selected.id;
     setBusy(true); setMessage("");
     try {
-      const { data, error } = await createClient().from("combat_events").insert({ combat_id: combatId, actor_id: viewerId, event_type: "notes", payload: { description: noteDraft.trim() } }).select("id,combat_id,actor_id,event_type,payload,created_at").single();
+      const { data, error } = await combat.addSceneNote(browserDb(), { combatId, actorId: viewerId, description: noteDraft.trim() });
       if (error) throw error;
       if (campaignRef.current !== requestCampaign) return;
       const note = data as SceneNote;
