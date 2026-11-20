@@ -1,808 +1,105 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-
-import { browserDb } from "../lib/data/browser";
-import * as sheetRepo from "../lib/data/sheets";
-import { apiBase, sessionToken } from "../lib/api/session";
-import { useCharacterSession, type CharacterEffect } from "../lib/character-session";
-import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
-import { findCompendiumEntry } from "../lib/compendium";
-import { authenticatedPost, authenticatedPostWithChronicle, type ModifierPreview } from "./character-effects-panel";
-import { buildChronicleContext, chronicleActivityLabel, newRollKey, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
-import { SYSTEM_STARTERS } from "../../shared/rules/system-starters";
-import { characterNameField, fieldKinds, creationSteps, identityKinds, type FieldKind, type SheetField, type SheetTemplate, type FieldValue, type StoredTemplate, type SelectDependency } from "../../shared/rules/sheet-template";
-import { fieldOptions, isFieldActive, reconcileDependentValues } from "../../shared/rules/sheet-creation";
-import { createCampaignSheet } from "../lib/sheet-api";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { OneRingCharacterBuilder } from "./one-ring-character-builder";
-import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { PortraitPicker } from "./portrait-picker";
-import { HomebrewClanEditor } from "./homebrew-clan-editor";
+import { SheetCreationWizard } from "./sheet-creation-wizard";
 import { SheetVersionHistory } from "./sheet-version-history";
-import { deleteCampaignSheet } from "../lib/sheet-history";
-type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview; chronicle?: ChronicleActivityStatus | null };
-type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
-const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
-const identityLabels = { race: "Raça", subrace: "Sub-raça", clan: "Clã", predator: "Predador", creed: "Credo", lineage: "Linhagem", origin: "Origem", archetype: "Arquétipo" };
+import { SheetPreview } from "./sheet-builder/sheet-preview";
+import { TemplateEditor } from "./sheet-builder/template-editor";
+import { useSheetBuilder, type SheetBuilderState } from "./sheet-builder/use-sheet-builder";
 
-const initialTemplate: SheetTemplate = {
-  name: "Investigador do Outro Lado",
-  version: 1,
-  fields: [
-    { id: "nome", label: "Nome", kind: "text", required: true, options: [], expression: null },
-    { id: "vigor", label: "Vigor", kind: "number", required: true, options: [], expression: null },
-    { id: "astucia", label: "Astúcia", kind: "number", required: true, options: [], expression: null },
-    { id: "perfil", label: "Área de atuação", kind: "select", required: false, options: ["Investigação", "Medicina", "Ocultismo"], expression: null },
-    { id: "ferimentos", label: "Ferimentos", kind: "number", required: false, options: [], expression: null },
-    { id: "contatos", label: "Contatos", kind: "collection", required: false, options: [], expression: null },
-    { id: "protegido", label: "Tem proteção", kind: "checkbox", required: false, options: [], expression: null },
-    { id: "parada", label: "Parada de investigação", kind: "formula", required: false, options: [], expression: "vigor + astucia" },
-    { id: "teste", label: "Teste de risco", kind: "roll", required: false, options: [], expression: "2d6+3" },
-  ],
-};
+type Props = { campaignId: string; viewerId: string; canManageTemplates: boolean; canEditSheets: boolean };
 
+/** Escolha de modelo e ficha, retrato, gravação e exclusão. */
+function SheetPickerCard({ builder, campaignId, viewerId, canManageTemplates, canEditSheets }: Props & { builder: SheetBuilderState }) {
+  const { templates, sheets, templateId, sheetId, sheetName, portraitPath, busy, confirmDelete, setConfirmDelete } = builder;
+  const canDelete = Boolean(sheetId) && canManageTemplates;
+  return <article className="sheet-template-card">
+    <p className="eyebrow">FICHAS DA CAMPANHA</p>
+    <h2>Modelos e personagens</h2>
+    <div className="sheet-field-grid">
+      <label>Modelo
+        <select value={templateId} onChange={(event) => builder.chooseTemplate(event.target.value)}>
+          <option value="">{canManageTemplates ? "Novo modelo" : "Selecione um modelo"}</option>
+          {templates.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}
+        </select>
+      </label>
+      <label>Ficha existente
+        <select value={sheetId} onChange={(event) => builder.chooseSheet(event.target.value)}>
+          <option value="">Nova ficha</option>
+          {sheets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+        </select>
+      </label>
+    </div>
+    {templates.length === 0 && !canManageTemplates ? <p className="sheet-feedback">O mestre ainda não publicou um modelo nesta campanha.</p> : null}
+    <label className="sheet-name">Nome do personagem
+      <input value={sheetName} maxLength={120} onChange={(event) => builder.changeCharacterName(event.target.value)} placeholder="Nome da ficha" />
+    </label>
+    {templateId && canEditSheets && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
+      required={!sheetId} disabled={busy} onChange={(path) => { builder.setPortraitPath(path); builder.setFeedback(sheetId ? "Novo retrato enviado. Salve a ficha para aplicá-lo." : ""); }} />}
+    <div className="actions">
+      <button className="primary" type="button" onClick={() => void builder.saveSheet()} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
+      <button className="quiet" type="button" onClick={() => { builder.chooseTemplate(templateId); builder.setMode("guided"); }}>Nova ficha</button>
+      {canDelete && !confirmDelete ? <button className="quiet" type="button" onClick={() => setConfirmDelete(true)}>Excluir ficha</button> : null}
+    </div>
+    {canDelete && confirmDelete ? <div className="sheet-feedback" role="alertdialog" aria-label="Confirmar exclusão da ficha">
+      <p>Excluir “{sheetName || "esta ficha"}” apaga a ficha e todo o histórico de versões. Não é possível desfazer.</p>
+      <div className="actions">
+        <button className="primary" type="button" onClick={builder.deleteSheet} disabled={busy}>Confirmar exclusão</button>
+        <button className="quiet" type="button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+      </div>
+    </div> : null}
+  </article>;
+}
 
-export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEditSheets }: { campaignId: string; viewerId: string; canManageTemplates: boolean; canEditSheets: boolean }) {
-  const { character, selectCharacter, contextTags } = useCharacterSession();
-  const editorRevision = useRef(0);
-  const selectedCharacterId = useRef(character?.id);
-  selectedCharacterId.current = character?.id;
-  const rollRules = useRef("");
-  rollRules.current = JSON.stringify({ effects: character?.effects, contextTags });
-  const [template, setTemplate] = useState<SheetTemplate>(initialTemplate);
-  const [values, setValues] = useState<Record<string, FieldValue>>({});
-  const [templates, setTemplates] = useState<StoredTemplate[]>([]);
-  const [sheets, setSheets] = useState<StoredSheet[]>([]);
-  const [templateId, setTemplateId] = useState("");
-  const [sheetId, setSheetId] = useState("");
-  const [sheetName, setSheetName] = useState("");
-  const [sheetVersion, setSheetVersion] = useState(0);
-  const [calculated, setCalculated] = useState<Record<string, unknown>>({});
-  const [rollResults, setRollResults] = useState<Record<string, RollResult>>({});
-  const [feedback, setFeedback] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<"guided" | "editor">("guided");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [calculationError, setCalculationError] = useState("");
-  const [portraitPath, setPortraitPath] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+export function SheetBuilder(props: Props) {
+  const { campaignId, viewerId, canManageTemplates, canEditSheets } = props;
+  const builder = useSheetBuilder(props);
+  const { template, templateId, sheetId, busy, mode } = builder;
+  const oneRingV3 = template.system_key === "one-ring" && template.rules_profile_version === 3 && Boolean(templateId);
+  const ownsSheet = builder.sheets.find((item) => item.id === sheetId)?.owner_id === viewerId;
 
-  useEffect(() => {
-    let active = true;
-    const db = browserDb();
-    async function load() {
-      setLoading(true);
-      setLoadError("");
-      const [templateResult, sheetResult] = await Promise.all([
-        sheetRepo.listApprovedTemplates(db, campaignId),
-        sheetRepo.listCampaignSheets(db, campaignId),
-      ]);
-      if (!active) return;
-      if (templateResult.error || sheetResult.error) {
-        setLoadError("Não foi possível carregar os modelos e fichas. Confira a conexão e reabra esta campanha.");
-        setLoading(false);
-        return;
-      }
-      setTemplates((templateResult.data ?? []) as StoredTemplate[]);
-      setSheets((sheetResult.data ?? []) as StoredSheet[]);
-      setLoading(false);
-    }
-    void load().catch(() => {
-      if (active) {
-        setLoadError("Não foi possível carregar as fichas. Reabra esta campanha para tentar novamente.");
-        setLoading(false);
-      }
-    });
-    return () => { active = false; };
-  }, [campaignId]);
-
-  useEffect(() => {
-    if (character && character.id !== sheetId && sheets.some((sheet) => sheet.id === character.id)) chooseSheet(character.id);
-    else if (!character && sheetId) { setSheetId(""); setSheetName(""); setSheetVersion(0); setValues({}); setCalculated({}); }
-  }, [character?.id, sheets, templates]);
-
-  function chooseTemplate(id: string) {
-    if (busy) return;
-    editorRevision.current += 1;
-    selectCharacter(null);
-    const stored = templates.find((item) => item.id === id);
-    setTemplateId(id);
-    setTemplate(stored?.schema ?? initialTemplate);
-    setSheetId("");
-    setSheetName("");
-    setSheetVersion(0);
-    setPortraitPath(null);
-    setValues({});
-    setCalculated({});
-    setRollResults({});
-    setFeedback("");
-  }
-
-  function chooseSheet(id: string) {
-    if (busy) return;
-    editorRevision.current += 1;
-    const stored = sheets.find((item) => item.id === id);
-    if (!stored) { selectCharacter(null); setSheetId(""); setSheetName(""); setSheetVersion(0); setValues({}); return; }
-    const source = templates.find((item) => item.id === stored.template_id);
-    if (!source) { setFeedback("O modelo desta ficha não está disponível."); return; }
-    setTemplate(source.schema);
-    setTemplateId(source.id);
-    setSheetId(stored.id);
-    setSheetName(stored.name);
-    setSheetVersion(stored.version);
-    setPortraitPath(stored.portrait_path ?? null);
-    const nameField = characterNameField(source.schema);
-    setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
-    setCalculated({});
-    setRollResults({});
-    setFeedback("");
-    setConfirmDelete(false);
-    selectCharacter(stored);
-    setMode("editor");
-  }
-
-  function loadStarter(id:string) {
-    if (busy) return;
-    const starter=SYSTEM_STARTERS.find(item=>item.id===id);
-    if(!starter)return;
-    editorRevision.current += 1;
-    selectCharacter(null);
-    setTemplate(starter.template);
-    setTemplateId("");
-    setSheetId("");
-    setSheetName("");
-    setSheetVersion(0);
-    setValues({...starter.values});
-    setCalculated({});
-    setRollResults({});
-    setFeedback(`Base de ${starter.label} carregada. Revise os campos e salve o modelo na campanha.`);
-  }
-
-  async function saveTemplate() {
-    if (!canManageTemplates) return;
-    for (const field of template.fields) {
-      if (!field.depends_on) continue;
-      const parent = template.fields.find((candidate) => candidate.id === field.depends_on?.field_id);
-      const parentOptions = parent ? possibleTemplateOptions(parent) : [];
-      const orphanedCase = field.depends_on.cases.find((item) => !parentOptions.includes(item.equals));
-      if (orphanedCase) {
-        setFeedback(`O caso “${orphanedCase.equals || "sem valor"}” de ${field.label} não corresponde às opções válidas do campo controlador.`);
-        return;
-      }
-    }
-    const api = apiBase();
-    if (!api) { setFeedback("Configure NEXT_PUBLIC_API_URL para validar o modelo."); return; }
-    setBusy(true);
-    const revision = editorRevision.current;
-    const selection = selectedCharacterId.current;
-    const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection;
-    try {
-      await authenticatedPost("/api/v1/templates/validate", template);
-      if (!isCurrent()) return;
-      const { data, error } = await sheetRepo.insertApprovedTemplate(browserDb(), {
-        campaignId, ownerId: viewerId, name: template.name, version: template.version, schema: template,
-      });
-      if (error || !data) throw new Error(error?.message ?? "Não foi possível salvar o modelo.");
-      setTemplates((current) => [...current, data as StoredTemplate]);
-      if (!isCurrent()) return;
-      setTemplateId(data.id);
-      setFeedback("Modelo salvo na campanha. Agora crie uma ficha.");
-    } catch (error) {
-      if (isCurrent()) setFeedback(error instanceof Error ? error.message : "Não foi possível salvar o modelo.");
-    } finally { setBusy(false); }
-  }
-
-  async function saveSheet(submittedValues?: Record<string, FieldValue>) {
-    if (busy) return;
-    if (!canEditSheets) { setFeedback("Seu papel nesta campanha permite apenas leitura das fichas."); return; }
-    if (!templateId) { setFeedback("Selecione um modelo salvo antes de gravar a ficha."); return; }
-    const name = (typeof submittedValues?.nome === "string" ? submittedValues.nome : sheetName).trim();
-    if (!name || name.length > 120) { setFeedback("Informe um nome de ficha com até 120 caracteres."); return; }
-    if (!sheetId && !portraitPath && !(template.system_key === "one-ring" && template.rules_profile_version === 3)) { setFeedback("Envie o retrato do personagem antes de criar a ficha."); return; }
-    setBusy(true);
-    const revision = editorRevision.current;
-    const selection = selectedCharacterId.current;
-    const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection;
-    try {
-      const payloadValues = submittedValues ?? collectValues() as Record<string, FieldValue>;
-      if (sheetId) {
-        const { data, error } = await sheetRepo.updateSheetValues(browserDb(), { id: sheetId, campaignId, version: sheetVersion },
-          { name, values: payloadValues, portrait_path: portraitPath });
-        if (error || !data) throw new Error(error?.message ?? "A ficha mudou em outra sessão. Reabra antes de salvar.");
-        setSheets((current) => current.map((item) => item.id === data.id ? data as StoredSheet : item));
-        if (!isCurrent()) return;
-        setSheetVersion(data.version);
-        selectCharacter(data as StoredSheet);
-      } else {
-        const api = apiBase();
-        if (!api) throw new Error("A API de fichas não está configurada. O preenchimento continua nesta tela.");
-        const token = await sessionToken("Entre na campanha para salvar esta ficha.");
-        const data = await createCampaignSheet(api, token, campaignId, {
-          template_id: templateId, name, values: payloadValues, ...(portraitPath ? {portrait_path:portraitPath} : {}),
-        }) as StoredSheet;
-        data.effects ??= [];
-        setSheets((current) => [...current, data]);
-        if (!isCurrent()) return;
-        setSheetId(data.id);
-        setSheetVersion(data.version);
-        selectCharacter(data);
-        setMode("editor");
-        setValues(payloadValues); setSheetName(name);
-      }
-      setFeedback("Ficha salva e selecionada para a sessão.");
-    } catch (error) {
-      if (isCurrent()) setFeedback(error instanceof Error ? error.message : "Não foi possível salvar a ficha.");
-      if (submittedValues) throw error;
-    } finally { setBusy(false); }
-  }
-
-  // FIC-11: only campaign managers may delete (RLS); the API checks the version.
-  async function deleteSheet() {
-    if (busy || !sheetId || !canManageTemplates) return;
-    const api = apiBase();
-    if (!api) { setFeedback("A API de fichas não está configurada."); return; }
-    setBusy(true);
-    const removedId = sheetId;
-    const removedName = sheetName;
-    try {
-      const token = await sessionToken("Entre na campanha para excluir a ficha.");
-      await deleteCampaignSheet(api, token, removedId, sheetVersion);
-      editorRevision.current += 1;
-      setSheets((current) => current.filter((item) => item.id !== removedId));
-      selectCharacter(null);
-      setSheetId(""); setSheetName(""); setSheetVersion(0); setPortraitPath(null);
-      setValues({}); setCalculated({}); setRollResults({});
-      setFeedback(`Ficha ${removedName || "selecionada"} excluída.`);
-    } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "Não foi possível excluir a ficha.");
-    } finally {
-      setConfirmDelete(false);
-      setBusy(false);
-    }
-  }
-
-  function applyRestoredSheet(restored: Record<string, unknown>) {
-    const stored = { effects: [], ...restored } as unknown as StoredSheet;
-    setSheets((current) => current.map((item) => item.id === stored.id ? { ...item, ...stored } : item));
-    if (stored.id !== sheetId) return;
-    editorRevision.current += 1;
-    setSheetVersion(stored.version);
-    setSheetName(stored.name);
-    const nameField = characterNameField(template);
-    setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
-    setCalculated({});
-    setRollResults({});
-    selectCharacter(stored);
-    setFeedback(`Ficha restaurada. Versão atual: ${stored.version}.`);
-  }
-
-  function updateField(fieldId: string, update: Partial<SheetField>) {
-    editorRevision.current += 1;
-    setTemplateId("");
-    setTemplate((current) => ({
-      ...current,
-      fields: current.fields.map((field) => field.id === fieldId ? { ...field, ...update } : field),
-    }));
-    setCalculated({});
-    setRollResults({});
-    setFeedback("");
-  }
-
-  function renameField(fieldId: string, nextId: string) {
-    editorRevision.current += 1;
-    if (!nextId) {
-      setFeedback("O ID precisa começar com uma letra minúscula.");
-      return;
-    }
-    if (nextId !== fieldId && template.fields.some((field) => field.id === nextId)) {
-      setFeedback("Este ID já está em uso por outro campo.");
-      return;
-    }
-    setTemplateId("");
-    const reference = new RegExp(`(^|[^a-z0-9_])${fieldId}(?=$|[^a-z0-9_])`, "g");
-    setTemplate((current) => ({
-      ...current,
-      fields: current.fields.map((field) => ({
-        ...field,
-        ...(field.id === fieldId ? { id: nextId } : {}),
-        ...(field.depends_on?.field_id === fieldId ? { depends_on: { ...field.depends_on, field_id: nextId } } : {}),
-        ...(field.expression ? { expression: field.expression.replace(reference, `$1${nextId}`) } : {}),
-      })),
-    }));
-    setCalculated({});
-    setRollResults({});
-    setFeedback("");
-    setValues((current) => {
-      const next = { ...current };
-      const previousValue = next[fieldId];
-      delete next[fieldId];
-      if (previousValue !== undefined) next[nextId] = previousValue;
-      return next;
-    });
-  }
-
-  function changeKind(field: SheetField, kind: FieldKind) {
-    updateField(field.id, {
-      kind,
-      character_name: kind === "text" && field.character_name === true,
-      identity_kind: kind === "select" ? field.identity_kind : null,
-      depends_on: kind === "select" ? field.depends_on : undefined,
-      options: kind === "select" ? (field.options.length ? field.options : ["Opção 1"]) : [],
-      expression: kind === "formula" ? (field.expression ?? "") : kind === "roll" ? (field.expression ?? "2d6") : null,
-    });
-    if (kind !== "select") {
-      setTemplate((current) => ({ ...current, fields: current.fields.map((candidate) => candidate.depends_on?.field_id === field.id
-        ? { ...candidate, options: [...new Set(candidate.depends_on.cases.flatMap((item) => item.options))], depends_on: undefined }
-        : candidate) }));
-    }
-  }
-
-  function addField() {
-    editorRevision.current += 1;
-    setTemplateId("");
-    let suffix = template.fields.length + 1;
-    while (template.fields.some((field) => field.id === `campo_${suffix}`)) suffix += 1;
-    const id = `campo_${suffix}`;
-    setTemplate((current) => ({
-      ...current,
-      fields: [...current.fields, { id, label: "Novo campo", kind: "text", required: false, options: [], expression: null }],
-    }));
-    setValues((current) => ({ ...current, [id]: "" }));
-    setFeedback("");
-  }
-
-  function removeField(fieldId: string) {
-    editorRevision.current += 1;
-    setTemplateId("");
-    const nextTemplate = { ...template, fields: template.fields.filter((field) => field.id !== fieldId).map((field) => field.depends_on?.field_id === fieldId
-      ? { ...field, options: [...new Set(field.depends_on.cases.flatMap((item) => item.options))], depends_on: undefined }
-      : field) };
-    setTemplate(nextTemplate);
-    setValues((current) => {
-      const next = { ...current };
-      delete next[fieldId];
-      return next;
-    });
-    setCalculated({});
-    setRollResults({});
-  }
-
-  function setValue(fieldId: string, value: FieldValue | undefined) {
-    if (busy) return;
-    editorRevision.current += 1;
-    setValues((current) => {
-      const next = { ...current };
-      if (value === undefined) delete next[fieldId];
-      else next[fieldId] = value;
-      return reconcileDependentValues(template, next).values;
-    });
-    if (characterNameField(template)?.id === fieldId && typeof value === "string") setSheetName(value);
-    setCalculated({});
-    setRollResults({});
-    setFeedback("");
-  }
-
-  function configureDependency(fieldId: string, parentId: string) {
-    const field = template.fields.find((item) => item.id === fieldId);
-    const parent = template.fields.find((item) => item.id === parentId && item.kind === "select");
-    if (!field) return;
-    if (!parent) {
-      const restoredOptions = field.depends_on?.cases.flatMap((item) => item.options) ?? field.options;
-      updateField(fieldId, { depends_on: undefined, options: [...new Set(restoredOptions)] });
-      return;
-    }
-    const previous = field.depends_on?.field_id === parent.id ? field.depends_on.cases : [];
-    const parentOptions = possibleTemplateOptions(parent);
-    const equalsValues = [...new Set(parentOptions)];
-    const cases = equalsValues.length
-      ? equalsValues.map((equals) => ({ equals, options: previous.find((item) => item.equals === equals)?.options ?? field.options }))
-      : previous;
-    updateField(fieldId, { options: [], depends_on: { field_id: parent.id, cases } });
-  }
-
-  function updateDependencyCase(fieldId: string, index: number, update: Partial<SelectDependency["cases"][number]>) {
-    const field = template.fields.find((item) => item.id === fieldId);
-    if (!field?.depends_on) return;
-    const cases = field.depends_on.cases.map((item, caseIndex) => caseIndex === index ? { ...item, ...update } : item);
-    updateField(fieldId, { depends_on: { ...field.depends_on, cases } });
-  }
-
-  function addDependencyCase(fieldId: string) {
-    const field = template.fields.find((item) => item.id === fieldId);
-    if (!field?.depends_on) return;
-    updateField(fieldId, { depends_on: { ...field.depends_on, cases: [...field.depends_on.cases, { equals: "", options: [] }] } });
-  }
-
-  function removeDependencyCase(fieldId: string, index: number) {
-    const field = template.fields.find((item) => item.id === fieldId);
-    if (!field?.depends_on) return;
-    updateField(fieldId, { depends_on: { ...field.depends_on, cases: field.depends_on.cases.filter((_, caseIndex) => caseIndex !== index) } });
-  }
-
-  function changeCharacterName(name: string) {
-    if (busy) return;
-    editorRevision.current += 1;
-    setSheetName(name);
-    const field = characterNameField(template);
-    if (field) setValues((current) => ({ ...current, [field.id]: name }));
-    setFeedback("");
-  }
-
-  function startCreation() {
-    if (sheetId) chooseTemplate(templateId);
-    setMode("guided");
-  }
-
-  function collectValues(partial = false): Record<string, unknown> {
-    const output: Record<string, unknown> = {};
-    for (const field of template.fields) {
-      if (!isFieldActive(template, field, values)) continue;
-      if (field.kind === "formula" || field.kind === "roll") continue;
-      const value = characterNameField(template)?.id === field.id ? sheetName : values[field.id];
-
-      if (field.kind === "number") {
-        if (value === undefined || value === "") {
-          if (field.required && !partial) throw new Error(`${field.label}: informe um número.`);
-          continue;
-        }
-        if (typeof value !== "number" && typeof value !== "string") throw new Error(`${field.label}: informe um número válido.`);
-        const numberValue = Number(value);
-        if (!Number.isFinite(numberValue)) throw new Error(`${field.label}: informe um número válido.`);
-        output[field.id] = numberValue;
-        continue;
-      }
-
-      if (field.kind === "checkbox") {
-        const checked = value === true;
-        if (field.required && !checked && !partial) throw new Error(`${field.label}: marque esta opção.`);
-        output[field.id] = checked;
-        continue;
-      }
-
-      if (field.kind === "collection") {
-        const items = Array.isArray(value) ? value : [];
-        if (field.required && items.length === 0 && !partial) throw new Error(`${field.label}: adicione ao menos um item.`);
-        output[field.id] = items;
-        continue;
-      }
-
-      const text = typeof value === "string" ? value.trim() : "";
-      if (field.required && !text && !partial) throw new Error(`${field.label}: preencha este campo.`);
-      if (field.kind === "select" && text && !fieldOptions(template, field, values).includes(text)) throw new Error(`${field.label}: escolha uma opção do modelo.`);
-      if (text) output[field.id] = text;
-    }
-
-    for (const field of template.fields.filter((item) => item.kind === "roll")) {
-      if (!field.expression || !/^[1-9][0-9]?d[1-9][0-9]{0,3}(?:[+-][0-9]{1,5})?$/i.test(field.expression.replaceAll(" ", ""))) {
-        throw new Error(`${field.label}: use uma rolagem como 2d6+3.`);
-      }
-    }
-    return output;
-  }
-
-  useEffect(() => {
-    const api = apiBase();
-    if (!api) {
-      setCalculationError(template.fields.some((field) => field.kind === "formula") ? "A API de cálculos não está configurada." : "");
-      return;
-    }
-    let payloadValues: Record<string, unknown>;
-    try {
-      payloadValues = collectValues(true);
-    } catch {
-      setCalculated({});
-      return;
-    }
-    if (!template.fields.some((field) => field.kind === "formula")) {
-      setCalculated(payloadValues);
-      setCalculationError("");
-      return;
-    }
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      try {
-        const result = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }, controller.signal) as { values: Record<string, unknown> };
-        if (!controller.signal.aborted) {
-          setCalculated(result.values as Record<string, unknown>);
-          setCalculationError("");
-        }
-      } catch {
-        if (!controller.signal.aborted) {
-          setCalculated({});
-          setCalculationError("A prévia ainda não pôde ser calculada. Confira os campos numéricos e a conexão.");
-        }
-      }
-    }, 400);
-    return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [template, values, sheetName]);
-
-  async function validateAndCalculate() {
-    const api = apiBase();
-    if (!api) {
-      setFeedback("Configure NEXT_PUBLIC_API_URL para validar e calcular esta ficha.");
-      return;
-    }
-
-    setBusy(true);
-    const revision = editorRevision.current;
-    const selection = selectedCharacterId.current;
-    const rules = rollRules.current;
-    const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection && rules === rollRules.current;
-    setFeedback("");
-    try {
-      const payloadValues = collectValues();
-      await authenticatedPost("/api/v1/templates/validate", template);
-      if (!isCurrent()) return;
-
-      const calculationPayload = await authenticatedPost("/api/v1/sheets/calculate", { template, values: payloadValues }) as { values: Record<string, unknown> };
-      if (!isCurrent()) return;
-      const nextValues = calculationPayload.values as Record<string, unknown>;
-      setCalculated(nextValues);
-
-      const nextRolls: Record<string, RollResult> = {};
-      for (const field of template.fields.filter((item) => item.kind === "roll")) {
-        if (!isCurrent()) return;
-        const chronicle = buildChronicleContext({ sheetId: sheetId || null, campaignId, rollKey: newRollKey(`field:${field.id}`), rollFieldId: field.id });
-        const { data, chronicle: activity } = await authenticatedPostWithChronicle("/api/v1/dice/roll", withChronicle({
-          expression: field.expression, context_tags: contextTags,
-          effects: character?.id === sheetId ? character.effects : [],
-        }, chronicle));
-        const result = data as { rolls: number[]; modifier: number; total: number; modifier_preview?: ModifierPreview };
-        if (!isCurrent()) return;
-        nextRolls[field.id] = { ...result, preview: result.modifier_preview, chronicle: activity };
-      }
-      setRollResults(nextRolls);
-      setFeedback("Template validado. Prévia atualizada.");
-    } catch (error) {
-      if (isCurrent()) {
-        setCalculated({}); setRollResults({});
-        setFeedback(error instanceof Error ? error.message : "Não foi possível validar esta ficha.");
-      }
-    } finally {
-      setBusy(false);
-    }
+  function guidedCreation() {
+    if (oneRingV3) return <>
+      <label>Modelo aprovado<select value={templateId} disabled={busy} onChange={(event) => builder.chooseTemplate(event.target.value)}>{builder.templates.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
+      <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={builder.values} busy={busy} canSave={canEditSheets} onSave={builder.saveSheet} />
+    </>;
+    return <SheetCreationWizard
+      key={templateId || "no-template"}
+      campaignId={campaignId}
+      templates={builder.templates} templateId={templateId} template={template} values={builder.values}
+      name={builder.sheetName} calculated={builder.calculated} busy={busy} canCreate={canEditSheets} canGrantResources={canManageTemplates}
+      loading={builder.loading} loadError={builder.loadError} feedback={builder.feedback} calculationError={templateId ? builder.calculationError : ""}
+      onChooseTemplate={builder.chooseTemplate} onNameChange={builder.changeCharacterName} onValueChange={builder.setValue}
+      onSave={() => builder.saveSheet()} onOpenEditor={canManageTemplates ? () => builder.setMode("editor") : undefined}
+      viewerId={viewerId} portraitPath={builder.portraitPath} onPortraitChange={builder.setPortraitPath}
+    />;
   }
 
   return (
     <section className="content" data-system-theme={template.system_key === "demon-the-fallen" ? "demon-the-fallen" : undefined}>
       <nav className="actions" aria-label="Modo das fichas">
-        <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={startCreation}>Criar personagem</button>
-        <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => setMode("editor")}>Fichas e modelos</button>
+        <button className={mode === "guided" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "guided"} onClick={builder.startCreation}>Criar personagem</button>
+        <button className={mode === "editor" ? "primary" : "quiet"} type="button" disabled={busy} aria-pressed={mode === "editor"} onClick={() => builder.setMode("editor")}>Fichas e modelos</button>
       </nav>
-      {mode === "guided" && !sheetId ? (template.system_key === "one-ring" && template.rules_profile_version === 3 && templateId ? <>
-        <label>Modelo aprovado<select value={templateId} disabled={busy} onChange={(e)=>chooseTemplate(e.target.value)}>{templates.map((item)=><option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
-        <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={values} busy={busy} canSave={canEditSheets} onSave={saveSheet} />
-      </> : <SheetCreationWizard
-        key={templateId || "no-template"}
-        campaignId={campaignId}
-        templates={templates} templateId={templateId} template={template} values={values}
-        name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets} canGrantResources={canManageTemplates}
-        loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
-        onChooseTemplate={chooseTemplate} onNameChange={changeCharacterName} onValueChange={setValue}
-        onSave={() => saveSheet()} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
-        viewerId={viewerId} portraitPath={portraitPath} onPortraitChange={setPortraitPath}
-      />) : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
-      <div className="sheet-builder-column">
-        <article className="sheet-template-card">
-          <p className="eyebrow">FICHAS DA CAMPANHA</p>
-          <h2>Modelos e personagens</h2>
-          <div className="sheet-field-grid">
-            <label>Modelo
-              <select value={templateId} onChange={(event) => chooseTemplate(event.target.value)}>
-                <option value="">{canManageTemplates ? "Novo modelo" : "Selecione um modelo"}</option>
-                {templates.map((item) => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}
-              </select>
-            </label>
-            <label>Ficha existente
-              <select value={sheetId} onChange={(event) => chooseSheet(event.target.value)}>
-                <option value="">Nova ficha</option>
-                {sheets.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-            </label>
-          </div>
-          {templates.length === 0 && !canManageTemplates ? <p className="sheet-feedback">O mestre ainda não publicou um modelo nesta campanha.</p> : null}
-          <label className="sheet-name">Nome do personagem
-            <input value={sheetName} maxLength={120} onChange={(event) => changeCharacterName(event.target.value)} placeholder="Nome da ficha" />
-          </label>
-          {templateId && canEditSheets && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
-            required={!sheetId} disabled={busy} onChange={(path) => { setPortraitPath(path); setFeedback(sheetId ? "Novo retrato enviado. Salve a ficha para aplicá-lo." : ""); }} />}
-          <div className="actions">
-            <button className="primary" type="button" onClick={() => void saveSheet()} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
-            <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>
-            {sheetId && canManageTemplates && !confirmDelete ? <button className="quiet" type="button" onClick={() => setConfirmDelete(true)}>Excluir ficha</button> : null}
-          </div>
-          {sheetId && canManageTemplates && confirmDelete ? <div className="sheet-feedback" role="alertdialog" aria-label="Confirmar exclusão da ficha">
-            <p>Excluir “{sheetName || "esta ficha"}” apaga a ficha e todo o histórico de versões. Não é possível desfazer.</p>
-            <div className="actions">
-              <button className="primary" type="button" onClick={deleteSheet} disabled={busy}>Confirmar exclusão</button>
-              <button className="quiet" type="button" onClick={() => setConfirmDelete(false)}>Cancelar</button>
+      {mode === "guided" && !sheetId ? guidedCreation() : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
+        <div className="sheet-builder-column">
+          <SheetPickerCard {...props} builder={builder} />
+          {sheetId ? <SheetVersionHistory key={sheetId} sheetId={sheetId} sheetVersion={builder.sheetVersion} template={template} viewerId={viewerId}
+            canRestore={canEditSheets} busy={busy} onRestored={builder.applyRestoredSheet} /> : null}
+          <article className="sheet-intro">
+            <div>
+              <p className="eyebrow">OFICINA DE FICHAS / {templateId ? "MODELO SALVO" : "RASCUNHO"}</p>
+              <h2>Monte a ficha da sua mesa.</h2>
             </div>
-          </div> : null}
-        </article>
-        {sheetId ? <SheetVersionHistory key={sheetId} sheetId={sheetId} sheetVersion={sheetVersion} template={template} viewerId={viewerId}
-          canRestore={canEditSheets} busy={busy} onRestored={applyRestoredSheet} /> : null}
-        <article className="sheet-intro">
-          <div>
-            <p className="eyebrow">OFICINA DE FICHAS / {templateId ? "MODELO SALVO" : "RASCUNHO"}</p>
-            <h2>Monte a ficha da sua mesa.</h2>
-          </div>
-          <p>Os campos ficam em blocos independentes. Fórmulas são recalculadas pela API ao editar a ficha.</p>
-        </article>
-
-        {canManageTemplates && !sheetId ? <article className="sheet-template-card">
-          <div className="actions">{SYSTEM_STARTERS.map(starter=><button className="quiet" type="button" key={starter.id} onClick={()=>loadStarter(starter.id)}>Base {starter.label}</button>)}</div>
-          <div className="sheet-template-heading">
-            <label className="sheet-name">Nome do template
-              <input value={template.name} maxLength={120} onChange={(event) => { editorRevision.current += 1; setTemplateId(""); setTemplate((current) => ({ ...current, name: event.target.value })); }} />
-            </label>
-            <label className="sheet-version">Versão
-              <input type="number" min={1} value={template.version} onChange={(event) => { editorRevision.current += 1; setTemplateId(""); setTemplate((current) => ({ ...current, version: Math.max(1, Number(event.target.value) || 1) })); }} />
-            </label>
-          </div>
-          <label className="sheet-preview-input" style={{ marginTop: 16 }}>Identificador do sistema (opcional)
-            <input value={template.system_key ?? ""} maxLength={64} placeholder="Ex.: vampire-v5 ou sistema-da-mesa" onChange={(event) => {
-              editorRevision.current += 1;
-              setTemplateId("");
-              setTemplate((current) => ({ ...current, system_key: event.target.value || null }));
-            }} />
-          </label>
-
-          <HomebrewClanEditor template={template} onChange={(next) => { editorRevision.current += 1; setTemplateId(""); setTemplate(next); }} />
-
-          <div className="sheet-fields-heading"><div><p className="eyebrow">ESTRUTURA</p><h3>Campos da ficha <span>{template.fields.length}</span></h3></div>
-            <button className="quiet" type="button" onClick={addField}>Adicionar campo</button>
-          </div>
-
-          <div className="sheet-field-list">
-            {template.fields.map((field, index) => (
-              <fieldset className="sheet-field-card" key={`${field.id}-${index}`}>
-                <legend>Campo {String(index + 1).padStart(2, "0")}</legend>
-                <div className="sheet-field-grid">
-                  <label>ID do campo
-                    <input value={field.id} maxLength={64} pattern="[a-z][a-z0-9_]{1,63}" onChange={(event) => renameField(field.id, event.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} />
-                  </label>
-                  <label>Rótulo
-                    <input value={field.label} maxLength={120} onChange={(event) => updateField(field.id, { label: event.target.value })} />
-                  </label>
-                  <label>Tipo
-                    <select value={field.kind} onChange={(event) => changeKind(field, event.target.value as FieldKind)}>
-                      {fieldKinds.map((kind) => <option key={kind} value={kind}>{kind}</option>)}
-                    </select>
-                  </label>
-                  <label className="sheet-required"><input type="checkbox" checked={field.required} onChange={(event) => updateField(field.id, { required: event.target.checked })} /> Obrigatório</label>
-                  <label>Etapa da criação
-                    <select value={field.creation_step ?? "other"} onChange={(event) => updateField(field.id, { creation_step: event.target.value as SheetField["creation_step"] })}>
-                      {creationSteps.map((step) => <option key={step} value={step}>{stepLabels[step]}</option>)}
-                    </select>
-                  </label>
-                  {field.kind === "select" && <label>Identidade em destaque
-                    <select value={field.identity_kind ?? ""} onChange={(event) => updateField(field.id, { identity_kind: event.target.value as SheetField["identity_kind"] || null })}>
-                      <option value="">Campo comum</option>{identityKinds.map((kind) => <option key={kind} value={kind}>{identityLabels[kind]}</option>)}
-                    </select>
-                  </label>}
-                  {field.kind === "text" && <label className="sheet-required"><input type="checkbox" checked={field.character_name === true} onChange={(event) => {
-                    editorRevision.current += 1;
-                    setTemplateId("");
-                    setTemplate((current) => ({ ...current, fields: current.fields.map((item) => ({ ...item, character_name: item.id === field.id ? event.target.checked : false })) }));
-                  }} /> Nome do personagem</label>}
-
-                  {field.kind === "select" && <>
-                    <label className="sheet-wide">Campo controlador (opcional)
-                      <select value={field.depends_on?.field_id ?? ""} onChange={(event) => configureDependency(field.id, event.target.value)}>
-                        <option value="">Sem dependência</option>
-                        {template.fields.filter((candidate) => candidate.kind === "select" && candidate.id !== field.id && !createsDependencyCycle(template, field.id, candidate.id)).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.label} ({candidate.id})</option>)}
-                      </select>
-                      <small>O campo aparece quando a escolha controladora tiver um caso configurado.</small>
-                    </label>
-                    {!field.depends_on && <label className="sheet-wide">Opções, uma por linha
-                      <textarea rows={3} value={field.options.join("\n")} onChange={(event) => updateField(field.id, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
-                    </label>}
-                    {field.depends_on && <div className="sheet-wide sheet-dependency-cases">
-                      <p>Casos de opções</p>
-                      <small>Quando o valor controlador corresponder, estas opções substituem as opções fixas. Caso sem correspondência deixa o campo oculto.</small>
-                      {field.depends_on.cases.map((item, caseIndex) => <fieldset className="sheet-dependency-case" key={`${field.id}-case-${caseIndex}`}>
-                        <legend>Caso {caseIndex + 1}</legend>
-                        <label>Valor do campo controlador
-                          <select value={item.equals} onChange={(event) => updateDependencyCase(field.id, caseIndex, { equals: event.target.value })}>
-                            <option value="">Selecione uma opção</option>
-                            {possibleTemplateOptions(template.fields.find((candidate) => candidate.id === field.depends_on?.field_id) ?? field).map((option) => <option key={option} value={option}>{option}</option>)}
-                            {item.equals && !possibleTemplateOptions(template.fields.find((candidate) => candidate.id === field.depends_on?.field_id) ?? field).includes(item.equals) && <option value={item.equals}>{item.equals} (fora das opções atuais)</option>}
-                          </select>
-                        </label>
-                        <label>Opções disponíveis, uma por linha
-                          <textarea rows={3} value={item.options.join("\n")} onChange={(event) => updateDependencyCase(field.id, caseIndex, { options: event.target.value.split("\n").map((option) => option.trim()).filter(Boolean) })} />
-                        </label>
-                        <button className="sheet-remove" type="button" onClick={() => removeDependencyCase(field.id, caseIndex)}>Remover caso</button>
-                      </fieldset>)}
-                      <button className="quiet" type="button" onClick={() => addDependencyCase(field.id)}>Adicionar caso</button>
-                    </div>}
-                  </>}
-
-                  {(field.kind === "formula" || field.kind === "roll") && <label className="sheet-wide">Expressão
-                    <input value={field.expression ?? ""} maxLength={120} spellCheck={false} onChange={(event) => updateField(field.id, { expression: event.target.value })} />
-                    <small>{field.kind === "formula" ? "Aritmética e IDs de outros campos, por exemplo vigor + astucia." : "Formato aceito: NdM, com modificador opcional, por exemplo 2d6+3."}</small>
-                  </label>}
-                  <button className="sheet-remove" type="button" disabled={template.fields.length === 1} onClick={() => removeField(field.id)}>Remover campo</button>
-                </div>
-              </fieldset>
-            ))}
-          </div>
-          <button className="primary" type="button" onClick={saveTemplate} disabled={busy || Boolean(templateId)}>{templateId ? "Modelo salvo" : "Salvar modelo na campanha"}</button>
-        </article>
-        : null}
-      </div>
-
-      <aside className="sheet-preview-card">
-        <p className="eyebrow">PRÉVIA DA MESA</p>
-        <h2>{template.name || "Ficha sem título"}</h2>
-        <p className="sheet-preview-meta">Versão {template.version} <span>·</span> {template.fields.length} campos</p>
-
-        <div className="sheet-preview-fields">
-          {template.fields.filter((field) => isFieldActive(template, field, values)).map((field) => {
-            if (characterNameField(template)?.id === field.id) return null;
-            if (field.kind === "formula") {
-              const result = calculated[field.id];
-              return <div className="sheet-preview-value sheet-computed" key={field.id}><span>{field.label}<small>calculado</small></span><strong>{result === undefined ? "—" : String(result)}</strong></div>;
-            }
-            if (field.kind === "roll") {
-              const result = rollResults[field.id];
-              return <div className="sheet-preview-value sheet-computed" key={field.id}><span>{field.label}<small>{field.expression}</small>{result?.chronicle && chronicleActivityLabel(result.chronicle) && <small>{chronicleActivityLabel(result.chronicle)}</small>}{result?.preview?.applied.map((effect) => <small key={effect.id} title={effect.source_note ?? effect.label}>{effect.delta >= 0 ? "+" : ""}{effect.delta} dados: {effect.label}</small>)}</span><strong>{result ? `${result.rolls.join(" + ")}${result.modifier ? ` ${result.modifier >= 0 ? "+" : "-"} ${Math.abs(result.modifier)}` : ""} = ${result.total}` : "..."}</strong></div>;
-            }
-            if (field.kind === "checkbox") {
-              return <label className="sheet-preview-check" key={field.id}><input type="checkbox" checked={values[field.id] === true} onChange={(event) => setValue(field.id, event.target.checked)} />{field.label}</label>;
-            }
-            if (field.kind === "select") {
-              return <label className="sheet-preview-input" key={field.id}>{field.label}
-                <select value={typeof values[field.id] === "string" ? String(values[field.id]) : ""} onChange={(event) => setValue(field.id, event.target.value)}>
-                  <option value="">Selecione</option>{fieldOptions(template, field, values).map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
-              </label>;
-            }
-            if (field.kind === "collection") {
-              const items = Array.isArray(values[field.id]) ? (values[field.id] as unknown[]).filter((item): item is string => typeof item === "string") : [];
-              return <div key={field.id}><label className="sheet-preview-input">{field.label}
-                <textarea rows={3} value={items.join("\n")} onChange={(event) => setValue(field.id, event.target.value.split("\n").map((item) => item.trim()).filter(Boolean))} placeholder="Um item por linha" />
-              </label>{["disciplinas", "vantagens"].includes(field.id) && <div className="sheet-compendium-links">{items.map((name, index) => <CompendiumReference key={`${name}-${index}`} name={name} />)}</div>}</div>;
-            }
-            return <label className="sheet-preview-input" key={field.id}>{field.label}
-              <input type={field.kind === "number" ? "number" : "text"} value={typeof values[field.id] === "string" || typeof values[field.id] === "number" ? String(values[field.id]) : ""} onChange={(event) => setValue(field.id, event.target.value)} />
-            </label>;
-          })}
+            <p>Os campos ficam em blocos independentes. Fórmulas são recalculadas pela API ao editar a ficha.</p>
+          </article>
+          {canManageTemplates && !sheetId ? <TemplateEditor builder={builder} /> : null}
         </div>
-
-        {template.fields.some((field) => field.kind === "collection" && ["disciplinas", "vantagens"].includes(field.id)) && <details><summary>Adicionar do compêndio</summary><CompendiumPanel campaignId={campaignId} viewerId={viewerId} selectedNames={[...(Array.isArray(values.disciplinas) ? values.disciplinas as string[] : []), ...(Array.isArray(values.vantagens) ? values.vantagens as string[] : [])].filter((name) => typeof name === "string")} onSelect={(name) => {
-          const entry = findCompendiumEntry(name);
-          const fieldId = entry?.type === "discipline" ? "disciplinas" : "vantagens";
-          if (!template.fields.some((field) => field.id === fieldId && field.kind === "collection")) { setFeedback("O modelo não possui a coleção correspondente ao verbete."); return; }
-          const current = Array.isArray(values[fieldId]) ? (values[fieldId] as unknown[]).filter((item): item is string => typeof item === "string") : [];
-          setValue(fieldId, [...new Set([...current, name])]);
-        }} /></details>}
-
-        <button className="primary sheet-calculate" type="button" onClick={validateAndCalculate} disabled={busy}>
-          {busy ? "Validando e rolando..." : "Validar e rolar dados"}
-        </button>
-        <p className={feedback.startsWith("Template validado") || feedback.startsWith("Ficha salva") || feedback.startsWith("Modelo salvo") ? "sheet-feedback success" : "sheet-feedback"} aria-live="polite">{feedback || "Os cálculos aparecem após preencher os campos. Dados só são rolados ao clicar no botão."}</p>
-        <div className="sheet-api-note"><span>Σ</span><p>Fórmulas são calculadas no servidor. O editor não executa código do template.</p></div>
-      </aside>
+        <SheetPreview builder={builder} campaignId={campaignId} viewerId={viewerId} />
       </div></fieldset>}
-      {sheetId && templateId && canEditSheets && sheets.find((item) => item.id === sheetId)?.owner_id === viewerId && <AiSheetRequest key={sheetId} campaignId={campaignId} templateId={templateId} targetId={sheetId} />}
+      {sheetId && templateId && canEditSheets && ownsSheet && <AiSheetRequest key={sheetId} campaignId={campaignId} templateId={templateId} targetId={sheetId} />}
     </section>
   );
-}
-
-function createsDependencyCycle(template: SheetTemplate, childId: string, proposedParentId: string): boolean {
-  let current = template.fields.find((field) => field.id === proposedParentId);
-  const visited = new Set<string>();
-  while (current?.depends_on) {
-    if (current.id === childId || visited.has(current.id)) return true;
-    visited.add(current.id);
-    current = template.fields.find((field) => field.id === current?.depends_on?.field_id);
-  }
-  return current?.id === childId;
-}
-
-function possibleTemplateOptions(field: SheetField): string[] {
-  return [...new Set(field.depends_on ? field.depends_on.cases.flatMap((item) => item.options) : field.options)];
 }

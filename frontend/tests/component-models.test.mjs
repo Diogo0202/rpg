@@ -79,3 +79,51 @@ test("v5 labels, tags and surge bonus", () => {
   assert.equal(surgeBonusUsed({}), 0);
   assert.equal(surgeBonusUsed(null), 0);
 });
+
+test("sheet template rename follows dependencies and expressions without touching longer ids", async () => {
+  const { renameFieldInTemplate } = await import("../components/sheet-builder/template-model.ts");
+  const template = { name: "T", version: 1, fields: [
+    { id: "vigor", label: "Vigor", kind: "number", required: false, options: [], expression: null },
+    { id: "vigor_extra", label: "Extra", kind: "number", required: false, options: [], expression: null },
+    { id: "parada", label: "Parada", kind: "formula", required: false, options: [], expression: "vigor + vigor_extra" },
+    { id: "cla", label: "Clã", kind: "select", required: false, options: [], expression: null, depends_on: { field_id: "vigor", cases: [] } },
+  ] };
+  const renamed = renameFieldInTemplate(template, "vigor", "forca");
+  assert.deepEqual(renamed.fields.map((field) => field.id), ["forca", "vigor_extra", "parada", "cla"]);
+  assert.equal(renamed.fields[2].expression, "forca + vigor_extra");
+  assert.equal(renamed.fields[3].depends_on.field_id, "forca");
+});
+
+test("sheet template dependency helpers release children, detect cycles and orphans", async () => {
+  const { createsDependencyCycle, orphanedDependencyCase, releaseDependents, nextFieldId } = await import("../components/sheet-builder/template-model.ts");
+  const select = (id, extra = {}) => ({ id, label: id, kind: "select", required: false, options: [], expression: null, ...extra });
+  const template = { name: "T", version: 1, fields: [
+    select("a", { options: ["x", "y"] }),
+    select("b", { depends_on: { field_id: "a", cases: [{ equals: "x", options: ["1"] }, { equals: "z", options: ["2", "1"] }] } }),
+  ] };
+  assert.equal(createsDependencyCycle(template, "a", "b"), true);
+  assert.equal(createsDependencyCycle(template, "b", "a"), false);
+  assert.deepEqual(orphanedDependencyCase(template)?.equals, "z");
+  const released = releaseDependents(template.fields, "a");
+  assert.deepEqual(released[1].options, ["1", "2"]);
+  assert.equal(released[1].depends_on, undefined);
+  assert.equal(nextFieldId({ ...template, fields: [...template.fields, select("campo_3")] }), "campo_4");
+});
+
+test("sheet values are collected per kind, skip formulas and reject bad rolls", async () => {
+  const { collectSheetValues } = await import("../components/sheet-builder/template-model.ts");
+  const field = (id, kind, extra = {}) => ({ id, label: id, kind, required: false, options: [], expression: null, ...extra });
+  const template = { name: "T", version: 1, fields: [
+    field("nome", "text", { character_name: true, required: true }),
+    field("vigor", "number", { required: true }),
+    field("contatos", "collection"),
+    field("protegido", "checkbox"),
+    field("parada", "formula", { expression: "vigor" }),
+    field("teste", "roll", { expression: "2d6+3" }),
+  ] };
+  assert.deepEqual(collectSheetValues(template, { vigor: "3", contatos: ["Ana"] }, "Lia"), { nome: "Lia", vigor: 3, contatos: ["Ana"], protegido: false });
+  assert.throws(() => collectSheetValues(template, {}, "Lia"), /vigor: informe um número/);
+  assert.deepEqual(collectSheetValues(template, {}, "", true), { contatos: [], protegido: false });
+  const badRoll = { ...template, fields: [field("teste", "roll", { expression: "d6" })] };
+  assert.throws(() => collectSheetValues(badRoll, {}, ""), /use uma rolagem como 2d6\+3/);
+});
