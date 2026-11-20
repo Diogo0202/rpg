@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LibraryPanel } from "./mais";
+import { LibraryPanel } from "@/components/nexus/more/LibraryPanel";
 
 const nexus = vi.hoisted(() => ({
   mode: "local" as "local" | "connected",

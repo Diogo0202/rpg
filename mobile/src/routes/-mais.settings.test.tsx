@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SettingsPanel } from "./mais";
+import { SettingsPanel } from "@/components/nexus/more/SettingsPanel";
 
 const nexus = vi.hoisted(() => ({
   state: { outbox: [{}, {}] },
