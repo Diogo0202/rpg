@@ -1,4 +1,4 @@
-"""Caçador: A Revanche, structured traits of the v3 starter (frontend/lib/hunter-traits.ts).
+"""Caçador: A Revanche, structured traits of the v3 starter (shared/rules/hunter-traits.ts).
 
 Credo and Ímpeto are closed lists; Pedras de Toque and Convicções are up to three
 pairs of short texts; Redenção is a short free text and Desespero (state) a checkbox.
@@ -130,7 +130,7 @@ def hunter_trait_problems(values: dict[str, Any]) -> list[str]:
 # --- F4: Triunfos (Edges) e Distinções (Perks) ---------------------------------------------
 # Mechanical names only, no rules text. The Portuguese names and the Perks of each Edge are
 # provisional and marked for review against the book (docs/CACADOR_CRIACAO_GUIADA.md, F4).
-# Same lists in frontend/lib/hunter-traits.ts.
+# Same lists in shared/rules/hunter-traits.ts.
 HUNTER_EDGES: dict[str, list[str]] = {
     "Acesso Global": ["Grande Irmão Vigilante", "Passe Universal", "Hack Financeiro", "A Letra da Lei"],
     "Equipamento Improvisado": ["Frugal", "Produção em Massa", "Especialização", "Criação Veloz"],

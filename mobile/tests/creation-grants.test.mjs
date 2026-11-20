@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { activeGrants, applyGrants, creationRuleViolations, grantChoiceFieldIds, grantProblems, grantedItems, powerRules, powerStatus, ruleMessage, staleGrantChoices } from "../src/lib/creation-grants.ts";
-import { reconcileDependentValues } from "../src/lib/sheet-creation.ts";
-import { SYSTEM_STARTERS } from "../src/lib/system-starters.ts";
-import { poolBase, priorityPatch, priorityRules } from "../src/lib/priority-points.ts";
+import { activeGrants, applyGrants, creationRuleViolations, grantChoiceFieldIds, grantProblems, grantedItems, powerRules, powerStatus, ruleMessage, staleGrantChoices } from "../../shared/rules/creation-grants.ts";
+import { reconcileDependentValues } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { poolBase, priorityPatch, priorityRules } from "../../shared/rules/priority-points.ts";
 
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const template = v5.template;
-// The web V5 starter as the server stores it (frontend/lib/system-starters.ts).
+// The web V5 starter as the server stores it (shared/rules/system-starters.ts).
 const fixture = JSON.parse(await readFile(new URL("../../backend/tests/fixtures/v5_starter.json", import.meta.url), "utf8"));
 
 test("a criação local de Demônio confere prioridades e recalcula Vontade", () => {

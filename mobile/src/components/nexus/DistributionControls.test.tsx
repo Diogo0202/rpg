@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { SYSTEM_STARTERS } from "@/lib/system-starters";
+import { SYSTEM_STARTERS } from "../../../../shared/rules/system-starters";
 import { DistributionControls, distributionProblems } from "./DistributionControls";
 
 const template = SYSTEM_STARTERS.find((starter) => starter.id === "hunter")!.template;

@@ -2,15 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync,writeFileSync} from "node:fs";
 import {C,ringInput,evaluateOneRing,reconcileOneRing} from "./one-ring-fixture.mjs";
-import {SYSTEM_STARTERS as web} from "../lib/system-starters.ts";
-import {SYSTEM_STARTERS as mobile} from "../../mobile/src/lib/system-starters.ts";
+import {SYSTEM_STARTERS} from "../../shared/rules/system-starters.ts";
 for(const culture of C.cultures) for(const calling of C.callings) test(`${culture.id}/${calling.id}: six sets and Ranger bonuses`,()=>{
  for(const preset of ["1","2","3","4","5","6"]) for(const bonus of culture.attribute_bonus?C.attributes:["corpo"]){
   const r=evaluateOneRing(ringInput(culture,calling,preset,bonus));assert.deepEqual(r.errors,[]);assert.equal(C.attributes.reduce((s,k)=>s+Number(r.values[k]),0),culture.attribute_bonus?15:14);assert.equal(r.remaining,10);assert.equal(r.values.vigor_marcha,r.derived.vigor_max);
  }
 });
-test("web/mobile v3 starter and frozen SQL catalog stay identical",()=>{
- const w=web.find(x=>x.id==="one-ring"),m=mobile.find(x=>x.id==="one-ring");assert.deepEqual(w,m);assert.equal(w.template.rules_profile_version,3);assert.equal(w.template.version,3);
+test("v3 starter and frozen SQL catalog stay identical",()=>{
+ const w=SYSTEM_STARTERS.find(x=>x.id==="one-ring");assert.equal(w.template.rules_profile_version,3);assert.equal(w.template.version,3);
  const sql=readFileSync(new URL('../../supabase/migrations/20261030100000_one_ring_creation_v3.sql',import.meta.url),'utf8');assert.deepEqual(JSON.parse(sql.split('$json$')[1]),C);
 });
 test("cost includes every intermediate increase and skill/combat share ten points",()=>{

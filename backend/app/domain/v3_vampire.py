@@ -1,7 +1,7 @@
 """Vampiro: A Máscara Revisado (V3): dice, health levels, blood by generation and sheet migration.
 
 Pure rules only (numbers and short mechanical names, no book text). Every number here is marked for
-checking in the book and mirrored in frontend/lib/v3-rules.ts and in the v3_* functions of
+checking in the book and mirrored in shared/rules/v3-rules.ts and in the v3_* functions of
 supabase/migrations/20261029120000_vampire_v3_complete.sql:
 
 - Pool of d10 against a difficulty from 2 to 10; each die at or above it is a success.
@@ -33,7 +33,7 @@ BLOOD_BY_GENERATION: dict[int, tuple[int, int]] = {
     7: (20, 4), 6: (30, 6), 5: (40, 8), 4: (50, 10),
 }
 
-# Paths and the two virtues each uses besides Coragem (same list as frontend/lib/v3-creation-data.ts).
+# Paths and the two virtues each uses besides Coragem (same list as shared/rules/v3-creation-data.ts).
 PATH_VIRTUES: dict[str, tuple[str, str]] = {
     "Humanidade": ("consciencia", "autocontrole"),
     "Trilha de Caim": ("conviccao", "instintos"),

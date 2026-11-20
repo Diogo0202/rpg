@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { NexusContext, type Entity } from "@/lib/nexus/context";
 import { templateFor, type SheetData } from "@/lib/nexus/sheets";
 import { gameSystem, type GameSystem } from "@/lib/game/table-rules";
-import { isExperienceSystem } from "@/lib/experience-math";
+import { isExperienceSystem } from "../../../../shared/rules/experience-math";
 import { cn } from "@/lib/utils";
 import { Empty, Panel } from "@/components/nexus/ui";
 import { ExperienceTablePanel } from "./ExperienceTablePanel";

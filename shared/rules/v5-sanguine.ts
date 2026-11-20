@@ -49,7 +49,7 @@ export const V5_CLAN_BANES: Record<string, { name: string; effect: string }> = {
   Ventrue: { name: "Paladar Refinado", effect: "Fora da presa preferida, gasta Vontade igual à Severidade para se alimentar." },
 };
 
-/** Severidade da Perdição pela tabela de Potência de F1 (frontend/lib/v5-blood.ts). Conferir no livro. */
+/** Severidade da Perdição pela tabela de Potência de F1 (shared/rules/v5-blood.ts). Conferir no livro. */
 export function baneSeverity(potency: number): number {
   if (!Number.isInteger(potency) || potency <= 0) return 0;
   return bloodPotency(potency).bane_severity;

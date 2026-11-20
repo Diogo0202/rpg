@@ -1,4 +1,4 @@
-import type { FieldValue } from "./sheet-template";
+import type { FieldValue } from "../../shared/rules/sheet-template";
 
 /** Creation always uses the authenticated API and its approved campaign template. */
 export async function createCampaignSheet(

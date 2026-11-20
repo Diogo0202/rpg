@@ -4,8 +4,8 @@
  * hunter-roll-card.tsx, v5-blood-panel.tsx, v5-sanguine-panel.tsx, experience-panel.tsx).
  */
 
-import { BOND_DEGREE_LABELS, V5_INTENSITIES, V5_RESONANCES } from "@/lib/v5-sanguine";
-import { COMPULSION_OPTIONS as V5_BLOOD_COMPULSIONS } from "@/lib/v5-blood";
+import { BOND_DEGREE_LABELS, V5_INTENSITIES, V5_RESONANCES } from "../../../../shared/rules/v5-sanguine";
+import { COMPULSION_OPTIONS as V5_BLOOD_COMPULSIONS } from "../../../../shared/rules/v5-blood";
 
 // ---------------------------------------------------------------------------------- shared
 export const int = (value: unknown, fallback = 0): number => (typeof value === "number" && Number.isSafeInteger(value) ? value : fallback);

@@ -12,7 +12,7 @@ Exemplo completo: Shadow of the Demon Lord (`shadow-demon-lord`), em `docs/CHECK
 
 ## Antes de começar
 - Prefira as regras existentes: `group_distribution`, `group_sum`, `points_budget`, `select_grants` (aceita `add` negativo, −100..100), `power_picks`, `priority_points`.
-- Regra **nova** exige as três camadas: `frontend/lib/sheet-template.ts` + lógica, `backend/app/domain/creation_rules.py` e uma migração nova (copie a última versão da função, nunca edite migração antiga) + teste pgTAP. Nunca mude o comportamento de uma regra existente: modelos aprovados dependem dela.
+- Regra **nova** exige as três camadas: `shared/rules/sheet-template.ts` + lógica, `backend/app/domain/creation_rules.py` e uma migração nova (copie a última versão da função, nunca edite migração antiga) + teste pgTAP. Nunca mude o comportamento de uma regra existente: modelos aprovados dependem dela.
 - `identity_kind` novo: `sheet-template.ts` (web e mobile), `Literal` em `backend/app/domain/models.py` e validadores SQL.
 - Trilhas (estresse, dano, Força de Vontade) são campos `number` com limites; gasto controlado vai em `meta_currencies` (`pool` ou `track`). Não precisam de regra nova.
 - Wizards: `frontend/components/sheet-creation-wizard.tsx` e `mobile/src/routes/fichas.nova.tsx`. A ajuda é por etapa; ajuda por opção (por classe/playbook) ainda não existe: crie-a genérica em `step-help.ts`, nunca por `system_key` no wizard.
@@ -22,11 +22,9 @@ Exemplo completo: Shadow of the Demon Lord (`shadow-demon-lord`), em `docs/CHECK
 
 | Arquivo | O que mudar |
 |---|---|
-| `frontend/lib/<sis>-creation-data.ts` | Nomes, números, `GrantCase[]`, `<SIS>_STEP_HELP` |
-| `mobile/src/lib/<sis>-creation-data.ts` | Cópia byte a byte |
-| `frontend/lib/system-starters.ts` | Id na união, `makeStarter`, limites, `creation_rules`, `SYSTEM_STARTERS`, `starterMetadata` (+ tipo de `identities`) |
-| `mobile/src/lib/system-starters.ts` | Mesmo bloco, sem `experiencia` e meta moedas |
-| `frontend/lib/step-help.ts` + `mobile/src/lib/step-help.ts` | Entrada em `STEP_HELP_BY_SYSTEM` (nunca outro `system_key === "x"` no wizard) |
+| `shared/rules/<sis>-creation-data.ts` | Nomes, números, `GrantCase[]`, `<SIS>_STEP_HELP` (web e mobile importam o mesmo arquivo) |
+| `shared/rules/system-starters.ts` | Id na união, `makeStarter`, limites, `creation_rules`, `SYSTEM_STARTERS`, `starterMetadata` (+ tipo de `identities`) |
+| `shared/rules/step-help.ts` | Entrada em `STEP_HELP_BY_SYSTEM` (nunca outro `system_key === "x"` no wizard) |
 | `scripts/package-mobile-source.mjs` | Novo arquivo de dados na lista |
 | `frontend/components/sheet-creation-wizard-fixture.tsx` | Id no filtro de `/dev/sheet-wizard` |
 | `backend/app/domain/system_rolls.py` + `adapters/inbound/http/system_rolls.py` | Request `extra="forbid"`, `roll_<sis>`, rota |

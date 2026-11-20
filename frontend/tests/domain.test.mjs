@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { validateBackup,parseBackupText,createVaultBackup } from "../lib/sheet-backup.ts";
-import { calculateExperienceCost } from "../lib/experience-math.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { calculateExperienceCost } from "../../shared/rules/experience-math.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 function backup(){return {format:"rpg-nexus-sheet",format_version:1,name:"Lia",template:{name:"Modelo de teste",version:1,fields:[{id:"nome",label:"Nome",kind:"text",required:true,options:[],expression:null},{id:"vigor",label:"Vigor",kind:"number",required:true,options:[],expression:null}]},values:{nome:"Lia",vigor:0},effects:[],inventory:[]};}
 function item(patch={}){return {name:"Item de teste",category:"weapon",quantity:1,resource_cost:1,damage_bonus:2,protection:0,notes:"Manual",acquired:true,equipped:true,sort_order:0,...patch};}

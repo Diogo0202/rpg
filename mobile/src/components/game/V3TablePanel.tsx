@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Droplet, Dices, HeartPulse, Swords } from "lucide-react";
-import type { FieldValue } from "@/lib/sheet-template";
-import { v3Derived, v3Traits } from "@/lib/v3-rules";
+import type { FieldValue } from "../../../../shared/rules/sheet-template";
+import { v3Derived, v3Traits } from "../../../../shared/rules/v3-rules";
 import {
   V3_QUEUEABLE, clampInt, describeV3Action, describeV3Roll, v3ActionBody, v3EffectivePool, v3RollBody, v3Verdict,
   type V3Action, type V3ActionResult, type V3DamageKind, type V3RollResult,

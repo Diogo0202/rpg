@@ -1,37 +1,21 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { SYSTEM_STARTERS } from "../src/lib/system-starters.ts";
-import { SYSTEM_STARTERS as WEB_STARTERS } from "../../frontend/lib/system-starters.ts";
-import { creationRuleViolations } from "../src/lib/creation-grants.ts";
-import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../src/lib/priority-points.ts";
-import { masterGrantedFieldIds, validateFields } from "../src/lib/sheet-creation.ts";
-import { hunterCreationProblems, hunterV5CreationProblems } from "../src/lib/hunter-traits.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { creationRuleViolations } from "../../shared/rules/creation-grants.ts";
+import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../../shared/rules/priority-points.ts";
+import { masterGrantedFieldIds, validateFields } from "../../shared/rules/sheet-creation.ts";
+import { hunterCreationProblems, hunterV5CreationProblems } from "../../shared/rules/hunter-traits.ts";
 import { SyncEngine } from "../src/lib/mobile-sync/engine.ts";
 import { MemorySyncStore } from "../src/lib/mobile-sync/store.ts";
 import { applyChanges } from "../src/lib/mobile-sync/merge.ts";
 
 const read = async (name) => JSON.parse(await readFile(new URL(`../../backend/tests/fixtures/${name}.json`, import.meta.url), "utf8"));
-const source = async (path) => (await readFile(new URL(path, import.meta.url), "utf8")).replace(/\r\n/g, "\n").trimEnd();
 const starter = (id) => SYSTEM_STARTERS.find((item) => item.id === id);
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const violated = (template, values) => creationRuleViolations(template, values).map((rule) => rule.id).sort();
 
-// Copied verbatim from frontend/lib: the web is the reference, so any drift fails here.
-const MIRRORED = [
-  "creation-checks.ts", "priority-points.ts", "sheet-template.ts", "sheet-creation.ts", "system-starters.ts",
-  "v3-creation-data.ts", "v3-rules.ts", "v5-creation-data.ts", "v5-blood.ts", "v5-sanguine.ts",
-  "experience-math.ts", "hunter-traits.ts", "hunter-creation-data.ts",
-];
-
-test("as bibliotecas de ficha e criação do mobile são cópias exatas das da web", async () => {
-  for (const file of MIRRORED) {
-    assert.equal(await source(`../src/lib/${file}`), await source(`../../frontend/lib/${file}`), `mobile/src/lib/${file} difere de frontend/lib/${file}`);
-  }
-});
-
-test("todos os modelos-base do mobile são idênticos aos da web, com XP e moedas", () => {
-  assert.deepEqual(plain(SYSTEM_STARTERS), plain(WEB_STARTERS));
+test("todos os modelos-base têm XP", () => {
   for (const item of SYSTEM_STARTERS) {
     assert.equal(item.template.experience_field, "experiencia", item.id);
     assert.ok(item.template.fields.some((field) => field.id === "experiencia"), item.id);

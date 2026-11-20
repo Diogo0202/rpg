@@ -3,8 +3,8 @@ import type { CollectionPointsRule, FieldValue, SelectRangeDefault, SelectRanges
 /**
  * Closed catalogs on collection_points, select_ranges and specialty_picks, mirroring
  * backend/app/domain/creation_rules.py and
- * supabase/migrations/20261027150000_v5_creation_catalog.sql. The same file lives in
- * mobile/src/lib/creation-checks.ts; keep both identical. Granted items (a predator's
+ * supabase/migrations/20261027150000_v5_creation_catalog.sql. Web and mobile import this
+ * same module. Granted items (a predator's
  * advantages or specialty) are passed in so this module needs no grant logic.
  */
 

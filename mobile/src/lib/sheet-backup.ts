@@ -1,5 +1,5 @@
-import { isFieldActive, reconcileDependentValues } from "./sheet-creation.ts";
-import type { SelectDependency, SheetTemplate } from "./sheet-template.ts";
+import { isFieldActive, reconcileDependentValues } from "../../../shared/rules/sheet-creation.ts";
+import type { SelectDependency, SheetTemplate } from "../../../shared/rules/sheet-template.ts";
 
 export const SHEET_BACKUP_FORMAT = "rpg-nexus-sheet" as const;
 export const VAULT_BACKUP_FORMAT = "rpg-nexus-vault" as const;

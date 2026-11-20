@@ -6,8 +6,8 @@ import { useCharacterSession, type SessionCharacter } from "../lib/character-ses
 import { createClient } from "../lib/supabase/client";
 import {
   BLOOD_REVIEW_RULES, COMPULSION_OPTIONS, bloodState, feedingPenaltyLabel, rouseSuccessChance, type FrenzyKind,
-} from "../lib/v5-blood";
-import { describeV5Power, v5PowerMetadata, V5_POWER_METADATA_REVIEW } from "../lib/v5-creation-data";
+} from "../../shared/rules/v5-blood";
+import { describeV5Power, v5PowerMetadata, V5_POWER_METADATA_REVIEW } from "../../shared/rules/v5-creation-data";
 import styles from "./v5-action-panel.module.css";
 
 type BloodEvent = { id: number; kind: string; dice: number[]; outcome: Record<string, unknown>; created_at?: string };

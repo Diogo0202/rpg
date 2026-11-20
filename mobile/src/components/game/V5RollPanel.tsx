@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dices, RefreshCw } from "lucide-react";
-import { bloodPotency } from "@/lib/v5-blood";
+import { bloodPotency } from "../../../../shared/rules/v5-blood";
 import { clampInt, describeStoredRoll, isStoredRoll, toggleDie, v5OutcomeLabel, type V5StoredRoll } from "@/lib/game/table-rules";
 import { Btn, Panel } from "@/components/nexus/ui";
 import { DiceRow, Field, History, StatusLine, formatWhen, inputClass } from "./TableUi";

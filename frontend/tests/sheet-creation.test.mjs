@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { creationGroups, distributionRulesFor, identityFields, masterGrantedFieldIds, matchingDistribution, tallyDistribution, validateField, validateFields } from "../lib/sheet-creation.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { SYSTEM_STARTERS as MOBILE_STARTERS } from "../../mobile/src/lib/system-starters.ts";
+import { creationGroups, distributionRulesFor, identityFields, masterGrantedFieldIds, matchingDistribution, tallyDistribution, validateField, validateFields } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 import { narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content.ts";
 
 test("XP and pool currencies are master-granted, tracks are not", () => {
@@ -135,9 +134,7 @@ test("fixture de Caçador validada pelo backend corresponde ao modelo publicado 
   const fixture = JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/hunter_starter_v5.json", import.meta.url), "utf8"));
   const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter");
   assert.deepEqual(fixture, hunter.template);
-  const mobile = MOBILE_STARTERS.find((item) => item.id === "hunter");
-  assert.deepEqual(mobile.template.creation_rules, hunter.template.creation_rules);
-  assert.equal(mobile.template.fields.filter((field) => field.creation_step === "skills").length, 27);
+  assert.equal(hunter.template.fields.filter((field) => field.creation_step === "skills").length, 27);
 });
 
 test("Caçador aceita cada modo exato e detecta sobra, falta e o antigo recorte de nove habilidades", () => {

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { applyGrants, creationRuleViolations, grantProblems, itemPoints } from "../src/lib/creation-grants.ts";
-import { tallyPriority, priorityRules } from "../src/lib/priority-points.ts";
-import { SYSTEM_STARTERS } from "../src/lib/system-starters.ts";
+import { applyGrants, creationRuleViolations, grantProblems, itemPoints } from "../../shared/rules/creation-grants.ts";
+import { tallyPriority, priorityRules } from "../../shared/rules/priority-points.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 const read = async (name) => JSON.parse(await readFile(new URL(`../../backend/tests/fixtures/${name}.json`, import.meta.url), "utf8"));
 // Web starters as the server stores them, and the sheets the web wizard builds (frontend/tests/vampire-creation-flow.test.mjs).

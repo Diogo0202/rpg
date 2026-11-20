@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SYSTEM_STARTERS } from "../system-starters.ts";
+import { SYSTEM_STARTERS } from "../../../../shared/rules/system-starters.ts";
 import { exportSheet } from "./sheets";
 import { importedSheetInput } from "./sheet-import";
 

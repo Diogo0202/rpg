@@ -1,9 +1,9 @@
-import type { FieldValue, SheetTemplate } from "../sheet-template.ts";
+import type { FieldValue, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 import {
   hunterCreationProblems,
   hunterTraitProblems,
   hunterV5CreationProblems,
-} from "../hunter-traits.ts";
+} from "../../../../shared/rules/hunter-traits.ts";
 
 /** Match the API's template_creation_problems dispatch, using the approved schema. */
 export function hunterTemplateCreationProblems(

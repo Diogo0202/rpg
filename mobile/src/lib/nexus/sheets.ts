@@ -1,10 +1,10 @@
-import { ONE_RING_SEEDS,ONE_RING_CREATION_RULES,ONE_RING_META_CURRENCIES } from "../one-ring-rules.ts";
-import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
-import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
+import { ONE_RING_SEEDS,ONE_RING_CREATION_RULES,ONE_RING_META_CURRENCIES } from "../../../../shared/rules/one-ring-rules.ts";
+import { SYSTEM_STARTERS, type SystemStarter } from "../../../../shared/rules/system-starters.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 import { createSheetBackup, mechanicallyEquivalentFields, type BackupField, type BackupInventoryItem, type SheetBackup } from "@/lib/sheet-backup.ts";
 import { evaluateFormula, type FormulaResult } from "@/lib/formula";
 import type { JsonValue } from "@/lib/mobile-sync/index.ts";
-import { characterNameField, reconcileDependentValues, validateFields } from "@/lib/sheet-creation.ts";
+import { characterNameField, reconcileDependentValues, validateFields } from "../../../../shared/rules/sheet-creation.ts";
 
 export type SheetData = {
   name: string;

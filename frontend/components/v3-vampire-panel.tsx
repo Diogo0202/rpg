@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { buildChronicleContext, newRollKey, withChronicle } from "../lib/chronicle-context";
-import type { FieldValue } from "../lib/sheet-template";
-import { v3Derived, v3Traits } from "../lib/v3-rules";
+import type { FieldValue } from "../../shared/rules/sheet-template";
+import { v3Derived, v3Traits } from "../../shared/rules/v3-rules";
 import { authenticatedPost, authenticatedPostWithChronicle } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";
 

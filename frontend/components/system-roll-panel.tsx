@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useCharacterSession } from "../lib/character-session";
-import { HUNTER_SKILLS as HUNTER_SKILL_LIST } from "../lib/hunter-creation-data";
-import { hunterTraitProblems, inDespair, isLegacyHunterSheet, migrateHunterTraits, usableEdges } from "../lib/hunter-traits";
+import { HUNTER_SKILLS as HUNTER_SKILL_LIST } from "../../shared/rules/hunter-creation-data";
+import { hunterTraitProblems, inDespair, isLegacyHunterSheet, migrateHunterTraits, usableEdges } from "../../shared/rules/hunter-traits";
 import { oneRingReminders } from "../../shared/one-ring/reminders.ts";
-import { ONE_RING_SKILLS, oneRingDerived, oneRingProblems, oneRingStates } from "../lib/one-ring-rules";
-import type { FieldValue } from "../lib/sheet-template";
+import { ONE_RING_SKILLS, oneRingDerived, oneRingProblems, oneRingStates } from "../../shared/rules/one-ring-rules";
+import type { FieldValue } from "../../shared/rules/sheet-template";
 import { buildChronicleContext, chronicleActivityLabel, newRollKey, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { sotdlDice, sotdlFateDice } from "@dice3d/sotdl";
 import { authenticatedPost, authenticatedPostWithChronicle } from "./character-effects-panel";
@@ -17,7 +17,7 @@ import { poolResult, sotdlFateResult, sotdlResult } from "@dice3d/result";
 import { HunterCellsPanel } from "./hunter-cells-panel";
 import { HunterConsequencesCard, useHunterState, type HunterRoll } from "./hunter-roll-card";
 import styles from "./system-roll-panel.module.css";
-import { isV3Sheet } from "../lib/v3-rules";
+import { isV3Sheet } from "../../shared/rules/v3-rules";
 import { V3VampirePanel } from "./v3-vampire-panel";
 
 type Trait = { id: string; label: string };

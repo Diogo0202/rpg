@@ -2,12 +2,12 @@ import { OneRingCharacterBuilder } from "@/components/nexus/OneRingCharacterBuil
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SYSTEM_STARTERS, type SystemStarter } from "@/lib/system-starters.ts";
-import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
-import { creationGroups, creationStepLabel, identityFields, masterGrantedFieldIds, reconcileDependentValues, validateFields, characterNameField } from "@/lib/sheet-creation.ts";
+import { SYSTEM_STARTERS, type SystemStarter } from "../../../shared/rules/system-starters.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../shared/rules/sheet-template.ts";
+import { creationGroups, creationStepLabel, identityFields, masterGrantedFieldIds, reconcileDependentValues, validateFields, characterNameField } from "../../../shared/rules/sheet-creation.ts";
 import { FieldInput } from "@/components/nexus/FieldInput";
 import { GrantPicker, GrantSummary, PowerPicker } from "@/components/nexus/CreationGrants";
-import { applyGrants, creationRuleViolations, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerRules, ruleMessage, selectedCase, staleGrantChoices } from "@/lib/creation-grants.ts";
+import { applyGrants, creationRuleViolations, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerRules, ruleMessage, selectedCase, staleGrantChoices } from "../../../shared/rules/creation-grants.ts";
 import { Btn, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { computeFormulas, focusSheetError, IDENTITY_LABELS, prepareSheetValues, wizardTransition } from "@/lib/nexus/sheets";
 import { useNexus } from "@/lib/nexus/store";
@@ -15,9 +15,9 @@ import type { JsonValue } from "@/lib/mobile-sync/index.ts";
 import { makeSheetStarter } from "@/lib/nexus/remote-adapter";
 import { DistributionControls, distributionProblems } from "@/components/nexus/DistributionControls";
 import { distributionRulesFor, matchingDistribution } from "@/lib/creation-distributions";
-import { stepHelp } from "@/lib/step-help";
+import { stepHelp } from "../../../shared/rules/step-help";
 import { hunterTemplateCreationProblems } from "@/lib/nexus/hunter-creation";
-import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "@/lib/priority-points";
+import { freebieItemPoints, lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../../../shared/rules/priority-points";
 
 export const Route = createFileRoute("/fichas/nova")({
   head: () => ({

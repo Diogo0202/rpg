@@ -1,4 +1,4 @@
-import type { FieldValue } from "./sheet-template";
+import type { FieldValue } from "../../shared/rules/sheet-template";
 
 /** One stored snapshot of a sheet (FIC-18), newest first from the API. */
 export type SheetVersion = {

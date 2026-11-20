@@ -7,8 +7,8 @@ import {
   getExperienceSettings, listAdvances, purchaseAdvance, quoteServerAdvance, refundAdvance, reviewAdvance, setExperienceApproval,
   type AdvanceRequest, type AdvanceStatus, type CharacterAdvance, type ServerQuote,
 } from "../lib/experience-advances";
-import { calculateExperienceCost, isExperienceSystem, purchasableTraits, quoteAdvance, type ExperienceKind } from "../lib/experience-math";
-import type { SheetTemplate } from "../lib/sheet-template";
+import { calculateExperienceCost, isExperienceSystem, purchasableTraits, quoteAdvance, type ExperienceKind } from "../../shared/rules/experience-math";
+import type { SheetTemplate } from "../../shared/rules/sheet-template";
 import { createClient } from "../lib/supabase/client";
 import styles from "./experience-panel.module.css";
 

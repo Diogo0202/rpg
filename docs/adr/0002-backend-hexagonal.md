@@ -1,6 +1,6 @@
 # 0002. Arquitetura hexagonal e Clean Code no código do RPG-Atlas
 
-Estado: pedida pelo usuário em 18/11/2026; fase 1 (backend) concluída na branch `refactor/hexagonal` em 19/11/2026.
+Estado: pedida pelo usuário em 18/11/2026; fase 1 (backend) concluída na branch `refactor/hexagonal` em 19/11/2026; fase 2 (frontend web) em andamento.
 
 ## Decisão
 
@@ -37,7 +37,16 @@ Cada contexto migra numa etapa própria, e a suíte do backend precisa continuar
    - A composição do e-mail de convite foi para `domain/invite_email.py`, e o envio por SMTP ou Resend foi para `adapters/outbound/email/invite_mailer.py`.
 6. Regras puras e tabelas de SQLSTATE: concluída. Os 28 módulos de `services/` e o `app/models.py` foram para `domain/`, e a pasta `services/` deixou de existir. Para o domínio não depender da aplicação, `RollChronicleContext` e `RollActivityResult` saíram de `application/roll_activity.py` para `domain/roll_activity.py`; a porta `RollActivityRecorder` continua na aplicação. As traduções de erro do PostgREST ficaram em `adapters/outbound/supabase/errors.py`, com um formato único (`RpcErrors`). O dicionário `SqlStateErrors` e o segundo caminho de tradução em `rest_client.py` foram removidos. As RPCs sem tabela própria usam `SHEET_RPC_ERRORS`. Cada repositório mantém as próprias mensagens, porque o mesmo código tem sentidos diferentes em cada contexto (`23505` é compra repetida no avanço e ajuste repetido na ficha). As referências aos caminhos antigos em documentos e comentários do frontend e do mobile foram atualizadas, exceto nas migrações, que não se editam.
 
-Frontend (`frontend/lib`, `frontend/components`), mobile (`mobile/src`) e `shared/` formam as fases seguintes. O desenho dessas fases depende de um levantamento ainda não feito: [falta detalhe real].
+## Fase 2: frontend web
+
+O levantamento de 19/11/2026 encontrou quatro problemas. O web e o mobile mantinham cópias das mesmas regras, 17 delas idênticas byte a byte. 36 componentes e páginas consultam o Supabase direto. 29 arquivos chamam a API, cada um com o próprio tratamento de status. E cinco componentes passam de 550 linhas misturando estado, dados e visual. A fase segue quatro etapas, da menor para a maior chance de quebrar uma tela:
+
+1. F1, regras em `shared/rules/`: concluída. As 17 regras idênticas e `creation-grants.ts` saíram de `frontend/lib/` e `mobile/src/lib/`, e os dois apps importam o mesmo arquivo por caminho relativo, como já faziam com `shared/one-ring/` e `shared/sync/`. O `creation-grants.ts` do mobile continha o do web inteiro e mais três funções de checagem offline, por isso ele virou a versão comum. `theme.ts` continua separado: o web troca o tema por `data-theme`, e o mobile por classes, com modo escuro. Os testes de paridade entre as cópias foram removidos, e as checagens contra as fixtures do backend continuam. `scripts/package-mobile-source.mjs` passou a ler `shared/rules/`; o formato que o destino desse pacote espera não foi conferido: [falta detalhe real].
+2. F2, cliente único da API em `frontend/lib/api/`, com URL base, token, tempo limite e tradução de status num só lugar.
+3. F3, acesso ao Supabase fora das telas, com um repositório por contexto em `frontend/lib/data/` e hooks para as telas.
+4. F4, componentes grandes divididos em hook de estado e componentes de visual.
+
+As etapas F3 e F4 alteram telas que nenhum teste cobre. A conferência delas depende de abrir cada tela no navegador com um Supabase de desenvolvimento: [falta detalhe real]. O mobile (`mobile/src`) e o restante de `shared/` ficam para a fase 3.
 
 ## Regras de Clean Code adotadas
 

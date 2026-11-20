@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SYSTEM_STARTERS } from "@/lib/system-starters";
-import type { FieldValue, SheetTemplate } from "@/lib/sheet-template";
+import { SYSTEM_STARTERS } from "../../../shared/rules/system-starters";
+import type { FieldValue, SheetTemplate } from "../../../shared/rules/sheet-template";
 import legacyTemplate from "../../../backend/tests/fixtures/hunter_starter.json";
 import { hunterTemplateCreationProblems } from "@/lib/nexus/hunter-creation";
 import { Route } from "./fichas.nova";

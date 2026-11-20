@@ -7,7 +7,7 @@ import { createClient } from "../lib/supabase/client";
 import {
   BOND_DEGREE_LABELS, V5_CLAN_BANES, V5_INTENSITIES, V5_RESONANCES, baneSeverity, hungerAfterHunt, resonanceEffectPreview,
   type V5Intensity, type V5Resonance,
-} from "../lib/v5-sanguine";
+} from "../../shared/rules/v5-sanguine";
 import styles from "./v5-sanguine-panel.module.css";
 
 /**

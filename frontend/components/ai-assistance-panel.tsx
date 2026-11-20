@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { createClient } from "../lib/supabase/client";
 import { aiStatusLabel, buildPublicationFields, contextBinding, publicationFieldLabel, publicationFields } from "../lib/ai-assistance";
-import { fieldOptions, isFieldActive, reconcileDependentValues } from "../lib/sheet-creation";
-import { characterNameField, type FieldValue, type SheetTemplate } from "../lib/sheet-template";
+import { fieldOptions, isFieldActive, reconcileDependentValues } from "../../shared/rules/sheet-creation";
+import { characterNameField, type FieldValue, type SheetTemplate } from "../../shared/rules/sheet-template";
 import styles from "./ai-assistance-panel.module.css";
 import { MathTutor } from "./math-tutor";
 

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import type { FieldValue, SheetTemplate } from "../lib/sheet-template";
-import { SYSTEM_STARTERS } from "../lib/system-starters";
+import type { FieldValue, SheetTemplate } from "../../shared/rules/sheet-template";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters";
 import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
 

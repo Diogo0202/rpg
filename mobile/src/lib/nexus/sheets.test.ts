@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { SYSTEM_STARTERS } from "../system-starters.ts";
+import { SYSTEM_STARTERS } from "../../../../shared/rules/system-starters.ts";
 import { parseBackupText } from "../sheet-backup.ts";
-import type { SheetField, SheetTemplate } from "../sheet-template.ts";
+import type { SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 import { templateFor, computeFormulas, exportSheet, prepareSheetValues, sheetFromBackup, wizardTransition } from "./sheets";
 
 const field = (id: string, kind: SheetField["kind"], expression: string | null = null): SheetField => ({ id, kind, label: id, required: true, options: [], expression });

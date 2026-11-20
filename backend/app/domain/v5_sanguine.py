@@ -1,6 +1,6 @@
 """Vampiro V5, ficha complementar e SAN (frente F2).
 
-Espelha frontend/lib/v5-sanguine.ts e a migration 20261029110000_v5_feeding_bonds.sql.
+Espelha shared/rules/v5-sanguine.ts e a migration 20261029110000_v5_feeding_bonds.sql.
 Só nomes e mecânica resumida; o que vem do livro está marcado para conferência
 (lista em SANGUINE_REVIEW_RULES): Disciplinas por Ressonância, bônus por intensidade,
 Severidade da Perdição, Fome mínima sem matar e o decaimento do Vínculo.

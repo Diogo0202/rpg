@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import type { FieldValue, SheetTemplate } from "@/lib/sheet-template";
-import { purchasableTraits, quoteAdvance } from "@/lib/experience-math";
+import type { FieldValue, SheetTemplate } from "../../../../shared/rules/sheet-template";
+import { purchasableTraits, quoteAdvance } from "../../../../shared/rules/experience-math";
 import {
   ADVANCE_STATUS_LABEL, XP_FIELD, advanceActions, advanceRequest, advanceTraitOptions, canAffordQuote, describeAdvance, int, purchaseBody,
   type AdvanceRequest, type CharacterAdvance, type ServerQuote,

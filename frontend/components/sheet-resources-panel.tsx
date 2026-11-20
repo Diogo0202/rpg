@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useCharacterSession } from "../lib/character-session";
 import { adjustExperience, listSheetEvents, spendMetaCurrency, type AdjustedSheet, type SheetEvent } from "../lib/sheet-adjustments";
-import type { MetaCurrency, SheetTemplate } from "../lib/sheet-template";
+import type { MetaCurrency, SheetTemplate } from "../../shared/rules/sheet-template";
 import { createClient } from "../lib/supabase/client";
 import styles from "./sheet-resources-panel.module.css";
 

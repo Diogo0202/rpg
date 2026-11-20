@@ -1,4 +1,4 @@
-import { oneRingV3Fields, ONE_RING_INVENTORY_SCHEMA } from "./one-ring-creation.ts";
+import { oneRingV3Fields, ONE_RING_INVENTORY_SCHEMA } from "../one-ring/creation.ts";
 import { HUNTER_ADVANTAGE_RULES, HUNTER_SKILLS, HUNTER_SKILL_DISTRIBUTIONS, HUNTER_DRIVES, HUNTER_SPECIALTY_RULE } from "./hunter-creation-data.ts";
 import { HUNTER_EDGE_NAMES, HUNTER_LIMITS, HUNTER_PERKS } from "./hunter-traits.ts";
 import { ONE_RING_META_CURRENCIES, ONE_RING_STEPS } from "./one-ring-rules.ts";
@@ -142,7 +142,7 @@ const vampire = makeStarter("vampire-v5", "Vampiro V5", "Vampiro V5 essencial", 
   collection("disciplinas", "Poderes de Disciplina"), collection("rituais", "Rituais"), collection("especialidades", "Especialidades"),
   collection("vantagens", "Vantagens"), collection("defeitos", "Defeitos"),
   text("ambicao", "Ambição"), text("desejo", "Desejo"), text("apoiadores", "Apoiadores"),
-  // F2: Convicções e Pedras de Toque, Princípios, Perdição e Ressonância (frontend/lib/v5-sanguine.ts).
+  // F2: Convicções e Pedras de Toque, Princípios, Perdição e Ressonância (shared/rules/v5-sanguine.ts).
   ...v5SheetFields(v5Clans).map((item): FieldSeed => item.kind === "text" ? { ...item, initial: "" }
     : item.kind === "collection" ? { ...item, initial: [] }
       : item.id === "ressonancia_atual" || item.id === "intensidade_ressonancia" ? { ...item, initial: "Nenhuma" } : item),
@@ -207,7 +207,7 @@ hunter.template.creation_rules = [
 ];
 
 // O Um Anel 2ª edição, ficha v2: Corpo/Coração/Astúcia with TN = 20 - attribute, culture bases for
-// Endurance, Hope and Parry, 18 skills, proficiencies, Valour/Wisdom and Shadow (frontend/lib/one-ring-rules.ts).
+// Endurance, Hope and Parry, 18 skills, proficiencies, Valour/Wisdom and Shadow (shared/rules/one-ring-rules.ts).
 const oneRing = makeStarter("one-ring", "O Um Anel", "O Um Anel 2ª edição v3", oneRingV3Fields(), ONE_RING_META_CURRENCIES);
 oneRing.template.version = 3;
 oneRing.template.rules_profile_version = 3;

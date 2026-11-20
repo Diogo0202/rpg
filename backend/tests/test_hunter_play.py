@@ -88,7 +88,7 @@ def test_v4_catalog_and_creation_contract_remain_valid_while_v5_uses_basic_catal
 
 
 def test_python_and_typescript_catalogs_match() -> None:
-    source = (Path(__file__).parents[2] / "frontend/lib/hunter-traits.ts").read_text(encoding="utf-8")
+    source = (Path(__file__).parents[2] / "shared/rules/hunter-traits.ts").read_text(encoding="utf-8")
     for edge, perks in HUNTER_EDGES.items():
         assert edge in source
         for perk in perks:

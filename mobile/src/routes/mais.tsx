@@ -8,7 +8,7 @@ import { OneRingCompanyPanel } from "@/components/nexus/OneRingCompanyPanel";
 import { ConnectionPanel } from "@/components/nexus/ConnectionPanel";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { useNexus, outboxSummary } from "@/lib/nexus/store";
-import { SYSTEM_STARTERS } from "@/lib/system-starters";
+import { SYSTEM_STARTERS } from "../../../shared/rules/system-starters";
 import type { JsonValue } from "@/lib/mobile-sync";
 import { readThemeMode, saveThemeMode, type ThemeMode } from "@/lib/theme";
 

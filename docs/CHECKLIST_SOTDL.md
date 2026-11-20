@@ -19,10 +19,8 @@ Marque `[x]` só depois de verificado (teste passando ou conferência no app).
 - [x] Homebrew Trench Crusade: Fervor (pool), Fé (Cristão/Herege), Último Alento
 
 ## 2. Dados e starter (A)
-- [x] `frontend/lib/sotdl-creation-data.ts`
-- [x] `mobile/src/lib/sotdl-creation-data.ts` idêntico ao web (teste de igualdade)
-- [x] `frontend/lib/system-starters.ts`: id na união, bloco `makeStarter`, `SYSTEM_STARTERS`, `starterMetadata` (`race`)
-- [x] `mobile/src/lib/system-starters.ts`: espelho (sem experiência e meta moedas, como os demais)
+- [x] `shared/rules/sotdl-creation-data.ts`, usado pelo web e pelo mobile
+- [x] `shared/rules/system-starters.ts`: id na união, bloco `makeStarter`, `SYSTEM_STARTERS`, `starterMetadata` (`race`)
 - [x] Ajuda por passo genérica (`lib/step-help.ts`) no wizard web e no mobile, no lugar do ramo fixo do Caçador
 - [x] `scripts/package-mobile-source.mjs` leva os arquivos de dados importados por `system-starters`
 

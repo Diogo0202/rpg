@@ -4,8 +4,8 @@ import { test } from "node:test";
 
 import {
   EXPERIENCE_COST_TABLES, EXPERIENCE_TRAIT_CATEGORIES, advanceCost, itemDots, purchasableTraits, quoteAdvance, resolveAdvanceCategory,
-} from "../lib/experience-math.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+} from "../../shared/rules/experience-math.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 // F4 follow-up (20261029140100) maps the Hunter Edge/Perk categories to `triunfos`/`distincoes`.
 const migration = ["20261029140000_experience_advances.sql", "20261029140100_hunter_experience_edge_fields.sql"]

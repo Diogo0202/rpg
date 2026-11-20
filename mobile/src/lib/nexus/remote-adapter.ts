@@ -148,7 +148,7 @@ export function makeSheetStarter(template: { id: string; name: string; version: 
     template: { name: template.name, version: template.version, fields: normalized, ...rules, ...experience, ...currencies,
       ...(typeof schema.system_key === "string" ? { system_key: schema.system_key } : {}),
         ...(schema.rules_profile_version === 3 ? { rules_profile_version: 3 } : {}),
-    } as unknown as import("@/lib/sheet-template.ts").SheetTemplate,
+    } as unknown as import("../../../../shared/rules/sheet-template.ts").SheetTemplate,
     values: {} as Record<string, string | number | boolean | string[]>,
   };
 }

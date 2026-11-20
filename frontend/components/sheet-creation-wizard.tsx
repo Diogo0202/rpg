@@ -2,18 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { characterNameField, creationGroups, creationStepLabel, distributionRulesFor, fieldOptions, identityFields, isFieldActive, masterGrantedFieldIds, matchingDistribution, reconcileDependentValues, tallyDistribution, validateFields, type DistributionRule, type DistributionTally } from "../lib/sheet-creation";
-import type { CreationDistribution, FieldValue, SheetField, SheetTemplate, StoredTemplate } from "../lib/sheet-template";
+import { characterNameField, creationGroups, creationStepLabel, distributionRulesFor, fieldOptions, identityFields, isFieldActive, masterGrantedFieldIds, matchingDistribution, reconcileDependentValues, tallyDistribution, validateFields, type DistributionRule, type DistributionTally } from "../../shared/rules/sheet-creation";
+import type { CreationDistribution, FieldValue, SheetField, SheetTemplate, StoredTemplate } from "../../shared/rules/sheet-template";
 import styles from "./sheet-creation-wizard.module.css";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { PortraitPicker } from "./portrait-picker";
-import { stepHelp } from "../lib/step-help";
+import { stepHelp } from "../../shared/rules/step-help";
 import { checkCreation, type CreationReport } from "../lib/sheet-adjustments";
-import { activeGrants, applyGrants, choiceOptions, collectionPointRules, collectionPointStatus, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../lib/creation-grants";
-import type { PowerPicksRule, SelectGrantsRule } from "../lib/sheet-template";
-import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority, type PoolTally, type PriorityTally } from "../lib/priority-points";
-import { specialtyRules, specialtyStatus } from "../lib/creation-checks";
-import { describeV5Power, v5PowerMetadata } from "../lib/v5-creation-data";
+import { activeGrants, applyGrants, choiceOptions, collectionPointRules, collectionPointStatus, grantChoiceFieldIds, grantedItems, grantedNumbers, grantProblems, grantRules, powerItem, powerRules, powerStatus, selectedCase } from "../../shared/rules/creation-grants";
+import type { PowerPicksRule, SelectGrantsRule } from "../../shared/rules/sheet-template";
+import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority, type PoolTally, type PriorityTally } from "../../shared/rules/priority-points";
+import { specialtyRules, specialtyStatus } from "../../shared/rules/creation-checks";
+import { describeV5Power, v5PowerMetadata } from "../../shared/rules/v5-creation-data";
 
 type Props = {
   campaignId: string;

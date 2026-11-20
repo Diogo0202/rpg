@@ -3,10 +3,10 @@ import { test } from "node:test";
 import {
   BOND_DEGREE_LABELS, V5_CLAN_BANES, V5_INTENSITIES, V5_RESONANCES, V5_RESONANCE_DISCIPLINES, baneSeverity, bondDegree,
   hungerAfterHunt, resonanceEffectPreview, v5TraitProblems,
-} from "../lib/v5-sanguine.ts";
-import { V5_DISCIPLINES, V5_INITIAL_DISCIPLINE_CASES } from "../lib/v5-creation-data.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { validateFields } from "../lib/sheet-creation.ts";
+} from "../../shared/rules/v5-sanguine.ts";
+import { V5_DISCIPLINES, V5_INITIAL_DISCIPLINE_CASES } from "../../shared/rules/v5-creation-data.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { validateFields } from "../../shared/rules/sheet-creation.ts";
 
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const field = (id) => v5.template.fields.find((item) => item.id === id);

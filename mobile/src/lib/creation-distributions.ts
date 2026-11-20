@@ -1,4 +1,4 @@
-import type { CreationDistribution, CreationRule, FieldValue, SheetTemplate } from "./sheet-template.ts";
+import type { CreationDistribution, CreationRule, FieldValue, SheetTemplate } from "../../../shared/rules/sheet-template.ts";
 
 export type DistributionRule = Extract<CreationRule, { type: "group_distribution" }>;
 /** One row per value the option asks for, highest first, plus the `rest` row for the fields left over. */

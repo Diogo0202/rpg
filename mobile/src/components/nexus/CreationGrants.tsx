@@ -1,6 +1,6 @@
-import type { FieldValue, PowerPicksRule, SelectGrantsRule, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
-import { activeGrants, choiceOptions, chosenOption, powerItem, powerStatus, selectedCase } from "@/lib/creation-grants.ts";
-import { describeV5Power, v5PowerMetadata } from "@/lib/v5-creation-data.ts";
+import type { FieldValue, PowerPicksRule, SelectGrantsRule, SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
+import { activeGrants, choiceOptions, chosenOption, powerItem, powerStatus, selectedCase } from "../../../../shared/rules/creation-grants.ts";
+import { describeV5Power, v5PowerMetadata } from "../../../../shared/rules/v5-creation-data.ts";
 import { Btn } from "./ui";
 
 type Values = Record<string, FieldValue>;

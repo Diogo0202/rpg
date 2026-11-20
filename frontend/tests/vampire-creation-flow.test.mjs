@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
-import { applyGrants, collectionPointRules, collectionPointStatus, grantedNumbers, grantProblems, itemPoints } from "../lib/creation-grants.ts";
-import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../lib/priority-points.ts";
-import { characterNameField, creationGroups, identityFields, reconcileDependentValues, validateFields } from "../lib/sheet-creation.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { catalogProblem } from "../lib/creation-checks.ts";
+import { applyGrants, collectionPointRules, collectionPointStatus, grantedNumbers, grantProblems, itemPoints } from "../../shared/rules/creation-grants.ts";
+import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../../shared/rules/priority-points.ts";
+import { characterNameField, creationGroups, identityFields, reconcileDependentValues, validateFields } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { catalogProblem } from "../../shared/rules/creation-checks.ts";
 
 test("V3 Amnésia follows Revised p.299 while approved legacy catalog costs remain valid", () => {
   const template = SYSTEM_STARTERS.find((starter) => starter.id === "vampire-v3").template;
@@ -148,7 +148,7 @@ test("V3: the Path opens its virtues and moves the starting rating; no predator 
 });
 
 test("V3 play rules mirror the API: 1s cancel, botch, specialty, Willpower, health and blood", async () => {
-  const { isV3Sheet, v3Derived, v3HealthPenalty, v3Outcome } = await import("../lib/v3-rules.ts");
+  const { isV3Sheet, v3Derived, v3HealthPenalty, v3Outcome } = await import("../../shared/rules/v3-rules.ts");
   assert.deepEqual([v3Outcome([1, 6, 7], 6).successes, v3Outcome([1, 2], 6).botch, v3Outcome([1, 6], 6).botch], [1, true, false]);
   assert.equal(v3Outcome([10, 3], 6, true, false, [7]).successes, 2);
   assert.equal(v3Outcome([10, 3], 6, true, false, [2]).successes, 1);
@@ -240,7 +240,7 @@ test("V5: thin-blooded need the 14th-16th generation and refuse the Blood Potenc
 });
 
 test("item names drop points and detail", async () => {
-  const { itemName } = await import("../lib/creation-checks.ts");
+  const { itemName } = await import("../../shared/rules/creation-checks.ts");
   assert.deepEqual(["Aliados: polícia ••", "Aliados (polícia) (2)", "Contatos 1", " Refúgio  (2)", "Segredo Sombrio: Diablerista ••"].map(itemName),
     ["Aliados", "Aliados", "Contatos", "Refúgio", "Segredo Sombrio"]);
 });

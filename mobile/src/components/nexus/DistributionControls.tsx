@@ -1,5 +1,5 @@
 import { distributionRulesFor, matchingDistribution, tallyDistribution } from "@/lib/creation-distributions";
-import type { FieldValue, SheetTemplate } from "@/lib/sheet-template";
+import type { FieldValue, SheetTemplate } from "../../../../shared/rules/sheet-template";
 
 export function distributionProblems(template: SheetTemplate, values: Record<string, FieldValue>, ids: Iterable<string>, choices: Record<string, number>): string[] {
   return distributionRulesFor(template, ids).flatMap((rule) => {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
 import { diffSheetVersions, listSheetVersions, restoreSheetVersion, type SheetVersion } from "../lib/sheet-history";
-import type { SheetTemplate } from "../lib/sheet-template";
+import type { SheetTemplate } from "../../shared/rules/sheet-template";
 
 async function sessionToken(): Promise<{ api: string; token: string }> {
   const api = process.env.NEXT_PUBLIC_API_URL;

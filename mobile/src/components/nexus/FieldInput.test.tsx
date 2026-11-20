@@ -2,9 +2,9 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FieldInput } from "./FieldInput";
-import { HUNTER_LIMITS, HUNTER_TRAIT_FIELDS } from "@/lib/hunter-traits.ts";
-import { validateFields } from "@/lib/sheet-creation.ts";
-import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
+import { HUNTER_LIMITS, HUNTER_TRAIT_FIELDS } from "../../../../shared/rules/hunter-traits.ts";
+import { validateFields } from "../../../../shared/rules/sheet-creation.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 
 const skills: SheetField = {
   id: "pericias", label: "Perícias favorecidas", kind: "collection", required: false, options: [], expression: null,

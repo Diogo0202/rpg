@@ -1,6 +1,6 @@
 """Ciclo do Sangue de Vampiro: A Máscara 5ª ed. (funções puras, sem rede).
 
-Espelhado em frontend/lib/v5-blood.ts e nas RPCs de
+Espelhado em shared/rules/v5-blood.ts e nas RPCs de
 supabase/migrations/20261029100000_v5_blood_cycle.sql, que rolam os dados no
 banco. Só nomes e mecânica resumida; os números marcados em REVIEW_RULES devem
 ser conferidos no livro.

@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { validateField, validateFields } from "../lib/sheet-creation.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { SYSTEM_STARTERS as MOBILE_STARTERS } from "../../mobile/src/lib/system-starters.ts";
-import { desperationChoices, HUNTER_EDGE_NAMES, HUNTER_PERKS, hunterCreationProblems, hunterV5CreationProblems, hunterEdgeProblems, hunterRollOutcome, hunterTraitProblems, isLegacyHunterSheet, migrateHunterTraits, splitPillar, usableEdges } from "../lib/hunter-traits.ts";
-import { migrateOneRing, ONE_RING_CULTURES, oneRingDerived, oneRingProblems, oneRingStates } from "../lib/one-ring-rules.ts";
+import { validateField, validateFields } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { desperationChoices, HUNTER_EDGE_NAMES, HUNTER_PERKS, hunterCreationProblems, hunterV5CreationProblems, hunterEdgeProblems, hunterRollOutcome, hunterTraitProblems, isLegacyHunterSheet, migrateHunterTraits, splitPillar, usableEdges } from "../../shared/rules/hunter-traits.ts";
+import { migrateOneRing, ONE_RING_CULTURES, oneRingDerived, oneRingProblems, oneRingStates } from "../../shared/rules/one-ring-rules.ts";
 
 const hunter = SYSTEM_STARTERS.find((item) => item.id === "hunter").template;
 const oneRing = SYSTEM_STARTERS.find((item) => item.id === "one-ring").template;
@@ -59,9 +58,6 @@ test("Caçador v5: source-verified Edges, Perks and creation counts", () => {
   assert.deepEqual(hunterEdgeProblems({ triunfos: ["Arsenal"], distincoes: ["Frota: Armadura"] }), ["Distinção Frota: Armadura pede o Triunfo Frota"]);
   assert.deepEqual(usableEdges({ triunfos: ["Arsenal"], em_desespero: true }), ["Arsenal"]);
   assert.deepEqual(usableEdges({ triunfos: ["Arsenal"] }), ["Arsenal"]);
-  const mobile = MOBILE_STARTERS.find((item) => item.id === "hunter").template;
-  assert.deepEqual(mobile.creation_rules, hunter.creation_rules);
-  assert.deepEqual(mobile.fields.map((field) => field.id), hunter.fields.map((field) => field.id));
 });
 
 test("legacy v4 Edge catalog and creation counts remain accepted", () => {
@@ -92,7 +88,6 @@ test("O Um Anel v3 is the new starter while the legacy v2 fixture remains readab
   assert.equal(fieldsOf(oneRing).pericias_favorecidas.max_items,18);
   const fixture=JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/one_ring_v3_starter.json",import.meta.url),"utf8"));
   assert.deepEqual(fixture.template,oneRing);
-  assert.deepEqual(MOBILE_STARTERS.find(x=>x.id==="one-ring").template,oneRing);
 });
 
 test("O Um Anel derived values, states and problems", () => {

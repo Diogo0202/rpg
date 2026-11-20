@@ -1,4 +1,4 @@
-"""O Um Anel 2ª edição: derived values, states and checks of the v2 starter (frontend/lib/one-ring-rules.ts).
+"""O Um Anel 2ª edição: derived values, states and checks of the v2 starter (shared/rules/one-ring-rules.ts).
 
 Numbers only, no book text. Every number below is marked for review against the
 Core Rules (docs/UM_ANEL_FICHA.md lists them): the culture bases, TN = 20 - attribute,

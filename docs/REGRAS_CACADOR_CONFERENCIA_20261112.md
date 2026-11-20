@@ -22,12 +22,10 @@ Conferência visual do livro básico *Caçador: A Revanche*, PDF local `hunter.p
 
 ## Arquivos alterados nesta etapa
 
-- `frontend/lib/hunter-traits.ts`
+- `shared/rules/hunter-traits.ts`
 - `backend/app/domain/hunter_traits.py`
-- `frontend/lib/hunter-creation-data.ts`
-- `frontend/lib/system-starters.ts`
-- `mobile/src/lib/hunter-traits.ts`
-- `mobile/src/lib/system-starters.ts`
+- `shared/rules/hunter-creation-data.ts`
+- `shared/rules/system-starters.ts`
 - `frontend/components/hunter-roll-card.tsx`
 - `frontend/components/system-roll-panel.tsx`
 - `mobile/src/lib/game/table-rules.ts`

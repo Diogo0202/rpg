@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { activeGrants, addHomebrewClan, applyGrants, grantChoiceFieldIds, grantProblems, grantedNumbers, parsePowerLines, powerStatus, powerRules, removeHomebrewClan } from "../lib/creation-grants.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { V5_CLAN_CASES } from "../lib/v5-creation-data.ts";
+import { activeGrants, addHomebrewClan, applyGrants, grantChoiceFieldIds, grantProblems, grantedNumbers, parsePowerLines, powerStatus, powerRules, removeHomebrewClan } from "../../shared/rules/creation-grants.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
+import { V5_CLAN_CASES } from "../../shared/rules/v5-creation-data.ts";
 
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5");
 const template = v5.template;
@@ -110,7 +110,7 @@ test("a homebrew clan with a new discipline is created, granted and removable", 
 });
 
 test("the narrator can open the advantage catalog to homebrew names", async () => {
-  const { allowHomebrew } = await import("../lib/creation-grants.ts");
+  const { allowHomebrew } = await import("../../shared/rules/creation-grants.ts");
   const labels = new Map(template.fields.map((field) => [field.id, field.label]));
   const values = { ...base(), vantagens: ["Pacto Antigo ••", "Aliados •••••"] };
   const closed = grantProblems(template, values, new Set(["vantagens"]), labels);

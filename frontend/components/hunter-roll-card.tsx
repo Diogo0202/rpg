@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { useCharacterSession } from "../lib/character-session";
-import { inDespair } from "../lib/hunter-traits";
-import type { FieldValue } from "../lib/sheet-template";
+import { inDespair } from "../../shared/rules/hunter-traits";
+import type { FieldValue } from "../../shared/rules/sheet-template";
 import { createClient } from "../lib/supabase/client";
 import { authenticatedPost } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";

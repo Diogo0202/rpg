@@ -4,7 +4,6 @@ import type { FieldValue } from "./sheet-template.ts";
 /**
  * Vampiro V3 (Revisado) play rules, mirroring backend/app/domain/v3_vampire.py (the API rolls; this
  * module only reads a sheet and explains a result). Numbers are marked for checking in the book.
- * The mobile app needs the same file in mobile/src/lib/v3-rules.ts.
  */
 
 type Values = Record<string, FieldValue>;

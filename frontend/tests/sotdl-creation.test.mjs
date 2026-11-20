@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { applyGrants, grantProblems } from "../lib/creation-grants.ts";
+import { applyGrants, grantProblems } from "../../shared/rules/creation-grants.ts";
 import { themeForSystem } from "../lib/map-kits.ts";
-import { stepHelp } from "../lib/step-help.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
-import { SYSTEM_STARTERS as MOBILE_STARTERS } from "../../mobile/src/lib/system-starters.ts";
+import { stepHelp } from "../../shared/rules/step-help.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 const sotdl = SYSTEM_STARTERS.find((item) => item.id === "shadow-demon-lord");
 const template = sotdl.template;
@@ -54,13 +53,7 @@ test("ajuda por passo e kit de mapa do SotDL", () => {
   assert.equal(themeForSystem("shadow-demon-lord"), "medieval");
 });
 
-test("fixture SotDL validada pelo backend corresponde ao starter e o mobile espelha a regra", () => {
+test("fixture SotDL validada pelo backend corresponde ao starter", () => {
   const fixture = JSON.parse(readFileSync(new URL("../../backend/tests/fixtures/sotdl_starter.json", import.meta.url), "utf8"));
   assert.deepEqual(fixture, template);
-  const mobile = MOBILE_STARTERS.find((item) => item.id === "shadow-demon-lord");
-  assert.deepEqual(mobile.template.creation_rules, template.creation_rules);
-  const webIds = template.fields.map((field) => field.id);
-  assert.deepEqual(mobile.template.fields.map((field) => field.id), webIds);
-  const mobileData = readFileSync(new URL("../../mobile/src/lib/sotdl-creation-data.ts", import.meta.url), "utf8");
-  assert.equal(mobileData, readFileSync(new URL("../lib/sotdl-creation-data.ts", import.meta.url), "utf8"));
 });

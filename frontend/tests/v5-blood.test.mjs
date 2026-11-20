@@ -4,10 +4,10 @@ import {
   BLOOD_POTENCY_TABLE, CLAN_COMPULSIONS, COMPULSION_OPTIONS, bloodPotency, bloodState, compulsionFromDie, countSuccesses,
   enumerateRouse, feedingPenaltyLabel, frenzyPool, halveSuperficial, parsePowerItem, remorsePool, remorseSuccessChance,
   resolveRouse, rouseRerollAllowed, rouseSuccessChance, torporDuration,
-} from "../lib/v5-blood.ts";
+} from "../../shared/rules/v5-blood.ts";
 import { damageRpcArgs, describeDamageResult, mergeRollHistory } from "../lib/v5-action-roll.ts";
-import { V5_POWER_METADATA, V5_POWER_SOURCES, describeV5Power, v5PowerMetadata } from "../lib/v5-creation-data.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { V5_POWER_METADATA, V5_POWER_SOURCES, describeV5Power, v5PowerMetadata } from "../../shared/rules/v5-creation-data.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 const close = (a, b) => Math.abs(a - b) < 1e-9;
 

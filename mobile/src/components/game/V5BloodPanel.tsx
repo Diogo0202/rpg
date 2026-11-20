@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Droplets, RefreshCw } from "lucide-react";
-import type { FieldValue } from "@/lib/sheet-template";
-import { describeV5Power, v5PowerMetadata } from "@/lib/v5-creation-data";
+import type { FieldValue } from "../../../../shared/rules/sheet-template";
+import { describeV5Power, v5PowerMetadata } from "../../../../shared/rules/v5-creation-data";
 import {
   BLOOD_KIND_LABELS, COMPULSION_OPTIONS, bloodQueueable, FRENZY_LABELS, clampInt, describeBloodEvent,
   type BloodEvent, type BloodResponse, type BloodState, type FrenzyKind,

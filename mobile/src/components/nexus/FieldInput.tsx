@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import type { FieldValue, SheetField, SheetTemplate } from "@/lib/sheet-template.ts";
-import { fieldOptions, isFieldActive } from "@/lib/sheet-creation.ts";
-import { collectionPointRules, collectionPointStatus } from "@/lib/creation-grants.ts";
-import { specialtyRules, specialtyStatus } from "@/lib/creation-checks.ts";
+import type { FieldValue, SheetField, SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
+import { fieldOptions, isFieldActive } from "../../../../shared/rules/sheet-creation.ts";
+import { collectionPointRules, collectionPointStatus } from "../../../../shared/rules/creation-grants.ts";
+import { specialtyRules, specialtyStatus } from "../../../../shared/rules/creation-checks.ts";
 import type { FormulaResult } from "@/lib/formula";
 import { Btn } from "./ui";
 

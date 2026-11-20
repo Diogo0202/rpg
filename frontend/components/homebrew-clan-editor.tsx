@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 
-import { addHomebrewClan, allowHomebrew, collectionPointRules, grantRules, homebrewClans, parsePowerLines, powerRules, removeHomebrewClan, type HomebrewDiscipline } from "../lib/creation-grants";
-import type { SheetTemplate } from "../lib/sheet-template";
+import { addHomebrewClan, allowHomebrew, collectionPointRules, grantRules, homebrewClans, parsePowerLines, powerRules, removeHomebrewClan, type HomebrewDiscipline } from "../../shared/rules/creation-grants";
+import type { SheetTemplate } from "../../shared/rules/sheet-template";
 
 type DraftDiscipline = { label: string; powers: string; rituals: string };
 

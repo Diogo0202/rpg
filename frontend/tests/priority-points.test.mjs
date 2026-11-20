@@ -1,8 +1,8 @@
 ﻿import assert from "node:assert/strict";
 import { test } from "node:test";
-import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../lib/priority-points.ts";
-import { masterGrantedFieldIds } from "../lib/sheet-creation.ts";
-import { SYSTEM_STARTERS } from "../lib/system-starters.ts";
+import { lockedFieldIds, priorityPatch, priorityRules, tallyPriority } from "../../shared/rules/priority-points.ts";
+import { masterGrantedFieldIds } from "../../shared/rules/sheet-creation.ts";
+import { SYSTEM_STARTERS } from "../../shared/rules/system-starters.ts";
 
 const v3 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v3");
 const template = v3.template;

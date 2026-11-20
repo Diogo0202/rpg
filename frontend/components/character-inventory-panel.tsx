@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession } from "../lib/character-session";
 import { createClient } from "../lib/supabase/client";
-import type { SheetField, FieldValue } from "../lib/sheet-template";
+import type { SheetField, FieldValue } from "../../shared/rules/sheet-template";
 import { CharacterShoppingLists } from "./character-shopping-lists";
 import { DAMAGE_TYPE_LABELS, type DamageType } from "../lib/damage-types";
 import { ATLAS_EQUIPMENT,filterAtlasEquipment,type AtlasEquipmentCategory,type AtlasEra,type AtlasDamageKind } from "../lib/atlas-equipment";

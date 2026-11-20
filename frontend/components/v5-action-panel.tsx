@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
 import { CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { createClient } from "../lib/supabase/client";
-import { bloodPotency } from "../lib/v5-blood";
+import { bloodPotency } from "../../shared/rules/v5-blood";
 import {
   actionChronicle, attackDamageSplit, attackDamageOperationId, canApplyAttackDamage, damagePenaltiesFrom, damageRpcArgs,
   describeDamageResult, mergeRollHistory, storedModifierPreview, toggleRerollIndex,

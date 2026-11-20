@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Dices, RefreshCw } from "lucide-react";
-import type { FieldValue } from "@/lib/sheet-template";
-import { HUNTER_SKILLS } from "@/lib/hunter-creation-data";
-import { inDespair, usableEdges } from "@/lib/hunter-traits";
+import type { FieldValue } from "../../../../shared/rules/sheet-template";
+import { HUNTER_SKILLS } from "../../../../shared/rules/hunter-creation-data";
+import { inDespair, usableEdges } from "../../../../shared/rules/hunter-traits";
 import {
   HUNTER_ATTRIBUTES, HUNTER_CHOICE_LABEL, cellAdjustBody, clampInt, describeHunterRoll, hunterRollBody, int, isHunterRoll, toggleDie,
   type HunterChoice, type HunterRoll, type HunterState,

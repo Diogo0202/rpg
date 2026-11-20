@@ -1,6 +1,6 @@
 import type { JsonValue } from "../mobile-sync/index.ts";
 import type { SheetBackup } from "../sheet-backup.ts";
-import type { SheetTemplate } from "../sheet-template.ts";
+import type { SheetTemplate } from "../../../../shared/rules/sheet-template.ts";
 import { backupMatchesFields, prepareSheetValues, sheetFromBackup } from "./sheets";
 
 type CampaignTemplate = { id: string; data: Record<string, JsonValue> };

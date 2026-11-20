@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import { adjustExperience, spendMetaCurrency } from "../lib/sheet-adjustments";
-import type { MetaCurrency, SheetTemplate } from "../lib/sheet-template";
+import type { MetaCurrency, SheetTemplate } from "../../shared/rules/sheet-template";
 import { createClient } from "../lib/supabase/client";
 import styles from "./party-status-panel.module.css";
 

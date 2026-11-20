@@ -2,8 +2,8 @@ import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { FieldInput } from "./FieldInput";
-import { SYSTEM_STARTERS } from "@/lib/system-starters.ts";
-import type { FieldValue } from "@/lib/sheet-template.ts";
+import { SYSTEM_STARTERS } from "../../../../shared/rules/system-starters.ts";
+import type { FieldValue } from "../../../../shared/rules/sheet-template.ts";
 
 const v3 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v3")!;
 const v5 = SYSTEM_STARTERS.find((item) => item.id === "vampire-v5")!;

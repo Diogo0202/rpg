@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { SheetField, FieldValue } from "@/lib/sheet-template.ts";
+import type { SheetField, FieldValue } from "../../../../shared/rules/sheet-template.ts";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { createSheetBackup, type BackupInventoryItem } from "@/lib/sheet-backup.ts";

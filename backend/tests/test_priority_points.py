@@ -1,6 +1,6 @@
 """priority_points on the real Vampire V3 starter (tests/fixtures/v3_starter.json).
 
-frontend/tests/priority-points.test.mjs fails when the fixture drifts from frontend/lib/system-starters.ts.
+frontend/tests/priority-points.test.mjs fails when the fixture drifts from shared/rules/system-starters.ts.
 """
 
 import json
