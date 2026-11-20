@@ -5,6 +5,7 @@ import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
 
 import { createClient } from "./supabase/client";
+import { listSessionCharacters } from "./data/sheets";
 
 export type CharacterEffect = {
   id: string;
@@ -87,8 +88,7 @@ export function CharacterSessionBar({ campaignId }: { campaignId: string }) {
     }
     async function load() {
       const current = ++request;
-      const { data, error: queryError } = await client.from("character_sheets")
-        .select("id,name,version,values,effects").eq("campaign_id", campaignId).order("name");
+      const { data, error: queryError } = await listSessionCharacters(client, campaignId);
       if (!active || current !== request) return;
       if (queryError) { setError("Não foi possível ler as fichas. Confira a conexão e as migrations de efeitos."); return; }
       const rows = ((data ?? []) as SessionCharacter[]).map(normalizeCharacter);

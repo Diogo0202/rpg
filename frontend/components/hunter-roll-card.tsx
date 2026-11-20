@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { useCharacterSession } from "../lib/character-session";
 import { inDespair } from "../../shared/rules/hunter-traits";
 import type { FieldValue } from "../../shared/rules/sheet-template";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { hunterSheetState } from "../lib/data/hunter";
+import { findSheetById } from "../lib/data/sheets";
 import { authenticatedPost } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";
 
@@ -34,7 +36,7 @@ export function useHunterState(sheetId: string | null | undefined, revision: num
   useEffect(() => {
     if (!sheetId) return;
     let active = true;
-    void createClient().rpc("hunter_sheet_state", { p_sheet_id: sheetId }).then(({ data, error }) => {
+    void hunterSheetState(browserDb(), sheetId).then(({ data, error }) => {
       if (active) setState({ id: sheetId, value: error ? null : data as HunterState });
     });
     return () => { active = false; };
@@ -61,7 +63,7 @@ export function HunterConsequencesCard({ latest, state, canManage, onRoll, onCha
 
   async function refreshSheet() {
     const sheetId = character!.id;
-    const { data } = await createClient().from("character_sheets").select("id,name,version,values").eq("id", sheetId).maybeSingle();
+    const { data } = await findSheetById(browserDb(), sheetId, "id,name,version,values");
     if (data) acceptSavedCharacter({ ...character!, ...data });
     onChanged();
   }

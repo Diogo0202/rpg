@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { listSheetNames } from "../lib/data/sheets";
+import { listNpcNames } from "../lib/data/v5";
 import { sessionJson } from "../lib/api/session";
 import {
   BOND_DEGREE_LABELS, V5_CLAN_BANES, V5_INTENSITIES, V5_RESONANCES, baneSeverity, hungerAfterHunt, resonanceEffectPreview,
@@ -97,10 +99,10 @@ export function V5SanguinePanel({ campaignId, canEdit, canNarrate }: { campaignI
     let active = true;
     (async () => {
       try {
-        const client = createClient();
+        const db = browserDb();
         const [sheetRows, npcRows] = await Promise.all([
-          client.from("character_sheets").select("id,name").eq("campaign_id", campaignId).order("name"),
-          client.from("world_entities").select("id,name").eq("campaign_id", campaignId).eq("kind", "npc").order("name"),
+          listSheetNames(db, campaignId),
+          listNpcNames(db, campaignId),
         ]);
         if (!active) return;
         setSheets((sheetRows.data ?? []) as Option[]);

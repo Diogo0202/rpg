@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { parseTags, useCharacterSession, type CharacterEffect, type SessionCharacter } from "../lib/character-session";
 import { buildChronicleContext, CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { saveSheetEffects } from "../lib/data/sheets";
 import { ApiError, detailOf, retryAfterMessage } from "../lib/api/http";
 import { sessionSend } from "../lib/api/session";
 
@@ -85,9 +86,7 @@ export function CharacterEffectsPanel({ campaignId, canEdit }: { campaignId: str
     setBusy(true);
     setMessage("");
     try {
-      const { data, error } = await createClient().from("character_sheets")
-        .update({ effects: next }).eq("id", selected.id).eq("campaign_id", campaignId).eq("version", selected.version)
-        .select("id,name,version,values,effects").maybeSingle();
+      const { data, error } = await saveSheetEffects(browserDb(), { id: selected.id, campaignId, version: selected.version }, next);
       if (error || !data) throw new Error("Não foi possível salvar. Atualize a ficha se ela mudou em outra sessão.");
       acceptSavedCharacter(data as SessionCharacter);
       if (currentCharacterId.current === selected.id) setMessage("Efeitos salvos na ficha.");

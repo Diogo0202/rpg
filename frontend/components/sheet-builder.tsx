@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as sheetRepo from "../lib/data/sheets";
 import { apiBase, sessionToken } from "../lib/api/session";
 import { useCharacterSession, type CharacterEffect } from "../lib/character-session";
 import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
@@ -22,7 +23,6 @@ import { SheetVersionHistory } from "./sheet-version-history";
 import { deleteCampaignSheet } from "../lib/sheet-history";
 type RollResult = { rolls: number[]; modifier: number; total: number; preview?: ModifierPreview; chronicle?: ChronicleActivityStatus | null };
 type StoredSheet = { id: string; name: string; template_id: string; owner_id: string; values: Record<string, FieldValue>; version: number; effects: CharacterEffect[]; portrait_path: string | null };
-const SHEET_COLUMNS = "id, name, template_id, owner_id, values, version, effects, portrait_path";
 const stepLabels = { identity: "Identidade", attributes: "Atributos", skills: "Habilidades", traits: "Poderes e vantagens", resources: "Recursos", story: "História", other: "Outros" };
 const identityLabels = { race: "Raça", subrace: "Sub-raça", clan: "Clã", predator: "Predador", creed: "Credo", lineage: "Linhagem", origin: "Origem", archetype: "Arquétipo" };
 
@@ -71,13 +71,13 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
 
   useEffect(() => {
     let active = true;
-    const supabase = createClient();
+    const db = browserDb();
     async function load() {
       setLoading(true);
       setLoadError("");
       const [templateResult, sheetResult] = await Promise.all([
-        supabase.from("system_templates").select("id, name, version, schema").eq("campaign_id", campaignId).eq("status", "approved").order("name"),
-        supabase.from("character_sheets").select(SHEET_COLUMNS).eq("campaign_id", campaignId).order("name"),
+        sheetRepo.listApprovedTemplates(db, campaignId),
+        sheetRepo.listCampaignSheets(db, campaignId),
       ]);
       if (!active) return;
       if (templateResult.error || sheetResult.error) {
@@ -181,16 +181,9 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     try {
       await authenticatedPost("/api/v1/templates/validate", template);
       if (!isCurrent()) return;
-      const supabase = createClient();
-      const { data, error } = await supabase.from("system_templates").insert({
-        campaign_id: campaignId,
-        owner_id: viewerId,
-        name: template.name,
-        version: template.version,
-        schema: template,
-        status: "approved",
-        approved_at: new Date().toISOString(),
-      }).select("id, name, version, schema").single();
+      const { data, error } = await sheetRepo.insertApprovedTemplate(browserDb(), {
+        campaignId, ownerId: viewerId, name: template.name, version: template.version, schema: template,
+      });
       if (error || !data) throw new Error(error?.message ?? "Não foi possível salvar o modelo.");
       setTemplates((current) => [...current, data as StoredTemplate]);
       if (!isCurrent()) return;
@@ -214,12 +207,9 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     const isCurrent = () => editorRevision.current === revision && selectedCharacterId.current === selection;
     try {
       const payloadValues = submittedValues ?? collectValues() as Record<string, FieldValue>;
-      const supabase = createClient();
       if (sheetId) {
-        const { data, error } = await supabase.from("character_sheets")
-          .update({ name, values: payloadValues, portrait_path: portraitPath, version: sheetVersion + 1, updated_at: new Date().toISOString() })
-          .eq("id", sheetId).eq("campaign_id", campaignId).eq("version", sheetVersion)
-          .select(SHEET_COLUMNS).maybeSingle();
+        const { data, error } = await sheetRepo.updateSheetValues(browserDb(), { id: sheetId, campaignId, version: sheetVersion },
+          { name, values: payloadValues, portrait_path: portraitPath });
         if (error || !data) throw new Error(error?.message ?? "A ficha mudou em outra sessão. Reabra antes de salvar.");
         setSheets((current) => current.map((item) => item.id === data.id ? data as StoredSheet : item));
         if (!isCurrent()) return;

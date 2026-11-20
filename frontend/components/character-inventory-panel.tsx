@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession } from "../lib/character-session";
-import { createClient } from "../lib/supabase/client";
+import { browserDb, currentUserId } from "../lib/data/browser";
+import * as inventory from "../lib/data/inventory";
+import { approvedTemplateSchema, sheetTemplateId } from "../lib/data/sheets";
 import type { SheetField, FieldValue } from "../../shared/rules/sheet-template";
 import { CharacterShoppingLists } from "./character-shopping-lists";
 import { DAMAGE_TYPE_LABELS, type DamageType } from "../lib/damage-types";
@@ -43,7 +45,7 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
     if(!character)return;
     const id=character.id;
     void (async()=>{
-      const {data,error}=await createClient().from("character_catalog_favorites").select("catalog_item_id").eq("sheet_id",id).eq("campaign_id",campaignId);
+      const {data,error}=await inventory.listFavorites(browserDb(),id,campaignId);
       if(active&&!error&&selected.current===id)setFavorites((data??[]).map(row=>String(row.catalog_item_id)));
     })();
     return()=>{active=false;};
@@ -52,12 +54,11 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
   async function toggleFavorite(itemId:string){
     if(!character)return;
     const id=character.id;const isFavorite=favorites.includes(itemId);
-    const client=createClient();
-    const {data:auth}=await client.auth.getUser();
-    if(!auth.user){setMessage("Entre na campanha para salvar favoritos.");return;}
+    const userId=await currentUserId();
+    if(!userId){setMessage("Entre na campanha para salvar favoritos.");return;}
     const {error}=isFavorite
-      ?await client.from("character_catalog_favorites").delete().eq("user_id",auth.user.id).eq("sheet_id",id).eq("catalog_item_id",itemId)
-      :await client.from("character_catalog_favorites").insert({user_id:auth.user.id,sheet_id:id,campaign_id:campaignId,catalog_item_id:itemId});
+      ?await inventory.removeFavorite(browserDb(),{userId,sheetId:id,itemId})
+      :await inventory.addFavorite(browserDb(),{userId,sheetId:id,campaignId,itemId});
     if(selected.current!==id)return;
     if(error){setMessage("Não foi possível atualizar o favorito.");return;}
     setFavorites(current=>isFavorite?current.filter(value=>value!==itemId):[...current,itemId]);
@@ -73,14 +74,14 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
     const id=character.id;
     async function load(){
       try {
-        const {data,error}=await createClient().from("character_inventory").select("*").eq("sheet_id",id).eq("campaign_id",campaignId).order("sort_order").order("name");
+        const db=browserDb();
+        const {data,error}=await inventory.listItems(db,id,campaignId);
         if(!active)return;
         if(error)throw error;
         setItems((data??[]) as Item[]);
-        const client=createClient();
-        const {data:sheet,error:sheetError}=await client.from("character_sheets").select("template_id").eq("id",id).eq("campaign_id",campaignId).single();
+        const {data:sheet,error:sheetError}=await sheetTemplateId(db,id,campaignId);
         if(sheetError||!sheet)throw new Error("Modelo da ficha indisponível.");
-        const {data:template,error:templateError}=await client.from("system_templates").select("schema").eq("id",sheet.template_id).eq("campaign_id",campaignId).eq("status","approved").single();
+        const {data:template,error:templateError}=await approvedTemplateSchema(db,sheet.template_id,campaignId);
         if(templateError||!template)throw new Error("Modelo aprovado indisponível.");
         if(active)setCustomFields(Array.isArray(template.schema?.inventory_schema)?template.schema.inventory_schema as SheetField[]:[]);
       }catch{if(active)setMessage("Não foi possível carregar o inventário. Confira a conexão e a migration de inventário.");}
@@ -102,11 +103,11 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
 
   function save(event:FormEvent<HTMLFormElement>){
     event.preventDefault();if(!character)return;
-    const client=createClient();
+    const db=browserDb();
     const patch={...draft,name:draft.name.trim()};
     void mutate(()=>editing
-      ?client.from("character_inventory").update(patch).eq("id",editing.id).eq("sheet_id",character.id).eq("campaign_id",campaignId).eq("version",editing.version).select("id")
-      :client.from("character_inventory").insert({...patch,sheet_id:character.id,campaign_id:campaignId}).select("id"),"Item salvo.");
+      ?inventory.updateItem(db,editing,character.id,campaignId,patch)
+      :inventory.insertItem(db,character.id,campaignId,patch),"Item salvo.");
   }
 
   if(!character)return <section className="content generation-card"><h2>Inventário e lista de compras</h2><p>Selecione uma ficha salva na barra da sessão.</p></section>;
@@ -135,10 +136,10 @@ export function CharacterInventoryPanel({ campaignId,canEdit }: { campaignId:str
         {Object.entries(item.custom_values??{}).map(([key,value])=><p key={key}>{customFields.find(field=>field.id===key)?.label??key}: {Array.isArray(value)?value.join(", "):typeof value==="boolean"?(value?"Sim":"Não"):String(value)}</p>)}
         <div className="actions">
           <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>{setEditing(item);setDraft({name:item.name,category:item.category,quantity:item.quantity,resource_cost:item.resource_cost,damage_bonus:item.damage_bonus,damage_type:item.damage_type??"superficial",protection:item.protection,notes:item.notes,acquired:item.acquired,sort_order:item.sort_order,custom_values:item.custom_values??{}});}}>Editar {item.name}</button>
-          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>createClient().from("character_inventory").delete().eq("id",item.id).eq("sheet_id",character.id).eq("version",item.version).select("id"),"Item removido.")}>Excluir {item.name}</button>
+          <button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>inventory.deleteItem(browserDb(),item,character.id),"Item removido.")}>Excluir {item.name}</button>
           {item.acquired&&["weapon","armor"].includes(item.category)&&<button className="quiet" type="button" disabled={busy||!canEdit} onClick={()=>void mutate(()=>item.equipped
-            ?createClient().from("character_inventory").update({equipped:false}).eq("id",item.id).eq("version",item.version).select("id")
-            :createClient().rpc("equip_character_item",{p_item_id:item.id,p_expected_version:item.version}),"Equipamento atualizado.")}>{item.equipped?"Desequipar":"Equipar"}</button>}
+            ?inventory.unequipItem(browserDb(),item)
+            :inventory.equipItem(browserDb(),item),"Equipamento atualizado.")}>{item.equipped?"Desequipar":"Equipar"}</button>}
           <label className="inline-check"><input type="checkbox" checked={comparison.includes(item.id)} disabled={!comparison.includes(item.id)&&comparison.length===2} onChange={event=>setComparison(value=>event.target.checked?[...value,item.id]:value.filter(id=>id!==item.id))}/>Comparar</label>
         </div>
       </article>)}</div>

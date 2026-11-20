@@ -5,6 +5,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { adjustExperience, spendMetaCurrency } from "../lib/sheet-adjustments";
 import type { MetaCurrency, SheetTemplate } from "../../shared/rules/sheet-template";
 import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as sheetRepo from "../lib/data/sheets";
 import styles from "./party-status-panel.module.css";
 
 type Sheet = {
@@ -91,8 +93,7 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
   async function saveNote(sheetId: string) {
     const text = (noteDrafts[sheetId] ?? notes[sheetId] ?? "").slice(0, 10000);
     setNoteStatus((current) => ({ ...current, [sheetId]: "Salvando…" }));
-    const { error } = await createClient().from("character_sheet_secrets")
-      .upsert({ sheet_id: sheetId, campaign_id: campaignId, notes: text }, { onConflict: "sheet_id" });
+    const { error } = await sheetRepo.saveSheetSecret(browserDb(), sheetId, campaignId, text);
     if (error) { setNoteStatus((current) => ({ ...current, [sheetId]: "Não foi possível salvar a anotação." })); return; }
     setNotes((current) => ({ ...current, [sheetId]: text }));
     setNoteDrafts((current) => { const next = { ...current }; delete next[sheetId]; return next; });
@@ -126,10 +127,9 @@ export function PartyStatusPanel({ campaignId }: { campaignId: string }) {
 
       try {
         const [{ data, error }, templateResult, secretResult] = await Promise.all([
-          supabase.from("character_sheets").select("id, name, template_id, values, updated_at, version")
-            .eq("campaign_id", campaignId).order("name", { ascending: true }),
-          supabase.from("system_templates").select("id, schema").eq("campaign_id", campaignId).eq("status", "approved"),
-          supabase.from("character_sheet_secrets").select("sheet_id, notes").eq("campaign_id", campaignId),
+          sheetRepo.listPartySheets(supabase, campaignId),
+          sheetRepo.listApprovedTemplateSchemas(supabase, campaignId),
+          sheetRepo.listSheetSecrets(supabase, campaignId),
         ]);
 
         if (!active || currentRequest !== requestId) return;

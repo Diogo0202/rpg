@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { createClient } from "../lib/supabase/client";
+import { browserDb, currentUserId } from "../lib/data/browser";
+import * as inventory from "../lib/data/inventory";
 import { ATLAS_EQUIPMENT, type AtlasEquipment } from "../lib/atlas-equipment";
 
 type ShoppingList = { id: string; name: string; owner_id: string; shared_with_master: boolean; notes: string; version: number; updated_at: string };
@@ -46,21 +47,21 @@ export function CharacterShoppingLists({ campaignId, sheetId, canEdit, resources
     let active = true;
     void (async () => {
       try {
-        const client = createClient();
-        const [{ data: auth }, listsResult, totalsResult] = await Promise.all([
-          client.auth.getUser(),
-          client.from("character_shopping_lists").select("id,name,owner_id,shared_with_master,notes,version,updated_at").eq("sheet_id", sheetId).eq("campaign_id", campaignId).order("created_at"),
-          client.from("character_shopping_list_totals").select("*").eq("sheet_id", sheetId).eq("campaign_id", campaignId),
+        const db = browserDb();
+        const [viewerId, listsResult, totalsResult] = await Promise.all([
+          currentUserId(),
+          inventory.listShoppingLists(db, sheetId, campaignId),
+          inventory.listShoppingTotals(db, sheetId, campaignId),
         ]);
         if (!active || selected.current !== sheetId) return;
         if (listsResult.error || totalsResult.error) throw new Error();
         const loaded = (listsResult.data ?? []) as ShoppingList[];
-        setUserId(auth.user?.id ?? null);
+        setUserId(viewerId);
         setLists(loaded);
         setTotals((totalsResult.data ?? []) as ListTotals[]);
         const ids = loaded.map((list) => list.id);
         const itemsResult = ids.length
-          ? await client.from("character_shopping_list_items").select("id,list_id,catalog_item_id,name,category,resource_cost,quantity,notes").in("list_id", ids).order("sort_order").order("created_at")
+          ? await inventory.listShoppingItems(db, ids)
           : { data: [], error: null };
         if (!active || selected.current !== sheetId) return;
         if (itemsResult.error) throw new Error();
@@ -88,7 +89,7 @@ export function CharacterShoppingLists({ campaignId, sheetId, canEdit, resources
     event.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    void run(() => createClient().from("character_shopping_lists").insert({ sheet_id: sheetId, campaign_id: campaignId, name }).select("id"), "Lista criada.");
+    void run(() => inventory.createShoppingList(browserDb(), sheetId, campaignId, name), "Lista criada.");
     setNewName("");
   }
 
@@ -96,10 +97,10 @@ export function CharacterShoppingLists({ campaignId, sheetId, canEdit, resources
     event.preventDefault();
     const entry = ATLAS_EQUIPMENT.find((item) => item.id === catalogId);
     if (!entry || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) { setMessage("Escolha um item do arsenal e uma quantidade de 1 a 99."); return; }
-    void run(() => createClient().from("character_shopping_list_items").insert({
-      list_id: list.id, campaign_id: campaignId, catalog_item_id: entry.id, name: entry.name,
-      category: entry.category, resource_cost: entry.resource_cost, quantity,
-    }).select("id"), `${entry.name} adicionado à lista.`);
+    void run(() => inventory.addShoppingItem(browserDb(), {
+      listId: list.id, campaignId, catalogItemId: entry.id, name: entry.name,
+      category: entry.category, resourceCost: entry.resource_cost, quantity,
+    }), `${entry.name} adicionado à lista.`);
   }
 
   const active = lists.find((list) => list.id === activeId) ?? null;
@@ -121,7 +122,7 @@ export function CharacterShoppingLists({ campaignId, sheetId, canEdit, resources
       {resources !== null && summary.aboveResources > 0 && <p className="notice">{summary.aboveResources} item(ns) acima de Recursos {resources} da ficha.</p>}
       <ul className="inventory-items">{activeItems.map((item) => <li className="inventory-item" key={item.id}>
         <b>{item.name}</b> · {item.quantity}× · Recursos {item.resource_cost} (subtotal {item.resource_cost * item.quantity})
-        {isAuthor && canEdit && <button type="button" className="quiet" disabled={busy} onClick={() => void run(() => createClient().from("character_shopping_list_items").delete().eq("id", item.id).select("id"), "Item removido da lista.")}>Remover {item.name}</button>}
+        {isAuthor && canEdit && <button type="button" className="quiet" disabled={busy} onClick={() => void run(() => inventory.removeShoppingItem(browserDb(), item.id),"Item removido da lista.")}>Remover {item.name}</button>}
       </li>)}</ul>
       {activeItems.length === 0 && <p>Lista vazia.</p>}
       {isAuthor && canEdit && <>
@@ -134,8 +135,8 @@ export function CharacterShoppingLists({ campaignId, sheetId, canEdit, resources
           <button type="submit" className="quiet" disabled={busy}>Adicionar à lista</button>
         </form>
         <div className="actions">
-          <label className="inline-check"><input type="checkbox" checked={active.shared_with_master} disabled={busy} onChange={(event) => void run(() => createClient().from("character_shopping_lists").update({ shared_with_master: event.target.checked }).eq("id", active.id).eq("version", active.version).select("id"), event.target.checked ? "Lista compartilhada com o narrador." : "Lista voltou a ser privada.")} />Compartilhar com o narrador</label>
-          <button type="button" className="quiet" disabled={busy} onClick={() => void run(() => createClient().from("character_shopping_lists").delete().eq("id", active.id).eq("version", active.version).select("id"), "Lista excluída.")}>Excluir lista</button>
+          <label className="inline-check"><input type="checkbox" checked={active.shared_with_master} disabled={busy} onChange={(event) => void run(() => inventory.shareShoppingList(browserDb(), active, event.target.checked),event.target.checked ? "Lista compartilhada com o narrador." : "Lista voltou a ser privada.")} />Compartilhar com o narrador</label>
+          <button type="button" className="quiet" disabled={busy} onClick={() => void run(() => inventory.deleteShoppingList(browserDb(), active),"Lista excluída.")}>Excluir lista</button>
         </div>
       </>}
     </>}

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
 import { CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, type ChronicleActivityStatus } from "../lib/chronicle-context";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as sheetRepo from "../lib/data/sheets";
+import { applyV5Damage } from "../lib/data/v5";
 import { ensureOk } from "../lib/api/http";
 import { apiBase, sessionJson, sessionSend, type SessionMessages } from "../lib/api/session";
 import { bloodPotency } from "../../shared/rules/v5-blood";
@@ -199,15 +201,11 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     setFieldData(null);
     void (async () => {
       try {
-        const client = createClient();
-        const { data: sheet, error: sheetError } = await client.from("character_sheets")
-          .select("template_id").eq("id", selected.id).eq("campaign_id", campaignId)
-          .abortSignal(controller.signal).maybeSingle();
+        const db = browserDb();
+        const { data: sheet, error: sheetError } = await sheetRepo.findSheetTemplateId(db, selected.id, campaignId, controller.signal);
         if (!isCurrent()) return;
         if (sheetError || !sheet) throw new Error("A ficha não pertence a esta campanha ou não está acessível.");
-        const { data: template, error: templateError } = await client.from("system_templates")
-          .select("schema").eq("id", sheet.template_id).eq("campaign_id", campaignId).eq("status", "approved")
-          .abortSignal(controller.signal).maybeSingle();
+        const { data: template, error: templateError } = await sheetRepo.findApprovedTemplateSchema(db, sheet.template_id, campaignId, controller.signal);
         if (!isCurrent()) return;
         if (templateError || !template) throw new Error("Não foi possível ler o modelo da ficha.");
         setFieldData({ characterId: selected.id, fields: buildNumericFields(template.schema, selected.values), error: "" });
@@ -242,9 +240,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     }
     const controller = new AbortController();
     void (async () => {
-      const { data, error } = await createClient().from("character_sheets")
-        .select("id,name").eq("campaign_id", campaignId).order("name")
-        .abortSignal(controller.signal);
+      const { data, error } = await sheetRepo.listSheetNames(browserDb(), campaignId, controller.signal);
       if (controller.signal.aborted) return;
       if (error || !Array.isArray(data)) {
         setTargets([]);
@@ -321,8 +317,7 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   }
 
   async function refreshSheet(selected: SessionCharacter, signal: AbortSignal) {
-    const { data } = await createClient().from("character_sheets").select(SHEET_COLUMNS)
-      .eq("id", selected.id).eq("campaign_id", campaignId).abortSignal(signal).maybeSingle();
+    const { data } = await sheetRepo.findSheet(browserDb(), selected.id, campaignId, SHEET_COLUMNS, signal);
     if (data) acceptSavedCharacter(data as SessionCharacter);
   }
 
@@ -444,10 +439,10 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     try {
       const operationUuid = await attackDamageOperationId(entry.roll.id, target.id);
       if (!operationIsCurrent(operation)) return;
-      const { data, error } = await createClient().rpc("apply_v5_damage", damageRpcArgs({
+      const { data, error } = await applyV5Damage(browserDb(), damageRpcArgs({
         sheetId: target.id, track: targetTrack, superficial: split.superficial, aggravated: split.aggravated,
         armor: targetArmor, operationId: operationUuid, reason: `Ataque de ${selected.name}`, physical: targetPhysical,
-      })).abortSignal(operation.controller.signal);
+      }), operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
       if (error || !data) throw new Error(`O servidor recusou o dano. Confira a trilha de ${targetTrack === "health" ? "Saúde" : "Força de Vontade"} do alvo e o acesso à ficha.`);
       const result = data as DamageResult;
@@ -473,9 +468,9 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     }
     const operation = beginOperation(selected);
     try {
-      const { data, error } = await createClient().rpc("apply_v5_damage", damageRpcArgs({
+      const { data, error } = await applyV5Damage(browserDb(), damageRpcArgs({
         sheetId: selected.id, track, superficial, aggravated, armor, operationId: crypto.randomUUID(), physical,
-      })).abortSignal(operation.controller.signal);
+      }), operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
       if (error || !data) throw new Error("O servidor recusou o dano. Confira a trilha e o acesso à ficha.");
       const result = data as DamageResult;
@@ -508,11 +503,8 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
     const operation = beginOperation(selected);
     const updatedValues = { ...selected.values, [key]: next };
     try {
-      const { data, error } = await createClient().from("character_sheets")
-        .update({ values: updatedValues })
-        .eq("id", selected.id).eq("campaign_id", campaignId).eq("version", selected.version)
-        .select(SHEET_COLUMNS)
-        .abortSignal(operation.controller.signal).maybeSingle();
+      const { data, error } = await sheetRepo.replaceSheetValues(browserDb(), { id: selected.id, campaignId, version: selected.version },
+        updatedValues, SHEET_COLUMNS, operation.controller.signal);
       if (!operationIsCurrent(operation)) return;
       if (error || !data) throw new Error("A ficha mudou em outra sessão. Atualize a sessão antes de ajustar o dano.");
       acceptSavedCharacter(data as SessionCharacter);

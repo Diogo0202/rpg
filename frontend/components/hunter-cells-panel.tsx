@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import * as hunter from "../lib/data/hunter";
 import { authenticatedPost } from "./character-effects-panel";
 import styles from "./system-roll-panel.module.css";
 
@@ -42,13 +43,13 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
     let active = true;
     async function load() {
       try {
-        const client = createClient();
+        const db = browserDb();
         const [cellResult, memberResult, targetResult, bondResult, sheetResult] = await Promise.all([
-          client.from("hunter_cells").select("id,name,danger,desperation,notes,version").eq("campaign_id", requestCampaign).order("name"),
-          client.from("hunter_cell_members").select("cell_id,sheet_id,role").eq("campaign_id", requestCampaign),
-          client.from("hunter_cell_targets").select("id,cell_id,name,kind,status,threat,notes").eq("campaign_id", requestCampaign).order("threat", { ascending: false }),
-          client.from("hunter_cell_bonds").select("id,cell_id,from_sheet_id,to_sheet_id,to_target_id,kind,description").eq("campaign_id", requestCampaign),
-          client.from("party_status_public").select("id,name").eq("campaign_id", requestCampaign).order("name"),
+          hunter.listCells(db, requestCampaign),
+          hunter.listCellMembers(db, requestCampaign),
+          hunter.listCellTargets(db, requestCampaign),
+          hunter.listCellBonds(db, requestCampaign),
+          hunter.listPublicSheetNames(db, requestCampaign),
         ]);
         if (!active || campaignRef.current !== requestCampaign) return;
         const failed = [cellResult, memberResult, targetResult, bondResult, sheetResult].find((result) => result.error);
@@ -88,20 +89,19 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
       setMessage("A gravação falhou. Confira os limites e se você é mestre da campanha.");
     } finally { setBusy(false); }
   }
-  const table = (name: string) => createClient().from(name);
 
   function createCell(event: FormEvent) {
     event.preventDefault();
     const name = newCell.trim();
     if (name.length < 2 || name.length > 120) { setMessage("O nome da célula precisa ter de 2 a 120 caracteres."); return; }
-    void write(() => table("hunter_cells").insert({ campaign_id: campaignId, name }), "Célula criada.").then(() => setNewCell(""));
+    void write(() => hunter.createCell(browserDb(), campaignId, name), "Célula criada.").then(() => setNewCell(""));
   }
   function saveCell(event: FormEvent) {
     event.preventDefault();
     if (!cell) return;
     const { danger, desperation, notes } = cellDraft;
     if ([danger, desperation].some((value) => !Number.isInteger(value) || value < 0 || value > 5) || notes.length > 4000) { setMessage("Perigo e Desesperação vão de 0 a 5; notas até 4000 caracteres."); return; }
-    void write(() => table("hunter_cells").update({ danger, desperation, notes }).eq("id", cell.id).eq("version", cell.version), "Célula atualizada.");
+    void write(() => hunter.updateCell(browserDb(), cell, { danger, desperation, notes }), "Célula atualizada.");
   }
   /** F4: one-step change through adjust_hunter_cell (atomic, idempotent by operation id, logged in hunter_events). */
   function adjust(dangerDelta: number, desperationDelta: number) {
@@ -116,14 +116,14 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
   function addMember(event: FormEvent) {
     event.preventDefault();
     if (!cell || !memberDraft.sheetId) return;
-    void write(() => table("hunter_cell_members").insert({ cell_id: cell.id, campaign_id: campaignId, sheet_id: memberDraft.sheetId, role: memberDraft.role.trim().slice(0, 80) }), "Membro incluído.")
+    void write(() => hunter.addCellMember(browserDb(), { cellId: cell.id, campaignId, sheetId: memberDraft.sheetId, role: memberDraft.role.trim().slice(0, 80) }), "Membro incluído.")
       .then(() => setMemberDraft({ sheetId: "", role: "" }));
   }
   function addTarget(event: FormEvent) {
     event.preventDefault();
     const name = targetDraft.name.trim();
     if (!cell || name.length < 2 || name.length > 120) { setMessage("O alvo precisa de um nome de 2 a 120 caracteres."); return; }
-    void write(() => table("hunter_cell_targets").insert({ cell_id: cell.id, campaign_id: campaignId, name, kind: targetDraft.kind, threat: targetDraft.threat, notes: targetDraft.notes.slice(0, 2000) }), "Alvo registrado.")
+    void write(() => hunter.addCellTarget(browserDb(), { cellId: cell.id, campaignId, name, kind: targetDraft.kind, threat: targetDraft.threat, notes: targetDraft.notes.slice(0, 2000) }), "Alvo registrado.")
       .then(() => setTargetDraft({ name: "", kind: "antagonista", threat: 1, notes: "" }));
   }
   function addBond(event: FormEvent) {
@@ -131,9 +131,9 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
     if (!cell || !bondDraft.from || !bondDraft.to) return;
     const [kind, id] = bondDraft.to.split(":");
     if (kind === "sheet" && id === bondDraft.from) { setMessage("Um vínculo liga duas fichas diferentes."); return; }
-    void write(() => table("hunter_cell_bonds").insert({
-      cell_id: cell.id, campaign_id: campaignId, from_sheet_id: bondDraft.from, kind: bondDraft.kind, description: bondDraft.description.slice(0, 500),
-      to_sheet_id: kind === "sheet" ? id : null, to_target_id: kind === "target" ? id : null,
+    void write(() => hunter.addCellBond(browserDb(), {
+      cellId: cell.id, campaignId, fromSheetId: bondDraft.from, kind: bondDraft.kind, description: bondDraft.description.slice(0, 500),
+      toSheetId: kind === "sheet" ? id : null, toTargetId: kind === "target" ? id : null,
     }), "Vínculo registrado.").then(() => setBondDraft({ from: "", to: "", kind: "confianca", description: "" }));
   }
 
@@ -165,7 +165,7 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
 
         <h3>Membros</h3>
         <ul className={styles.rows}>{cellMembers.map((member) => <li key={member.sheet_id}><span>{sheetName(member.sheet_id)}{member.role ? ` · ${member.role}` : ""}</span>
-          {canManage && <button type="button" disabled={busy} onClick={() => void write(() => table("hunter_cell_members").delete().eq("cell_id", cell.id).eq("sheet_id", member.sheet_id), "Membro removido.")}>remover</button>}</li>)}</ul>
+          {canManage && <button type="button" disabled={busy} onClick={() => void write(() => hunter.removeCellMember(browserDb(), cell.id, member.sheet_id), "Membro removido.")}>remover</button>}</li>)}</ul>
         {canManage && <form className={styles.inline} onSubmit={addMember}>
           <label>Ficha<select value={memberDraft.sheetId} onChange={(event) => setMemberDraft({ ...memberDraft, sheetId: event.target.value })}><option value="">Selecione</option>{sheets.filter((sheet) => !members.some((member) => member.sheet_id === sheet.id)).map((sheet) => <option key={sheet.id} value={sheet.id}>{sheet.name}</option>)}</select></label>
           <label>Papel<input maxLength={80} value={memberDraft.role} onChange={(event) => setMemberDraft({ ...memberDraft, role: event.target.value })} /></label>
@@ -175,8 +175,8 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
         <h3>Antagonistas e alvos</h3>
         <ul className={styles.rows}>{cellTargets.map((target) => <li key={target.id}><span>{target.name} · {target.kind === "alvo" ? "Alvo" : "Antagonista"} · ameaça {target.threat} · {STATUSES[target.status] ?? target.status}{target.notes ? ` · ${target.notes}` : ""}</span>
           {canManage && <span>
-            <select aria-label={`Situação de ${target.name}`} value={target.status} disabled={busy} onChange={(event) => void write(() => table("hunter_cell_targets").update({ status: event.target.value }).eq("id", target.id), "Situação atualizada.")}>{Object.entries(STATUSES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
-            <button type="button" disabled={busy} onClick={() => void write(() => table("hunter_cell_targets").delete().eq("id", target.id), "Alvo removido.")}>remover</button>
+            <select aria-label={`Situação de ${target.name}`} value={target.status} disabled={busy} onChange={(event) => void write(() => hunter.setCellTargetStatus(browserDb(), target.id, event.target.value), "Situação atualizada.")}>{Object.entries(STATUSES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>
+            <button type="button" disabled={busy} onClick={() => void write(() => hunter.removeCellTarget(browserDb(), target.id), "Alvo removido.")}>remover</button>
           </span>}</li>)}</ul>
         {canManage && <form onSubmit={addTarget}>
           <div className={styles.inline}>
@@ -190,7 +190,7 @@ export function HunterCellsPanel({ campaignId, canManage }: { campaignId: string
 
         <h3>Vínculos</h3>
         <ul className={styles.rows}>{cellBonds.map((bond) => <li key={bond.id}><span>{sheetName(bond.from_sheet_id)} → {bond.to_sheet_id ? sheetName(bond.to_sheet_id) : cellTargets.find((target) => target.id === bond.to_target_id)?.name ?? "alvo"} · {BOND_KINDS[bond.kind] ?? bond.kind}{bond.description ? ` · ${bond.description}` : ""}</span>
-          {canManage && <button type="button" disabled={busy} onClick={() => void write(() => table("hunter_cell_bonds").delete().eq("id", bond.id), "Vínculo removido.")}>remover</button>}</li>)}</ul>
+          {canManage && <button type="button" disabled={busy} onClick={() => void write(() => hunter.removeCellBond(browserDb(), bond.id), "Vínculo removido.")}>remover</button>}</li>)}</ul>
         {canManage && cellMembers.length > 0 && <form onSubmit={addBond}>
           <div className={styles.inline}>
             <label>De<select value={bondDraft.from} onChange={(event) => setBondDraft({ ...bondDraft, from: event.target.value })}><option value="">Membro</option>{cellMembers.map((member) => <option key={member.sheet_id} value={member.sheet_id}>{sheetName(member.sheet_id)}</option>)}</select></label>

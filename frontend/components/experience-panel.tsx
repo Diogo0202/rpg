@@ -9,7 +9,8 @@ import {
 } from "../lib/experience-advances";
 import { calculateExperienceCost, isExperienceSystem, purchasableTraits, quoteAdvance, type ExperienceKind } from "../../shared/rules/experience-math";
 import type { SheetTemplate } from "../../shared/rules/sheet-template";
-import { createClient } from "../lib/supabase/client";
+import { browserDb } from "../lib/data/browser";
+import { sheetContext, templateSchema } from "../lib/data/sheets";
 import styles from "./experience-panel.module.css";
 
 /** Histórico do localStorage anterior ao EXP-02: só leitura, como estimativas. */
@@ -87,11 +88,11 @@ export function ExperiencePanel({ viewerId, canManage = false }: { viewerId: str
     setLegacy(readLegacy(legacyKey(viewerId, characterId)));
     let active = true;
     (async () => {
-      const client = createClient();
-      const { data: sheet, error } = await client.from("character_sheets").select("campaign_id,template_id,owner_id").eq("id", characterId).single();
+      const db = browserDb();
+      const { data: sheet, error } = await sheetContext(db, characterId);
       if (!active) return;
       if (error || !sheet) { setMessage("Não foi possível ler o modelo desta ficha."); return; }
-      const { data: template, error: templateError } = await client.from("system_templates").select("schema").eq("id", sheet.template_id).single();
+      const { data: template, error: templateError } = await templateSchema(db, sheet.template_id);
       if (!active) return;
       if (templateError || !template) { setMessage("Não foi possível ler o modelo desta ficha."); return; }
       const schema = template.schema as SheetTemplate;
