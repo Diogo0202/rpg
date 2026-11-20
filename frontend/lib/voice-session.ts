@@ -1,4 +1,6 @@
 import { createClient } from "./supabase/client";
+import { objectBody } from "./api/http.ts";
+import { sessionJson, sessionSend } from "./api/session.ts";
 
 export type VoiceStatus = "pending" | "ready" | "failed";
 export type VoiceSession = { status: VoiceStatus; inviteUrl: string | null; expiresAt: string | null; error: string | null; updatedAt: string | null };
@@ -40,26 +42,11 @@ export async function loadVoiceSession(campaignId: string): Promise<VoiceSession
   return parseVoiceSession(data);
 }
 
-async function apiRequest(path: string, init: RequestInit = {}): Promise<{ ok: boolean; status: number; body: Record<string, unknown> }> {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) return { ok: false, status: 503, body: {} };
-  const { data } = await createClient().auth.getSession();
-  if (!data.session) throw new Error("Sua sessão expirou. Entre novamente.");
-  let response: Response;
-  try {
-    response = await fetch(`${api.replace(/\/$/, "")}${path}`, { ...init, headers: { Authorization: `Bearer ${data.session.access_token}` } });
-  } catch {
-    throw new Error("Não foi possível alcançar a API.");
-  }
-  const decoded: unknown = await response.json().catch(() => null);
-  return { ok: response.ok, status: response.status, body: decoded && typeof decoded === "object" ? (decoded as Record<string, unknown>) : {} };
-}
-
 /** Whether the server has Discord configured; any failure hides the button. */
 export async function voiceEnabled(): Promise<boolean> {
   try {
-    const result = await apiRequest("/api/v1/voice-sessions/config");
-    return result.ok && result.body.enabled === true;
+    const result = await sessionSend("/api/v1/voice-sessions/config");
+    return result.ok && objectBody(result.body).enabled === true;
   } catch {
     return false;
   }
@@ -67,11 +54,10 @@ export async function voiceEnabled(): Promise<boolean> {
 
 /** Asks the API to create (or reuse) the voice room. The server checks owner/master in the database. */
 export async function requestVoiceRoom(campaignId: string): Promise<{ status: VoiceStatus; inviteUrl: string | null }> {
-  const result = await apiRequest(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/voice-session`, { method: "POST" });
-  if (!result.ok) {
-    const detail = typeof result.body.detail === "string" ? result.body.detail.slice(0, 300) : "";
-    throw new Error(detail || "Não foi possível criar a sala de voz.");
-  }
-  const status = result.body.status === "ready" || result.body.status === "failed" ? result.body.status : "pending";
-  return { status, inviteUrl: safeInviteUrl(result.body.invite_url) };
+  const body = objectBody(await sessionJson(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/voice-session`, { method: "POST" }, {
+    rejected: "Não foi possível criar a sala de voz.",
+    missingApi: "Não foi possível criar a sala de voz.",
+  }));
+  const status = body.status === "ready" || body.status === "failed" ? body.status : "pending";
+  return { status, inviteUrl: safeInviteUrl(body.invite_url) };
 }

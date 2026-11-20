@@ -1,3 +1,5 @@
+import { apiSend, objectBody } from "./api/http.ts";
+
 export type MarketplaceCard = {
   id: string;
   name: string;
@@ -27,32 +29,20 @@ function isCard(value: unknown): value is MarketplaceCard {
 
 export async function getPublicMarketplaceItems(
   api = process.env.NEXT_PUBLIC_API_URL,
-  request: typeof fetch = fetch,
+  fetchImpl: typeof fetch = fetch,
 ): Promise<PublicMarketplaceResult> {
   if (!api?.trim()) return { items: [], error: "A API pública não está configurada nesta instalação." };
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const response = await request(`${api.replace(/\/$/, "")}/api/v1/marketplace/systems`, {
-      method: "GET",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-      credentials: "omit",
-      signal: controller.signal,
-    });
-    let value: unknown;
-    try { value = await response.json(); } catch { throw new Error("A API enviou uma resposta que não pôde ser lida."); }
+    const response = await apiSend(api, "/api/v1/marketplace/systems", {
+      headers: { Accept: "application/json" }, cache: "no-store", credentials: "omit", timeoutMs: 5000,
+    }, { timeout: "A lista pública demorou além do esperado. Tente buscar novamente." }, fetchImpl);
+    if (!response.parsed) throw new Error("A API enviou uma resposta que não pôde ser lida.");
     if (!response.ok) throw new Error("A lista pública está temporariamente indisponível.");
-    const items = value && typeof value === "object" && Array.isArray((value as { items?: unknown }).items)
-      ? (value as { items: unknown[] }).items.filter(isCard) : null;
+    const value = objectBody(response.body);
+    const items = Array.isArray(value.items) ? value.items.filter(isCard) : null;
     if (!items) throw new Error("A API enviou uma lista de modelos inválida.");
     return { items, error: null };
   } catch (error) {
-    const message = controller.signal.aborted
-      ? "A lista pública demorou além do esperado. Tente buscar novamente."
-      : error instanceof Error ? error.message : "Não foi possível carregar os modelos.";
-    return { items: [], error: message };
-  } finally {
-    clearTimeout(timeout);
+    return { items: [], error: error instanceof Error ? error.message : "Não foi possível carregar os modelos." };
   }
 }

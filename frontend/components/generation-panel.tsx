@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+import { objectBody } from "../lib/api/http";
+import { apiBase, sessionJson, sessionSend, type SessionMessages } from "../lib/api/session";
 import { combatBlockOf, narratorOnlyDetails, publicGeneratedEntry } from "../lib/generated-content";
 import { buildSystemFields, fieldsToRows, SYSTEM_FIELD_LIMITS, type SystemFieldRow } from "../lib/generation-fields";
 import { buildMapGenerationRequest, MAP_GENERATION_LIMITS, roomCapacity } from "../lib/map-generation";
@@ -16,12 +18,13 @@ type MapCell = { x: number; y: number; kind: "room" | "corridor" | "wall" };
 type GeneratedMap = { seed: number | string; width: number; height: number; layers: Array<{ id: string; cells?: MapCell[] }> };
 type GeneratedEntry = { kind: string; name: string; summary: string; details: Record<string, unknown>; seed: number; system?: { name: string; fields: Record<string, unknown> } | null; ai?: boolean };
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const GENERATION_MESSAGES: SessionMessages = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para acessar a API.",
+  signedOut: "Entre na campanha para gerar conteúdo.",
+};
 
-async function authHeaders() {
-  const { data } = await createClient().auth.getSession();
-  if (!data.session) throw new Error("Entre na campanha para gerar conteúdo.");
-  return { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` };
+function generationPost<T>(path: string, body: unknown, messages: SessionMessages): Promise<T> {
+  return sessionJson<T>(path, { method: "POST", body }, { ...GENERATION_MESSAGES, ...messages });
 }
 
 export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:string;viewerId:string;canManage:boolean}) {
@@ -84,13 +87,11 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     const block = combatBlockOf(entry.details)!;
     setLoading(true); setMessage("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-      const response = await fetch(`${apiBase}/api/v1/campaigns/${campaignId}/content/apply`, {
-        method: "POST", headers: await authHeaders(),
-        body: JSON.stringify({ kind: entry.kind, seed: entry.seed, combat_system: block.system, difficulty: block.tier, combat_id: combatId, save_entity: alsoSaveEntity, idempotency_key: crypto.randomUUID() }),
-      });
-      const payload = await response.json().catch(() => null) as { application?: { participant_name?: string }; detail?: unknown } | null;
-      if (!response.ok) throw new Error(typeof payload?.detail === "string" ? payload.detail : "Não foi possível inserir no combate.");
+      const payload = await generationPost<{ application?: { participant_name?: string } } | null>(
+        `/api/v1/campaigns/${encodeURIComponent(campaignId)}/content/apply`,
+        { kind: entry.kind, seed: entry.seed, combat_system: block.system, difficulty: block.tier, combat_id: combatId, save_entity: alsoSaveEntity, idempotency_key: crypto.randomUUID() },
+        { rejected: "Não foi possível inserir no combate." },
+      );
       setMessage(`${payload?.application?.participant_name ?? entry.name} entrou no combate${alsoSaveEntity ? " e foi salvo no mundo" : ""}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao inserir no combate.");
@@ -98,11 +99,10 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
   }
 
   useEffect(() => {
-    if (!apiBase || !canManage) return;
+    if (!apiBase() || !canManage) return;
     let active = true;
-    authHeaders().then((headers) => fetch(`${apiBase}/api/v1/campaigns/${campaignId}/ai/config`, { headers }))
-      .then((response) => response.ok ? response.json() : { enabled: false })
-      .then((config: { enabled?: boolean }) => { if (active) setAiEnabled(config.enabled === true); })
+    sessionSend(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/ai/config`, {}, GENERATION_MESSAGES)
+      .then((response) => { if (active) setAiEnabled(response.ok && objectBody(response.body).enabled === true); })
       .catch(() => { if (active) setAiEnabled(false); });
     return () => { active = false; };
   }, [campaignId, canManage]);
@@ -112,13 +112,12 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     if (brief.trim().length < 3) { setMessage("Descreva em poucas palavras o que você quer gerar."); return; }
     setLoading(true); setMessage(""); setSecret("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-      const response = await fetch(`${apiBase}/api/v1/campaigns/${campaignId}/ai/drafts`, {
-        method: "POST", headers: await authHeaders(),
-        body: JSON.stringify({ kind, brief: brief.trim(), threat: kind === "enemy" ? threat : null, idempotency_key: crypto.randomUUID() }),
-      });
-      const payload = await response.json().catch(() => null) as { result?: Record<string, unknown>; detail?: string } | null;
-      if (!response.ok || !payload?.result) throw new Error(typeof payload?.detail === "string" ? payload.detail : "A IA não gerou o conteúdo.");
+      const payload = await generationPost<{ result?: Record<string, unknown> } | null>(
+        `/api/v1/campaigns/${encodeURIComponent(campaignId)}/ai/drafts`,
+        { kind, brief: brief.trim(), threat: kind === "enemy" ? threat : null, idempotency_key: crypto.randomUUID() },
+        { rejected: "A IA não gerou o conteúdo." },
+      );
+      if (!payload?.result) throw new Error("A IA não gerou o conteúdo.");
       const { name, description, secret: hidden, questions: _questions, relationships: _relationships, ...details } = payload.result;
       setSecret(typeof hidden === "string" ? hidden : "");
       setEntry({ kind, name: String(name ?? "Sem nome"), summary: String(description ?? ""), details, seed: 0, system: null, ai: true });
@@ -153,20 +152,12 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     setLoading(true);
     setMessage("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
       const built = buildMapGenerationRequest({ width: mapWidth, height: mapHeight, rooms: mapRooms, seed: mapSeed });
       if (!built.request) throw new Error(built.error);
-      const headers = await authHeaders();
-      const response = await fetch(`${apiBase}/api/v1/maps/generate`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(built.request),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { detail?: unknown } | null;
-        throw new Error(typeof payload?.detail === "string" ? `A API recusou os parâmetros: ${payload.detail}.` : "A API recusou os parâmetros do mapa.");
-      }
-      setMap((await response.json()) as GeneratedMap);
+      setMap(await generationPost<GeneratedMap>("/api/v1/maps/generate", built.request, {
+        detailPrefix: "A API recusou os parâmetros: ",
+        rejected: "A API recusou os parâmetros do mapa.",
+      }));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Falha ao gerar o mapa.");
     } finally {
@@ -178,7 +169,6 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
     setLoading(true);
     setMessage("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
       const payload: { kind: string; seed?: number; combat_system?: CombatSystem; difficulty?: CombatTier; system_fields?: Record<string, string | number | boolean> } = { kind };
       const builtFields = buildSystemFields(fieldRows);
       if (builtFields.errors.length) throw new Error(builtFields.errors[0]);
@@ -189,14 +179,10 @@ export function GenerationPanel({campaignId,viewerId,canManage}:{campaignId:stri
         if (!Number.isSafeInteger(parsedSeed) || parsedSeed < 0) throw new Error("Use uma seed numérica não negativa.");
         payload.seed = parsedSeed;
       }
-      const headers = await authHeaders();
-      const response = await fetch(`${apiBase}/api/v1/content/generate`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
+      const generated = await generationPost<GeneratedEntry>("/api/v1/content/generate", payload, {
+        useDetail: false,
+        rejected: "Não foi possível criar esse conteúdo.",
       });
-      if (!response.ok) throw new Error("Não foi possível criar esse conteúdo.");
-      const generated = (await response.json()) as GeneratedEntry;
       setEntry(generated);
       setEntryRows(fieldsToRows(generated.system?.fields));
     } catch (error) {

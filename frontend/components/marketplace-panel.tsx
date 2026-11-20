@@ -1,7 +1,9 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+import { apiSend, ApiError, detailOf, type ApiRequest } from "../lib/api/http";
+import { apiBase } from "../lib/api/session";
 import type { MarketplaceCard } from "../lib/marketplace-public";
 import { MarketplaceModerationPanel } from "./marketplace-moderation-panel";
 import { MarketplaceCopyrightReport } from "./marketplace-copyright-report";
@@ -15,7 +17,7 @@ type TemplatePreview = { template: TemplateDraft; digest: string };
 
 type SortOrder = "recent" | "popular";
 
-const API = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+const API = apiBase();
 const emptyDraft = JSON.stringify({
   name: "Novo modelo",
   version: 1,
@@ -28,15 +30,15 @@ function asCards(value: unknown): MarketplaceCard[] {
   return [];
 }
 
-async function decode(response: Response): Promise<unknown> {
-  let data: unknown;
-  try { data = await response.json(); } catch { throw new Error("A API enviou uma resposta que não pôde ser lida."); }
+/** Chamada ao marketplace; o token é opcional porque o catálogo é público. */
+async function marketplaceCall(path: string, request: ApiRequest = {}): Promise<unknown> {
+  const response = await apiSend(API, path, request, { missingApi: "A API pública não está configurada." });
+  if (!response.parsed) throw new Error("A API enviou uma resposta que não pôde ser lida.");
   if (!response.ok) {
-    const detail = data && typeof data === "object" && typeof (data as { detail?: unknown }).detail === "string"
-      ? String((data as { detail: string }).detail).slice(0, 300) : "Tente novamente em instantes.";
-    throw new Error(`${response.status === 403 ? "Ação não permitida." : "Não foi possível concluir."} ${detail}`);
+    const prefix = response.status === 403 ? "Ação não permitida." : "Não foi possível concluir.";
+    throw new ApiError(`${prefix} ${detailOf(response.body) ?? "Tente novamente em instantes."}`, "http", response.status);
   }
-  return data;
+  return response.body;
 }
 
 function tagList(value: string): string[] {
@@ -72,8 +74,6 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
   const [rightsConfirmed, setRightsConfirmed] = useState(false);
   const [reportReason, setReportReason] = useState<Record<string, string>>({});
 
-  const headers = useMemo(() => token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null, [token]);
-
   const loadItems = useCallback(async (search: string, tagFilter: string, order: SortOrder) => {
     setLoading(true); setMessage("");
     try {
@@ -83,8 +83,7 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
       const parsedTags = tagList(tagFilter);
       parsedTags.forEach((tag) => params.append("tags", tag));
       params.set("sort", order);
-      const response = await fetch(`${API}/api/v1/marketplace/systems${params.size ? `?${params}` : ""}`, { cache: "no-store" });
-      setItems(asCards(await decode(response)));
+      setItems(asCards(await marketplaceCall(`/api/v1/marketplace/systems${params.size ? `?${params}` : ""}`, { cache: "no-store" })));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Não foi possível carregar os modelos.");
     } finally { setLoading(false); }
@@ -101,10 +100,10 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
   useEffect(() => {
     if (!token || !API) { setCampaigns([]); setPublishableTemplates([]); return; }
     const controller = new AbortController();
-    const options = { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal };
+    const options = { token, signal: controller.signal };
     void Promise.all([
-      fetch(`${API}/api/v1/marketplace/managed-campaigns`, options).then(decode),
-      fetch(`${API}/api/v1/marketplace/publishable-templates`, options).then(decode),
+      marketplaceCall("/api/v1/marketplace/managed-campaigns", options),
+      marketplaceCall("/api/v1/marketplace/publishable-templates", options),
     ]).then(([campaignValue, templateValue]) => {
       const nextCampaigns = campaignValue && typeof campaignValue === "object" && Array.isArray((campaignValue as { items?: unknown }).items)
         ? (campaignValue as { items: Campaign[] }).items : [];
@@ -119,9 +118,8 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
     if (!sourceTemplateId || !token || !API) { setSourcePreview(null); return; }
     const controller = new AbortController();
     setSourcePreview(null); setSourceError("");
-    void fetch(`${API}/api/v1/marketplace/publishable-templates/${encodeURIComponent(sourceTemplateId)}`,
-      { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal })
-      .then(decode).then((value) => {
+    void marketplaceCall(`/api/v1/marketplace/publishable-templates/${encodeURIComponent(sourceTemplateId)}`, { token, signal: controller.signal })
+      .then((value) => {
         if (!controller.signal.aborted && value && typeof value === "object" && "template" in value
             && "digest" in value && typeof value.digest === "string" && value.template
             && typeof value.template === "object" && Array.isArray((value.template as { fields?: unknown }).fields)) {
@@ -135,17 +133,17 @@ export function MarketplacePanel({ initialItems, initialError }: { initialItems:
     setSelected(item); setDetailTemplate(null); setDetailLoading(true); setMessage("");
     try {
       if (!API) throw new Error("A API pública não está configurada.");
-      const result = await decode(await fetch(`${API}/api/v1/marketplace/systems/${encodeURIComponent(item.id)}`, { cache: "no-store" }));
+      const result = await marketplaceCall(`/api/v1/marketplace/systems/${encodeURIComponent(item.id)}`, { cache: "no-store" });
       if (result && typeof result === "object" && "template" in result) setDetailTemplate((result as { template: TemplateDraft }).template);
       else throw new Error("A API não enviou os detalhes do modelo.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível abrir os detalhes."); }
     finally { setDetailLoading(false); }
   }
 
-  async function authorizedPost(path: string, body: unknown, headersOverride?: Record<string, string>) {
+  async function authorizedPost(path: string, body: unknown) {
     if (!API) throw new Error("A API pública não está configurada.");
-    if (!headers && !headersOverride) throw new Error("Entre na sua conta para realizar esta ação.");
-    return decode(await fetch(`${API}${path}`, { method: "POST", headers: headersOverride ?? headers!, body: JSON.stringify(body) }));
+    if (!token) throw new Error("Entre na sua conta para realizar esta ação.");
+    return marketplaceCall(path, { method: "POST", token, body });
   }
 
   async function vote(item: MarketplaceCard, value: 1 | -1) {

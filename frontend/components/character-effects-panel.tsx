@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { parseTags, useCharacterSession, type CharacterEffect, type SessionCharacter } from "../lib/character-session";
 import { buildChronicleContext, CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, withChronicle, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { createClient } from "../lib/supabase/client";
+import { ApiError, detailOf, retryAfterMessage } from "../lib/api/http";
+import { sessionSend } from "../lib/api/session";
 
 export type ModifierPreview = {
   base_pool: number;
@@ -23,22 +25,10 @@ export async function authenticatedPost(path: string, payload: unknown, signal?:
 
 /** Igual a authenticatedPost, mas também lê o header DRA-05 X-Chronicle-Activity. */
 export async function authenticatedPostWithChronicle(path: string, payload: unknown, signal?: AbortSignal): Promise<{ data: unknown; chronicle: ChronicleActivityStatus | null }> {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) throw new Error("A API não está configurada.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para calcular a rolagem.");
-  const response = await fetch(`${api}${path}`, {
-    method: "POST", signal,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-    body: JSON.stringify(payload),
-  });
-  if (response.status === 429) {
-    const seconds = Number(response.headers.get("Retry-After"));
-    throw new Error(Number.isFinite(seconds) && seconds > 0 ? `Limite de solicitações atingido. Tente em ${seconds} segundos.` : "Limite de solicitações atingido. Aguarde antes de tentar novamente.");
-  }
-  if (!response.ok) throw new Error("A API recusou os dados. Confira a sessão, a parada e os efeitos.");
-  const responseData: unknown = await response.json();
-  return { data: responseData, chronicle: parseChronicleActivity(response.headers.get(CHRONICLE_ACTIVITY_HEADER)) };
+  const response = await sessionSend(path, { method: "POST", body: payload, signal }, { signedOut: "Entre na campanha para calcular a rolagem." });
+  if (response.status === 429) throw new ApiError(retryAfterMessage(response.headers), "http", 429);
+  if (!response.ok) throw new ApiError("A API recusou os dados. Confira a sessão, a parada e os efeitos.", "http", response.status, detailOf(response.body));
+  return { data: response.body, chronicle: parseChronicleActivity(response.headers.get(CHRONICLE_ACTIVITY_HEADER)) };
 }
 
 export function ModifierExplanation({ preview }: { preview: ModifierPreview }) {

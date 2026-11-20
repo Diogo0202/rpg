@@ -1,4 +1,5 @@
 import type { FieldValue } from "../../shared/rules/sheet-template";
+import { apiJson, type ApiMessages, type ApiRequest } from "./api/http.ts";
 
 /** One stored snapshot of a sheet (FIC-18), newest first from the API. */
 export type SheetVersion = {
@@ -14,51 +15,36 @@ export type SheetVersion = {
 
 export type FieldChange = { fieldId: string; label: string; before: string; after: string };
 
-const STATUS_MESSAGES: Record<number, string> = {
-  401: "Sua sessão expirou. Entre novamente.",
-  403: "Seu papel nesta campanha não permite esta ação na ficha.",
-  404: "A versão ou a ficha não existe mais. Recarregue a lista.",
-  409: "A ficha mudou em outra sessão. Recarregue antes de tentar de novo.",
-  422: "A versão escolhida não passa pelas regras atuais da ficha.",
-  429: "Limite de solicitações atingido. Aguarde antes de tentar novamente.",
+const HISTORY_MESSAGES: ApiMessages = {
+  status: {
+    401: "Sua sessão expirou. Entre novamente.",
+    403: "Seu papel nesta campanha não permite esta ação na ficha.",
+    404: "A versão ou a ficha não existe mais. Recarregue a lista.",
+    409: "A ficha mudou em outra sessão. Recarregue antes de tentar de novo.",
+    422: "A versão escolhida não passa pelas regras atuais da ficha.",
+    429: "Limite de solicitações atingido. Aguarde antes de tentar novamente.",
+  },
+  useDetail: false,
+  rejected: "A API está indisponível. Tente novamente em instantes.",
+  timeout: "A API demorou além do esperado. Confira a ficha antes de tentar de novo.",
 };
 
-async function sheetRequest(api: string, token: string, path: string, init: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000);
-  try {
-    const response = await fetch(`${api.replace(/\/$/, "")}/api/v1${path}`, {
-      ...init,
-      headers: { ...(init.body ? { "Content-Type": "application/json" } : {}), Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(STATUS_MESSAGES[response.status] ?? "A API está indisponível. Tente novamente em instantes.");
-    }
-    return response;
-  } catch (error) {
-    if (controller.signal.aborted) throw new Error("A API demorou além do esperado. Confira a ficha antes de tentar de novo.");
-    if (error instanceof TypeError) throw new Error("Não foi possível alcançar a API.");
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
+function sheetRequest(api: string, token: string, path: string, request: ApiRequest = {}): Promise<unknown> {
+  return apiJson(api, `/api/v1${path}`, { ...request, token, timeoutMs: 12000 }, HISTORY_MESSAGES);
 }
 
 export async function listSheetVersions(api: string, token: string, sheetId: string): Promise<SheetVersion[]> {
-  const response = await sheetRequest(api, token, `/sheets/${encodeURIComponent(sheetId)}/versions`);
-  const data: unknown = await response.json();
+  const data = await sheetRequest(api, token, `/sheets/${encodeURIComponent(sheetId)}/versions`);
   if (!Array.isArray(data)) throw new Error("A API não confirmou o histórico da ficha.");
   return data.filter((item): item is SheetVersion => !!item && typeof item === "object"
     && Number.isInteger((item as SheetVersion).version) && typeof (item as SheetVersion).values === "object");
 }
 
 export async function restoreSheetVersion(api: string, token: string, sheetId: string, version: number, expectedVersion: number): Promise<Record<string, unknown>> {
-  const response = await sheetRequest(api, token, `/sheets/${encodeURIComponent(sheetId)}/versions/${version}/restore`, {
+  const data = await sheetRequest(api, token, `/sheets/${encodeURIComponent(sheetId)}/versions/${version}/restore`, {
     method: "POST",
-    body: JSON.stringify({ expected_version: expectedVersion }),
+    body: { expected_version: expectedVersion },
   });
-  const data: unknown = await response.json();
   if (!data || typeof data !== "object" || typeof (data as { version?: unknown }).version !== "number") {
     throw new Error("A API não confirmou a restauração. Recarregue a ficha.");
   }

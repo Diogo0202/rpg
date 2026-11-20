@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
 import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 import {
   BOND_DEGREE_LABELS, V5_CLAN_BANES, V5_INTENSITIES, V5_RESONANCES, baneSeverity, hungerAfterHunt, resonanceEffectPreview,
   type V5Intensity, type V5Resonance,
@@ -22,29 +23,14 @@ type RegnantAction = { id: string; bond_id: string; action: string; bond_degree:
 type StoredRoll = { id: string; pool: number; difficulty: number; outcome: { successes?: number; success?: boolean }; created_at: string };
 type Option = { id: string; name: string };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+const SANGUINE_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para usar este painel.",
+  signedOut: "Entre na campanha para continuar.",
+  validationDetail: true,
+};
 
-function errorDetail(body: unknown, fallback: string): string {
-  if (body && typeof body === "object" && "detail" in body) {
-    const detail = (body as { detail?: unknown }).detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) return detail.map((item) => item && typeof item === "object" && "msg" in item ? String(item.msg) : fallback).join(" ");
-  }
-  return fallback;
-}
-
-async function api<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
-  if (!API_URL) throw new Error("Configure NEXT_PUBLIC_API_URL para usar este painel.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para continuar.");
-  const response = await fetch(`${API_URL}/api/v1/v5${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${data.session.access_token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const parsed = await response.json().catch(() => null) as unknown;
-  if (!response.ok) throw new Error(errorDetail(parsed, "A API recusou o pedido."));
-  return parsed as T;
+function api<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
+  return sessionJson<T>(`/api/v1/v5${path}`, { method, body }, SANGUINE_MESSAGES);
 }
 
 const integer = (value: unknown, fallback = 0) => typeof value === "number" && Number.isSafeInteger(value) ? value : fallback;

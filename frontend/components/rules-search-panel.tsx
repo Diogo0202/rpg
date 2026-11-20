@@ -2,7 +2,7 @@
 
 import { FormEvent, ReactNode, useId, useRef, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { sessionJson, type SessionMessages } from "../lib/api/session";
 import styles from "./rules-search-panel.module.css";
 
 type SearchResult = {
@@ -53,12 +53,13 @@ function highlight(text: string, query: string): ReactNode[] {
   return text.split(pattern).map((part, index) => (index % 2 === 1 ? <mark key={index}>{part}</mark> : part));
 }
 
-async function authorizedFetch(path: string) {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) throw new Error("Configure NEXT_PUBLIC_API_URL para consultar as fontes da campanha.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na sua conta para consultar as regras.");
-  return fetch(`${api}${path}`, { headers: { Authorization: `Bearer ${data.session.access_token}` } });
+function rulesGet<T>(path: string, messages: SessionMessages): Promise<T> {
+  return sessionJson<T>(path, {}, {
+    missingApi: "Configure NEXT_PUBLIC_API_URL para consultar as fontes da campanha.",
+    signedOut: "Entre na sua conta para consultar as regras.",
+    useDetail: false,
+    ...messages,
+  });
 }
 
 export function RulesSearchPanel({ campaignId }: { campaignId: string }) {
@@ -85,9 +86,10 @@ export function RulesSearchPanel({ campaignId }: { campaignId: string }) {
     pageRequest.current += 1;
     try {
       const params = new URLSearchParams({ q: trimmed, limit: "5" });
-      const response = await authorizedFetch(`/api/v1/campaigns/${campaignId}/rules/search?${params}`);
-      if (!response.ok) throw new Error(response.status === 403 ? "Esta campanha não permite a consulta." : "A busca falhou. Confira a API e tente novamente.");
-      const rows = await response.json() as SearchResult[];
+      const failed = "A busca falhou. Confira a API e tente novamente.";
+      const rows = await rulesGet<SearchResult[]>(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/rules/search?${params}`, {
+        status: { 403: "Esta campanha não permite a consulta." }, unavailable: failed, rejected: failed,
+      });
       setResults(rows);
       setSearchedFor(trimmed);
       if (rows.length === 0) setMessage(`Nenhum trecho aprovado menciona “${trimmed}”.`);
@@ -103,9 +105,10 @@ export function RulesSearchPanel({ campaignId }: { campaignId: string }) {
     const request = ++pageRequest.current;
     setPage({ status: "loading", key });
     try {
-      const response = await authorizedFetch(`/api/v1/campaigns/${campaignId}/sources/${result.source_id}/pages/${result.page_number}`);
-      if (!response.ok) throw new Error(response.status === 404 ? "Esta página não está aprovada nesta campanha." : "Não foi possível abrir a página.");
-      const data = await response.json() as RulePage;
+      const failed = "Não foi possível abrir a página.";
+      const data = await rulesGet<RulePage>(`/api/v1/campaigns/${encodeURIComponent(campaignId)}/sources/${result.source_id}/pages/${result.page_number}`, {
+        status: { 404: "Esta página não está aprovada nesta campanha." }, unavailable: failed, rejected: failed,
+      });
       if (request === pageRequest.current) setPage({ status: "ready", key, page: data });
     } catch (error) {
       if (request === pageRequest.current) setPage({ status: "error", key, message: error instanceof Error ? error.message : "Não foi possível abrir a página." });

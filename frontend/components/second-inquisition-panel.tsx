@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { ApiError, detailOf, type ApiMethod } from "../lib/api/http";
+import { sessionSend } from "../lib/api/session";
 import { downloadText } from "../lib/download";
 import styles from "./second-inquisition-panel.module.css";
 
@@ -107,24 +109,12 @@ export function SecondInquisitionPanel({ campaignId, canManage }: { campaignId: 
     }
   }
 
-  async function api(path: string, method = "GET", payload?: unknown) {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!baseUrl) throw new Error("A API não está configurada.");
-    const { data: sessionData, error } = await createClient().auth.getSession();
-    if (error || !sessionData.session) throw new Error("Entre na campanha com uma sessão válida.");
-    const response = await fetch(`${baseUrl}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${sessionData.session.access_token}`,
-        ...(payload === undefined ? {} : { "Content-Type": "application/json" }),
-      },
-      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => null) as { detail?: unknown } | null;
-      throw new Error(typeof body?.detail === "string" ? body.detail : `A API respondeu com status ${response.status}.`);
-    }
-    return response.status === 204 ? null : response.json();
+  // Mantém o contrato anterior: response.json() devolvia `any` para os chamadores.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function api(path: string, method: ApiMethod = "GET", payload?: unknown): Promise<any> {
+    const response = await sessionSend(path, { method, body: payload }, { signedOut: "Entre na campanha com uma sessão válida." });
+    if (!response.ok) throw new ApiError(detailOf(response.body) ?? `A API respondeu com status ${response.status}.`, "http", response.status);
+    return response.body;
   }
 
   async function refresh(selectedCampaign = campaignId) {

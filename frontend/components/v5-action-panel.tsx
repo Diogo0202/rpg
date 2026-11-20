@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
 import { CHRONICLE_ACTIVITY_HEADER, chronicleActivityLabel, newRollKey, parseChronicleActivity, type ChronicleActivityStatus } from "../lib/chronicle-context";
 import { createClient } from "../lib/supabase/client";
+import { ensureOk } from "../lib/api/http";
+import { apiBase, sessionJson, sessionSend, type SessionMessages } from "../lib/api/session";
 import { bloodPotency } from "../../shared/rules/v5-blood";
 import {
   actionChronicle, attackDamageSplit, attackDamageOperationId, canApplyAttackDamage, damagePenaltiesFrom, damageRpcArgs,
@@ -37,7 +39,6 @@ type HistoryEntry = {
 type Operation = { id: number; controller: AbortController; character: SessionCharacter };
 type TargetSheet = { id: string; name: string };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const METRIC_FIELDS = new Set([
   "fome", "humanidade", "manchas", "saude_superficial", "saude_agravada",
   "vontade_superficial", "vontade_agravada", "saude_max", "vontade_max",
@@ -110,28 +111,17 @@ function inferredContextTag(attributeId: string): string | null {
   return null;
 }
 
-function responseError(body: unknown, fallback = "A API recusou a rolagem."): string {
-  if (body && typeof body === "object" && "detail" in body) {
-    const detail = (body as { detail?: unknown }).detail;
-    if (typeof detail === "string") return detail;
-    if (Array.isArray(detail)) return detail.map((item) => item && typeof item === "object" && "msg" in item ? String(item.msg) : "Confira os campos da rolagem.").join(" ");
-  }
-  return fallback;
-}
+const ACTION_MESSAGES: SessionMessages = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para rolar a ação.",
+  signedOut: "Entre na campanha para rolar a ação.",
+  rejected: "A API recusou a rolagem.",
+  validationDetail: true,
+};
 
 async function apiPost(path: string, body: unknown, signal: AbortSignal, fallback?: string): Promise<{ body: unknown; headers: Headers }> {
-  if (!API_URL) throw new Error("Configure NEXT_PUBLIC_API_URL para rolar a ação.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para rolar a ação.");
-  const response = await fetch(`${API_URL}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-    body: JSON.stringify(body),
-    signal,
-  });
-  const parsed = await response.json().catch(() => null) as unknown;
-  if (!response.ok) throw new Error(responseError(parsed, fallback));
-  return { body: parsed, headers: response.headers };
+  const messages = fallback ? { ...ACTION_MESSAGES, rejected: fallback } : ACTION_MESSAGES;
+  const response = ensureOk(await sessionSend(path, { method: "POST", body, signal }, messages), messages);
+  return { body: response.body, headers: response.headers };
 }
 
 const DAMAGE_LABELS: Record<DamageKind, string> = { superficial: "superficial", aggravated: "agravado" };
@@ -171,20 +161,19 @@ export function V5ActionPanel({ campaignId, canEdit, canNarrate = false }: { cam
   // F1: rolls saved on the server (other devices and earlier sessions), merged with this session's.
   useEffect(() => {
     const sheetId = character?.id;
-    if (!sheetId || !API_URL) {
+    if (!sheetId || !apiBase()) {
       setRemoteHistory(null);
       return;
     }
     const controller = new AbortController();
     void (async () => {
       try {
-        const { data } = await createClient().auth.getSession();
-        if (!data.session) throw new Error("Entre na campanha para ver o histórico guardado.");
-        const response = await fetch(`${API_URL}/api/v1/v5/sheets/${sheetId}/rolls?limit=20`, {
-          headers: { Authorization: `Bearer ${data.session.access_token}` }, signal: controller.signal,
+        const body = await sessionJson(`/api/v1/v5/sheets/${encodeURIComponent(sheetId)}/rolls?limit=20`, { signal: controller.signal }, {
+          signedOut: "Entre na campanha para ver o histórico guardado.",
+          rejected: "Não foi possível ler o histórico guardado.",
+          validationDetail: true,
         });
-        const body = await response.json().catch(() => null) as unknown;
-        if (!response.ok || !Array.isArray(body)) throw new Error(responseError(body, "Não foi possível ler o histórico guardado."));
+        if (!Array.isArray(body)) throw new Error("Não foi possível ler o histórico guardado.");
         if (controller.signal.aborted) return;
         setRemoteHistory({ sheetId, error: "", entries: (body as PanelRoll[]).map((roll) => ({
           roll, preview: storedModifierPreview(roll.details), recordedAt: new Date(roll.created_at).toLocaleString(),

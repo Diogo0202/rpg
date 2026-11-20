@@ -1,14 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 
 type Roll = { success: number; messy_critical: number; bestial_failure: number };
 type CurvePoint = { difficulty: number; without_reroll: Roll; with_reroll: Roll };
 type CurveSeries = { pool: number; hunger_dice: number; points: CurvePoint[] };
 type CurveResponse = { hunger: number; reroll_limit: number; series: CurveSeries[] };
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const CURVE_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para acessar a API.",
+  signedOut: "Entre na campanha para calcular a curva.",
+  useDetail: false,
+  rejected: "Confira as paradas e dificuldades da curva.",
+};
 const COLORS = ["#b84a31", "#425e4b", "#2f5f8a", "#a07a1f", "#6b3f7a", "#172020"];
 const WIDTH = 560;
 const HEIGHT = 300;
@@ -51,17 +56,9 @@ export function V5ProbabilityCurve({ hunger, rerolls }: { hunger: number; reroll
     }
     const timer = window.setTimeout(async () => {
       try {
-        if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-        const { data } = await createClient().auth.getSession();
-        if (!data.session) throw new Error("Entre na campanha para calcular a curva.");
-        const response = await fetch(`${apiBase}/api/v1/v5/probability-curve`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-          body: JSON.stringify({ pools, difficulties, hunger, willpower_dice: rerolls }),
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error("Confira as paradas e dificuldades da curva.");
-        const body = (await response.json()) as CurveResponse;
+        const body = await sessionJson<CurveResponse>("/api/v1/v5/probability-curve", {
+          method: "POST", body: { pools, difficulties, hunger, willpower_dice: rerolls }, signal: controller.signal,
+        }, CURVE_MESSAGES);
         if (!controller.signal.aborted) { setCurve(body); setMessage(""); }
       } catch (error) {
         if (controller.signal.aborted) return;

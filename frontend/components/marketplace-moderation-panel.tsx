@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { apiJson, type ApiMessages, type ApiRequest } from "../lib/api/http";
+import { apiBase } from "../lib/api/session";
 import styles from "./marketplace-moderation-panel.module.css";
 
 type SystemStatus = "published" | "hidden" | "removed";
@@ -16,7 +18,15 @@ type HistoryItem = { id: number; system_id: string; system_name: string; action:
 type Tab = "reports" | "systems" | "history";
 type PendingRemoval = { kind: "report" | "system"; id: string } | null;
 
-const API = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+const API = apiBase();
+const MODERATION_MESSAGES: ApiMessages = {
+  status: {
+    403: "Ação não permitida para esta conta ou para o estado atual do modelo (por exemplo, restaurar com denúncia aberta).",
+    422: "Dados inválidos. Informe um motivo com pelo menos 3 caracteres.",
+  },
+  detailPrefix: "Não foi possível concluir. ",
+  rejected: "Não foi possível concluir. Tente novamente.",
+};
 const STATUS_LABEL: Record<SystemStatus, string> = { published: "Publicado", hidden: "Oculto", removed: "Removido" };
 const ACTION_LABEL: Record<HistoryItem["action"], string> = { hide: "Ocultou", restore: "Restaurou", remove: "Removeu" };
 
@@ -25,16 +35,9 @@ function formatDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("pt-BR");
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  let data: unknown = null;
-  try { data = await response.json(); } catch { /* corpo vazio ou inválido */ }
-  if (!response.ok) {
-    if (response.status === 403) throw new Error("Ação não permitida para esta conta ou para o estado atual do modelo (por exemplo, restaurar com denúncia aberta).");
-    if (response.status === 422) throw new Error("Dados inválidos. Informe um motivo com pelo menos 3 caracteres.");
-    const detail = data && typeof data === "object" && typeof (data as { detail?: unknown }).detail === "string" ? (data as { detail: string }).detail.slice(0, 200) : "Tente novamente.";
-    throw new Error(`Não foi possível concluir. ${detail}`);
-  }
-  return data;
+async function moderationCall(path: string, token: string | null, request: ApiRequest = {}): Promise<unknown> {
+  if (!API || !token) throw new Error("Sessão ou API indisponível.");
+  return apiJson(API, path, { ...request, token }, MODERATION_MESSAGES);
 }
 
 function itemsOf<T>(value: unknown): T[] {
@@ -56,16 +59,12 @@ export function MarketplaceModerationPanel({ token }: { token: string | null }) 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
-  const get = useCallback(async (path: string) => {
-    if (!API || !token) throw new Error("Sessão ou API indisponível.");
-    return readJson(await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }));
-  }, [token]);
+  const get = useCallback(async (path: string) => moderationCall(path, token, { cache: "no-store" }), [token]);
 
   useEffect(() => {
     if (!token || !API) { setAllowed(false); return; }
     const controller = new AbortController();
-    void fetch(`${API}/api/v1/marketplace/moderation/me`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: controller.signal })
-      .then(readJson)
+    void moderationCall("/api/v1/marketplace/moderation/me", token, { cache: "no-store", signal: controller.signal })
       .then((value) => setAllowed(Boolean(value && typeof value === "object" && (value as { is_moderator?: unknown }).is_moderator === true)))
       .catch(() => setAllowed(false));
     return () => controller.abort();
@@ -94,9 +93,8 @@ export function MarketplaceModerationPanel({ token }: { token: string | null }) 
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filtros de sistemas são aplicados pelo formulário
   }, [allowed, tab, loadQueue, loadHistory, run]);
 
-  async function post(path: string, body: unknown) {
-    if (!API || !token) throw new Error("Sessão ou API indisponível.");
-    return readJson(await fetch(`${API}${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+  function post(path: string, body: unknown) {
+    return moderationCall(path, token, { method: "POST", body });
   }
 
   function reasonFor(key: string): string | null {

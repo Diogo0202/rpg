@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 import { useCharacterSession } from "../lib/character-session";
 import { ModifierExplanation, type ModifierPreview } from "./character-effects-panel";
 import { probabilityRequest } from "../lib/v5-probability-request";
@@ -10,7 +10,14 @@ import { V5WillpowerReroll } from "./v5-willpower-reroll";
 
 type Roll = { success: number; messy_critical: number; bestial_failure: number };
 type Comparison = { without_reroll: Roll; with_reroll: Roll; reroll_limit: number; modifier_preview: ModifierPreview; hunger_dice: number };
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const UNAVAILABLE_SHEET = "Esta ficha não está disponível para sua conta. Atualize as fichas da campanha.";
+const PROBABILITY_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para acessar a API.",
+  signedOut: "Entre na campanha para calcular a rolagem.",
+  status: { 401: "Sua sessão expirou. Entre novamente.", 403: UNAVAILABLE_SHEET, 404: UNAVAILABLE_SHEET },
+  useDetail: false,
+  rejected: "Confira os valores da parada e tente de novo.",
+};
 
 function Chance({ title, value, tone }: { title: string; value: number; tone: string }) {
   const percent = value * 100;
@@ -40,21 +47,8 @@ export function V5ProbabilityPanel() {
     setLoading(true);
     setMessage("");
     try {
-      if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-      const { data } = await createClient().auth.getSession();
-      if (!data.session) throw new Error("Entre na campanha para calcular a rolagem.");
       const request = probabilityRequest({ sheetId: character?.id ?? null, pool, hunger, difficulty, willpowerDice: rerolls, contextTags });
-      const response = await fetch(`${apiBase.replace(/\/$/, "")}${request.path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-        body: JSON.stringify(request.body),
-        signal,
-      });
-      if (!response.ok) throw new Error(response.status === 404 || response.status === 403
-        ? "Esta ficha não está disponível para sua conta. Atualize as fichas da campanha."
-        : response.status === 401 ? "Sua sessão expirou. Entre novamente."
-        : "Confira os valores da parada e tente de novo.");
-      const comparison = (await response.json()) as Comparison;
+      const comparison = await sessionJson<Comparison>(request.path, { method: "POST", body: request.body, signal }, PROBABILITY_MESSAGES);
       if (!signal.aborted) setResult(comparison);
     } catch (error) {
       if (signal.aborted) return;

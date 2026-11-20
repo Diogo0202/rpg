@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useCharacterSession, type SessionCharacter } from "../lib/character-session";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 import {
   BLOOD_REVIEW_RULES, COMPULSION_OPTIONS, bloodState, feedingPenaltyLabel, rouseSuccessChance, type FrenzyKind,
 } from "../../shared/rules/v5-blood";
@@ -13,24 +13,19 @@ import styles from "./v5-action-panel.module.css";
 type BloodEvent = { id: number; kind: string; dice: number[]; outcome: Record<string, unknown>; created_at?: string };
 type BloodResponse = { replayed: boolean; outcome: Record<string, unknown>; dice: number[]; event_id: number | null; sheet: Record<string, unknown> | null };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
 const KIND_LABELS: Record<string, string> = {
   rouse: "Rouse", awaken: "Despertar", remorse: "Remorso", frenzy: "Frenesi", compulsion: "Compulsão", torpor: "Torpor", mend: "Remendar", surge: "Surto de Sangue",
 };
 const FRENZY_LABELS: Record<FrenzyKind, string> = { fury: "Fúria", hunger: "Fome", terror: "Terror (Rötschreck)" };
 
-async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<unknown> {
-  if (!API_URL) throw new Error("Configure NEXT_PUBLIC_API_URL para usar o painel de Sangue.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para agir sobre o Sangue.");
-  const response = await fetch(`${API_URL}${path}`, {
-    method: init.method ?? "GET",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-  });
-  const parsed = await response.json().catch(() => null) as { detail?: unknown } | null;
-  if (!response.ok) throw new Error(typeof parsed?.detail === "string" ? parsed.detail : "O servidor recusou a ação de Sangue.");
-  return parsed;
+const BLOOD_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para usar o painel de Sangue.",
+  signedOut: "Entre na campanha para agir sobre o Sangue.",
+  rejected: "O servidor recusou a ação de Sangue.",
+};
+
+function api(path: string, init: { method?: "GET" | "POST"; body?: unknown } = {}): Promise<unknown> {
+  return sessionJson(path, init, BLOOD_MESSAGES);
 }
 
 /** Short text for one stored blood event. */

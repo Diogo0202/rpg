@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "../lib/supabase/client";
+import { sessionJson } from "../lib/api/session";
 
 type Outcome = { successes: number; success: boolean; critical_pairs: number; messy_critical: boolean; clean_critical: boolean; bestial_failure: boolean };
 export type StoredRoll = {
@@ -12,21 +12,14 @@ export type StoredRoll = {
 };
 type RerollResponse = { roll: StoredRoll; willpower_spent: boolean; sheet_values: Record<string, unknown> | null };
 
-const apiBase = process.env.NEXT_PUBLIC_API_URL;
+const REROLL_MESSAGES = {
+  missingApi: "Configure NEXT_PUBLIC_API_URL para acessar a API.",
+  signedOut: "Entre na campanha para rolar.",
+  rejected: "A API recusou a operação.",
+};
 
-async function authorizedFetch(path: string, init: RequestInit = {}) {
-  if (!apiBase) throw new Error("Configure NEXT_PUBLIC_API_URL para acessar a API.");
-  const { data } = await createClient().auth.getSession();
-  if (!data.session) throw new Error("Entre na campanha para rolar.");
-  const response = await fetch(`${apiBase}${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}`, ...(init.headers ?? {}) },
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null) as { detail?: unknown } | null;
-    throw new Error(typeof body?.detail === "string" ? body.detail : "A API recusou a operação.");
-  }
-  return response.json();
+function authorizedFetch(path: string, init: { method?: "POST"; body?: unknown } = {}): Promise<unknown> {
+  return sessionJson(path, init, REROLL_MESSAGES);
 }
 
 function summary(outcome: Outcome) {
@@ -70,7 +63,7 @@ export function V5WillpowerReroll({ sheetId, pool, difficulty, contextTags }: { 
     setBusy(true); setMessage("");
     try {
       const saved = await authorizedFetch(`/api/v1/v5/sheets/${sheetId}/rolls`, {
-        method: "POST", body: JSON.stringify({ pool, difficulty, context_tags: contextTags }),
+        method: "POST", body: { pool, difficulty, context_tags: contextTags },
       }) as StoredRoll;
       setCurrent(saved); setSelected([]);
       setHistory((rows) => [saved, ...rows.filter((row) => row.id !== saved.id)].slice(0, 10));
@@ -84,7 +77,7 @@ export function V5WillpowerReroll({ sheetId, pool, difficulty, contextTags }: { 
     setBusy(true); setMessage("");
     try {
       const result = await authorizedFetch(`/api/v1/v5/rolls/${current.id}/willpower-reroll`, {
-        method: "POST", body: JSON.stringify({ normal_indices: selected }),
+        method: "POST", body: { normal_indices: selected },
       }) as RerollResponse;
       setCurrent(result.roll); setSelected([]);
       setHistory((rows) => rows.map((row) => (row.id === result.roll.id ? result.roll : row)));

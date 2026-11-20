@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { createClient } from "../lib/supabase/client";
+import { apiBase, sessionToken } from "../lib/api/session";
 import { useCharacterSession, type CharacterEffect } from "../lib/character-session";
 import { CompendiumPanel, CompendiumReference } from "./compendium-panel";
 import { findCompendiumEntry } from "../lib/compendium";
@@ -171,7 +172,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         return;
       }
     }
-    const api = process.env.NEXT_PUBLIC_API_URL;
+    const api = apiBase();
     if (!api) { setFeedback("Configure NEXT_PUBLIC_API_URL para validar o modelo."); return; }
     setBusy(true);
     const revision = editorRevision.current;
@@ -225,11 +226,10 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
         setSheetVersion(data.version);
         selectCharacter(data as StoredSheet);
       } else {
-        const api = process.env.NEXT_PUBLIC_API_URL;
+        const api = apiBase();
         if (!api) throw new Error("A API de fichas não está configurada. O preenchimento continua nesta tela.");
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !sessionData.session) throw new Error("Entre na campanha para salvar esta ficha.");
-        const data = await createCampaignSheet(api, sessionData.session.access_token, campaignId, {
+        const token = await sessionToken("Entre na campanha para salvar esta ficha.");
+        const data = await createCampaignSheet(api, token, campaignId, {
           template_id: templateId, name, values: payloadValues, ...(portraitPath ? {portrait_path:portraitPath} : {}),
         }) as StoredSheet;
         data.effects ??= [];
@@ -251,15 +251,14 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   // FIC-11: only campaign managers may delete (RLS); the API checks the version.
   async function deleteSheet() {
     if (busy || !sheetId || !canManageTemplates) return;
-    const api = process.env.NEXT_PUBLIC_API_URL;
+    const api = apiBase();
     if (!api) { setFeedback("A API de fichas não está configurada."); return; }
     setBusy(true);
     const removedId = sheetId;
     const removedName = sheetName;
     try {
-      const { data, error } = await createClient().auth.getSession();
-      if (error || !data.session) throw new Error("Entre na campanha para excluir a ficha.");
-      await deleteCampaignSheet(api, data.session.access_token, removedId, sheetVersion);
+      const token = await sessionToken("Entre na campanha para excluir a ficha.");
+      await deleteCampaignSheet(api, token, removedId, sheetVersion);
       editorRevision.current += 1;
       setSheets((current) => current.filter((item) => item.id !== removedId));
       selectCharacter(null);
@@ -494,7 +493,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   useEffect(() => {
-    const api = process.env.NEXT_PUBLIC_API_URL;
+    const api = apiBase();
     if (!api) {
       setCalculationError(template.fields.some((field) => field.kind === "formula") ? "A API de cálculos não está configurada." : "");
       return;
@@ -530,7 +529,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }, [template, values, sheetName]);
 
   async function validateAndCalculate() {
-    const api = process.env.NEXT_PUBLIC_API_URL;
+    const api = apiBase();
     if (!api) {
       setFeedback("Configure NEXT_PUBLIC_API_URL para validar e calcular esta ficha.");
       return;

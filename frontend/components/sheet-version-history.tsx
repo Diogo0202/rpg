@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import { createClient } from "../lib/supabase/client";
+import { apiBase, sessionToken as currentToken } from "../lib/api/session";
 import { diffSheetVersions, listSheetVersions, restoreSheetVersion, type SheetVersion } from "../lib/sheet-history";
 import type { SheetTemplate } from "../../shared/rules/sheet-template";
 
 async function sessionToken(): Promise<{ api: string; token: string }> {
-  const api = process.env.NEXT_PUBLIC_API_URL;
+  const api = apiBase();
   if (!api) throw new Error("A API de fichas não está configurada.");
-  const { data, error } = await createClient().auth.getSession();
-  if (error || !data.session) throw new Error("Entre na campanha para ver o histórico.");
-  return { api, token: data.session.access_token };
+  return { api, token: await currentToken("Entre na campanha para ver o histórico.") };
 }
 
 const dateFormat = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" });

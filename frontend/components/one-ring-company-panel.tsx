@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "../lib/supabase/client";
+import { apiBase } from "../lib/api/session";
 import { CompanyOfflineStore, CompanySyncEngine, createCompanyHttpTransport, getOfflineContext, saveOfflineContext, clearOfflineAccount } from "../lib/one-ring-offline";
 import type { CompanyMember, CompanySnapshot } from "../../shared/one-ring/company-sync";
 import { ONE_RING_CATALOG as C } from "../../shared/one-ring/catalog.ts";
@@ -75,7 +76,7 @@ export function OneRingCompanyPanel({ campaignId, viewerId, canManage, viewerRol
           setSessionId(actor); setActiveRole(viewerRole ?? (canManage ? "narrator" : "player"));
           await saveOfflineContext({ accountId: account, campaignId: campaign, viewerId: actor, role: viewerRole ?? (canManage ? "narrator" : "player"), deviceId: device }, store);
         }
-        const transport = createCompanyHttpTransport(campaign, async () => { const session = (await createClient().auth.getSession()).data.session; return session?.user.id === account ? session.access_token : null; }, process.env.NEXT_PUBLIC_API_URL ?? "");
+        const transport = createCompanyHttpTransport(campaign, async () => { const session = (await createClient().auth.getSession()).data.session; return session?.user.id === account ? session.access_token : null; }, apiBase() ?? "");
         const eng = new CompanySyncEngine({ accountId: account, campaignId: campaign, deviceId: device }, store, transport);
         setEngine(eng); await load(eng);
         if (navigator.onLine && user) { try { await eng.flush(); await eng.refresh(); } catch(error) { if(active)setMessage(error instanceof Error ? error.message : "Falha ao confirmar o acesso."); } if(active)await load(eng); }
