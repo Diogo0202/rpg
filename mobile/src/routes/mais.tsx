@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { SheetImport } from "@/components/nexus/SheetImport";
 import { OneRingCompanyPanel } from "@/components/nexus/OneRingCompanyPanel";
 import { ConnectionPanel } from "@/components/nexus/ConnectionPanel";
+import { WallpaperSettings } from "@/components/nexus/WallpaperSettings";
 import { Btn, Empty, LocalGate, PageHeader, Panel, Tag } from "@/components/nexus/ui";
 import { useNexus, outboxSummary } from "@/lib/nexus/store";
 import { SYSTEM_STARTERS } from "@/lib/system-starters";
@@ -443,6 +444,7 @@ export function SettingsPanel() {
             </Btn>
           </div>
         </Panel>
+        <WallpaperSettings />
         <Panel title="Backup e limpeza">
           <p className="mb-3 text-sm text-ink">
             Há {summary.total} operação(ões) pendentes na campanha aberta. A exportação solicita ao

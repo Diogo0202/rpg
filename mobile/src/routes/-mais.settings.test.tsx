@@ -6,6 +6,9 @@ const nexus = vi.hoisted(() => ({
   state: { outbox: [{}, {}] },
   engine: { exportPendingDrafts: vi.fn() },
   ready: true,
+  campaignId: "camp-a",
+  campaignName: "Mesa de teste",
+  list: () => [{ id: "ana", data: { name: "Ana" } }],
   wipeLocal: vi.fn(),
   refresh: vi.fn(),
 }));
@@ -74,6 +77,16 @@ describe("SettingsPanel local cache confirmation", () => {
     expect(screen.getByRole("button", { name: "Demon Lord" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: "Padrão" }));
     expect(document.documentElement).not.toHaveClass("demon-lord");
+  });
+
+  it("offers the general wallpaper, the table photo and a character image", () => {
+    render(<SettingsPanel />);
+    expect(screen.getByText("Wallpaper geral")).toBeInTheDocument();
+    expect(screen.getByText("Foto da mesa")).toBeInTheDocument();
+    expect(screen.getByText("Campanha Mesa de teste")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Ficha" })).toHaveValue("ana");
+    expect(screen.getByText("Imagem do personagem")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Importar imagem" })).toHaveLength(3);
   });
 
   it("allows cancel or Escape and only clears all account campaigns after manual confirmation", async () => {

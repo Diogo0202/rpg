@@ -3,6 +3,7 @@ import { Castle, Dices, Map, Menu, ScrollText, CloudOff, AlertTriangle } from "l
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { outboxSummary, useNexus } from "@/lib/nexus/store";
+import { useWallpaper, wallpaperSlotsFor } from "@/lib/wallpapers";
 
 const NAV = [
   { to: "/", label: "Mesa", icon: Castle },
@@ -33,11 +34,25 @@ export function SyncIndicator() {
   );
 }
 
+function ScreenWallpaper({ path }: { path: string }) {
+  const { campaignId } = useNexus();
+  const ficha = useRouterState({ select: (s) => (s.location.search as { ficha?: unknown }).ficha });
+  const image = useWallpaper(wallpaperSlotsFor(path, campaignId, typeof ficha === "string" ? ficha : undefined));
+  if (!image) return null;
+  return (
+    <div aria-hidden data-testid="screen-wallpaper" className="pointer-events-none fixed inset-0 z-0">
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url("${image.data}")` }} />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/20 to-black/55" />
+    </div>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const { mode, campaignName } = useNexus();
   return (
     <div className="flex min-h-dvh">
+      <ScreenWallpaper path={path} />
       <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-primary focus:p-2 focus:text-primary-foreground">Pular para o conteúdo</a>
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar p-4 lg:flex" aria-label="Navegação principal">
         <div className="mb-6">
@@ -54,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
       </aside>
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="relative flex min-w-0 flex-1 flex-col">
         <header className="safe-top sticky top-0 z-30 border-b border-border bg-forest-deep/95 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-2 px-4 py-2">
             <Link to="/" className="font-display text-xl font-semibold text-primary lg:hidden">RPG-Atlas</Link>
