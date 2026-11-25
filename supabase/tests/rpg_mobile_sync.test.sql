@@ -1,5 +1,5 @@
 begin;
-select plan(50);
+select plan(52);
 
 select ok(has_function_privilege('authenticated','public.mobile_sync_push(uuid,uuid,jsonb)','execute'),'authenticated can push sync mutations');
 select ok(not has_function_privilege('anon','public.mobile_sync_push(uuid,uuid,jsonb)','execute'),'anon cannot push sync mutations');
@@ -170,6 +170,23 @@ select is((public.mobile_sync_snapshot('b1000000-0000-0000-0000-000000000001','m
 select set_config('request.jwt.claim.sub','a1000000-0000-0000-0000-000000000003',true);
 select throws_ok($$select public.mobile_sync_snapshot('b1000000-0000-0000-0000-000000000001','maps',null,20)$$,'42501',null,'outsider cannot snapshot a campaign');
 select throws_ok($$select public.mobile_sync_changes('b1000000-0000-0000-0000-000000000001',0,20)$$,'42501',null,'outsider cannot pull campaign changes');
+
+select set_config('request.jwt.claim.sub','a1000000-0000-0000-0000-000000000001',true);
+select is(public.mobile_sync_push(
+    'b1000000-0000-0000-0000-000000000001','c1000000-0000-0000-0000-000000000001',
+    jsonb_build_array(jsonb_build_object(
+      'operation_id','d1000000-0000-0000-0000-0000000000a1','entity_type','character_sheets','entity_id','e1000000-0000-0000-0000-000000000004',
+      'action','update','base_version',(select sync_version from public.character_sheets where id='e1000000-0000-0000-0000-000000000004'),
+      'changes','[{"path":["portrait_path"],"before":{"exists":true,"value":null},"after":{"exists":true,"value":"b1000000-0000-0000-0000-000000000001/a1000000-0000-0000-0000-000000000001/f1000000-0000-0000-0000-000000000001.webp"}}]'::jsonb,
+      'depends_on','[]'::jsonb))
+  )#>>'{results,0,record,data,portrait_path}',
+  'b1000000-0000-0000-0000-000000000001/a1000000-0000-0000-0000-000000000001/f1000000-0000-0000-0000-000000000001.webp',
+  'the campaign owner can sync a portrait and receives its private object path');
+select set_config('request.jwt.claim.sub','a1000000-0000-0000-0000-000000000002',true);
+select is(public.mobile_sync_push(
+    'b1000000-0000-0000-0000-000000000001','c1000000-0000-0000-0000-000000000002',
+    '[{"operation_id":"d1000000-0000-0000-0000-0000000000a2","entity_type":"character_sheets","entity_id":"e1000000-0000-0000-0000-000000000004","action":"update","base_version":1,"changes":[{"path":["portrait_path"],"before":{"exists":true,"value":null},"after":{"exists":true,"value":null}}],"depends_on":[]}]'::jsonb
+  )#>>'{results,0,status}','denied','a player cannot change a portrait on another player sheet');
 
 select * from finish();
 rollback;

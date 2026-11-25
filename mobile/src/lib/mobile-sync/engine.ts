@@ -1,3 +1,4 @@
+import { portraitDataBytes } from "../../../../shared/portrait-data.ts";
 import { createSyncId } from "../../../../shared/sync/core.ts";
 import { fieldValuesEqual, projectRecord, validateChanges } from "./merge.ts";
 import { pendingEntries } from "./store.ts";
@@ -13,6 +14,10 @@ const isUuid = (value: string): boolean => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-
 const entityName = /^[a-z][a-z0-9_]{0,63}$/;
 
 function fieldAt(record: SyncRecord | undefined, path: string[]): { exists: false } | { exists: true; value: JsonValue } {
+  if (record?.entity_type === "character_sheets" && !record.deleted
+      && path.length === 1 && path[0] === "portrait_path" && record.data.portrait_path === undefined) {
+    return { exists: true, value: null };
+  }
   let node: JsonValue | undefined = record?.data;
   for (const segment of path) {
     if (!node || typeof node !== "object" || Array.isArray(node) || !Object.prototype.hasOwnProperty.call(node, segment)) return { exists: false };
@@ -227,7 +232,15 @@ export class SyncEngine {
         action: input.action, base_version: input.action === "create" ? 0 : projected!.version,
         changes: copy(changes), depends_on: dependsOn,
       };
-      if (mutationBytes(mutation) > 32768) throw new Error("operation exceeds 32 KB");
+      const portrait = this.config.localOnly && mutation.entity_type === "character_sheets"
+        ? changes.find((change) => change.path.length === 1 && change.path[0] === "portrait_data") : undefined;
+      if (portrait) {
+        for (const field of [portrait.before, portrait.after]) {
+          if (field.exists && field.value !== null && !portraitDataBytes(field.value)) throw new Error("A foto da ficha é inválida.");
+        }
+      }
+      const protocolMutation = portrait ? { ...mutation, changes: changes.filter((change) => change !== portrait) } : mutation;
+      if (mutationBytes(protocolMutation) > 32768) throw new Error("operation exceeds 32 KB");
       const entry: OutboxEntry = { mutation, state: "queued", createdAt: this.now(), attempts: 0, nextAttemptAt: 0 };
       state.outbox.push(entry); state.updatedAt = this.now();
       return { result: copy(mutation), state };

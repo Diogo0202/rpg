@@ -15,6 +15,8 @@ export type SheetData = {
   template_schema?: SheetTemplate;
   values: Record<string, FieldValue>;
   effects: JsonValue[];
+  portrait_data?: string | null;
+  portrait_path?: string | null;
 };
 
 export type InventoryData = BackupInventoryItem & { sheet_id: string };
@@ -101,6 +103,7 @@ export function exportSheet(sheet: SheetData, items: InventoryData[]): SheetBack
     template: { name: template.name, version: template.version, fields: toBackupFields(template.fields) },
     values: storableValues(template, sheet.values),
     effects: sheet.effects,
+    ...(sheet.portrait_data ? { portrait_data: sheet.portrait_data } : {}),
     inventory: items.map(({ sheet_id: _s, ...item }) => item),
   });
 }
@@ -140,6 +143,7 @@ export function sheetFromBackup(doc: SheetBackup): SheetData {
   return {
     name, system_key: starter?.id ?? null, template_name: doc.template.name,
     template_version: doc.template.version,
+    ...(doc.portrait_data ? { portrait_data: doc.portrait_data } : {}),
     ...(starter ? {} : { template_fields: doc.template.fields, template_schema: doc.template as SheetTemplate }),
     values: storableValues(template, values), effects: JSON.parse(JSON.stringify(doc.effects)) as JsonValue[],
   };

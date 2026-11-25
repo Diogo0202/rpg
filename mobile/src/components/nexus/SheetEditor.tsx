@@ -9,10 +9,13 @@ import { useNexus, type Entity } from "@/lib/nexus/store";
 import { FieldInput } from "./FieldInput";
 import { XP_FIELD } from "@/lib/game/table-rules";
 import { InventoryEditor } from "./InventoryEditor";
+import { SheetPortrait } from "./SheetPortrait";
+import { useSheetPortrait } from "@/lib/nexus/portraits";
 import { Btn, Panel } from "./ui";
 
 export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
   const { update, list, mode } = useNexus();
+  const portrait = useSheetPortrait(sheet.data);
   // Connected: XP only changes through increment_xp / advances on the server (Mesa tab).
   const xpLocked = mode === "connected";
   const template = templateFor(sheet.data);
@@ -47,6 +50,10 @@ export function SheetEditor({ sheet }: { sheet: Entity<SheetData> }) {
         try { downloadJson(`${slug(result.name)}.json`, exportSheet({ ...sheet.data, ...result }, list<InventoryData>("character_inventory").filter((i) => i.data.sheet_id === sheet.id).map((i) => i.data))); }
         catch(e) { toast.error(e instanceof Error ? e.message : "Exportação inválida."); }
       }}><Download className="size-4" aria-hidden />Exportar JSON</Btn><Btn type="submit" disabled={busy}><Save className="size-4" aria-hidden />{busy ? "Salvando…" : "Salvar ficha"}</Btn></>}>
+        <SheetPortrait src={portrait} hasPortrait={Boolean(sheet.data.portrait_data === undefined ? sheet.data.portrait_path : sheet.data.portrait_data)} disabled={busy} onChange={async (data) => {
+          await update("character_sheets", sheet.id, [{ path: ["portrait_data"], value: data }]);
+          toast.success(data ? "Retrato salvo neste aparelho." : "Retrato removido neste aparelho.");
+        }} />
         {removed.length > 0 && <p role="status" className="mb-3 text-sm text-ink">Escolhas incompatíveis removidas: {removed.join(", ")}. Revise.</p>}
         <div className="grid gap-3 sm:grid-cols-2">
           {!characterNameField(template) && <label className="text-sm font-semibold text-ink">Nome da ficha<input id="edit-__name" className="field-input mt-1" value={name} maxLength={120} aria-invalid={!!errors.__name} onChange={(e) => setName(e.target.value)} />{errors.__name && <span className="text-destructive">{errors.__name}</span>}</label>}

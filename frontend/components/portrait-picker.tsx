@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 import { portraitUrls, uploadPortrait } from "../lib/portrait-upload";
 import { initials } from "../lib/portraits";
@@ -20,9 +20,15 @@ export function usePortraitUrls(paths: (string | null | undefined)[]): Record<st
 }
 
 export function PortraitAvatar({ url, name, size = 72 }: { url?: string; name: string; size?: number }) {
-  return url
-    ? <img className={styles.avatar} src={url} alt={`Retrato de ${name || "personagem"}`} width={size} height={size} />
+  const [failed, setFailed] = useState<string>();
+  return url && failed !== url
+    ? <img className={styles.avatar} src={url} onError={() => setFailed(url)} alt={`Retrato de ${name || "personagem"}`} width={size} height={size} />
     : <span className={styles.avatarFallback} style={{ width: size, height: size }} aria-label={`Sem retrato: ${name || "personagem"}`}>{initials(name)}</span>;
+}
+
+export function PortraitView({ path, name, size = 96 }: { path: string | null; name: string; size?: number }) {
+  const urls = usePortraitUrls([path]);
+  return <PortraitAvatar url={path ? urls[path] : undefined} name={name} size={size} />;
 }
 
 type Props = {
@@ -33,30 +39,50 @@ type Props = {
   disabled?: boolean;
   required?: boolean;
   error?: string;
+  onUploadState?: (uploading: boolean) => void;
   onChange: (path: string) => void;
 };
 
 /** Upload happens on selection so the sheet only ever stores a confirmed object path. */
-export function PortraitPicker({ campaignId, uploaderId, value, name, disabled, required = true, error, onChange }: Props) {
+export function PortraitPicker({ campaignId, uploaderId, value, name, disabled, required = true, error, onUploadState, onChange }: Props) {
   const inputId = useId();
-  const urls = usePortraitUrls([value]);
+  const active = useRef(false);
+  const uploading = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+      if (uploading.current) onUploadState?.(false);
+    };
+  }, [onUploadState]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   async function choose(file: File | undefined) {
-    if (!file || busy) return;
+    if (!file || uploading.current) return;
+    uploading.current = true;
+    onUploadState?.(true);
     setBusy(true);
     setMessage("Preparando e enviando a foto…");
     try {
-      onChange(await uploadPortrait(campaignId, uploaderId, file));
-      setMessage("Foto enviada. Ela aparece no pin do personagem no mapa.");
+      const path = await uploadPortrait(campaignId, uploaderId, file);
+      if (!active.current) return;
+      onChange(path);
+      setMessage("Foto enviada. Salve a ficha para exibi-la na ficha e no mapa.");
+
     } catch (problem) {
-      setMessage(problem instanceof Error ? problem.message : "Não foi possível enviar a foto.");
-    } finally { setBusy(false); }
+      if (active.current) setMessage(problem instanceof Error ? problem.message : "Não foi possível enviar a foto.");
+    } finally {
+      uploading.current = false;
+      if (active.current) {
+        setBusy(false);
+        onUploadState?.(false);
+      }
+    }
   }
 
   return <div className={styles.picker}>
-    <PortraitAvatar url={value ? urls[value] : undefined} name={name} size={96} />
+    <PortraitView path={value} name={name} />
     <div className={styles.controls}>
       <label htmlFor={inputId} className={styles.label}>Retrato do personagem{required && <span className={styles.required}>Obrigatório</span>}</label>
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" disabled={disabled || busy}

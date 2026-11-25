@@ -40,6 +40,7 @@ type Props = {
   viewerId: string;
   portraitPath: string | null;
   onPortraitChange: (path: string) => void;
+  onPortraitUploadState?: (uploading: boolean) => void;
 };
 
 type WizardStep = { key: string; title: string; fields: SheetField[]; kind: "template" | "identity" | "group" | "portrait" | "review" };
@@ -48,7 +49,7 @@ export function SheetCreationWizard(props: Props) {
   const {
     campaignId, templates, templateId, template, values, name, calculated, busy, canCreate, canGrantResources, loading,
     loadError, feedback, calculationError, onChooseTemplate, onNameChange, onValueChange,
-    onSave, onOpenEditor, viewerId, portraitPath, onPortraitChange,
+    onSave, onOpenEditor, viewerId, portraitPath, onPortraitChange, onPortraitUploadState,
   } = props;
   const masterGranted = useMemo(() => canGrantResources ? new Set<string>() : masterGrantedFieldIds(template), [canGrantResources, template]);
 
@@ -441,7 +442,7 @@ export function SheetCreationWizard(props: Props) {
         </div>}
 
       {step.kind === "portrait" && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={name}
-        disabled={busy} error={errors.$portrait} onChange={(path) => { onPortraitChange(path); clearError("$portrait"); }} />}
+        disabled={busy || !canCreate} error={errors.$portrait} onUploadState={onPortraitUploadState} onChange={(path) => { onPortraitChange(path); clearError("$portrait"); }} />}
 
       {step.kind === "review" && <div className={styles.review}>
         <div className={styles.reviewName}><span>PERSONAGEM</span><strong>{name.trim() || "Nome não informado"}</strong><small>{template.name}</small></div>

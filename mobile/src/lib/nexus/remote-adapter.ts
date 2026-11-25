@@ -53,7 +53,7 @@ function assertOnlyKeys(data: Record<string, JsonValue>, allowed: readonly strin
 export function toRemoteCreate(type: string, input: Record<string, JsonValue>): { entityType: string; data: Record<string, JsonValue> } {
   const entityType = remoteEntityType(type), data = { ...input };
   if (entityType === "character_sheets") {
-    assertOnlyKeys(data, ["template_id", "name", "values"], "Ficha");
+    assertOnlyKeys(data, ["template_id", "name", "values", "portrait_path"], "Ficha");
     if (typeof data.template_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.template_id)) throw new Error("A ficha precisa usar o ID de um modelo aprovado da campanha.");
     if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 120 || !data.values || typeof data.values !== "object" || Array.isArray(data.values)) throw new Error("Nome ou valores de ficha inválidos.");
   } else if (entityType === "character_inventory") {

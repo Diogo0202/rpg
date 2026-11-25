@@ -25,6 +25,7 @@ export interface SyncChangeEvent {
 export type { SyncPartition } from "../../../../shared/sync/core.ts";
 export interface SyncConfig extends SyncPartition {
   entityFields: Record<string, string[]>;
+  localOnly?: boolean;
   now?: () => number;
   randomUUID?: () => string;
   maxBatch?: number;

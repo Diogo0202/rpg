@@ -1,3 +1,4 @@
+import { SheetPortrait } from "@/components/nexus/SheetPortrait";
 import { OneRingCharacterBuilder } from "@/components/nexus/OneRingCharacterBuilder";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
@@ -65,11 +66,22 @@ type WizardStarter = { id: string; label: string; systemKey: string; templateId:
 function OneRingNewCharacter({starter,onCancel}:{starter:WizardStarter;onCancel:()=>void}) {
   const {create,mode,accountId,campaignId}=useNexus();
   const navigate=useNavigate();
-  return <><Btn variant="outline" onClick={onCancel}>Trocar modelo</Btn><OneRingCharacterBuilder accountId={accountId} campaignId={campaignId} templateId={starter.templateId ?? "local-one-ring-v3"} initialValues={starter.values} saveMode={mode==="connected" ? "queued" : "local"} onSave={async(values)=>{
+  const [portrait, setPortrait] = useState<string | null>(null);
+  const [portraitBusy, setPortraitBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  return <><Btn variant="outline" onClick={onCancel} disabled={saving}>Trocar modelo</Btn>
+    <Panel><SheetPortrait src={portrait} onChange={setPortrait} onBusyChange={setPortraitBusy} disabled={saving} /></Panel>
+    <OneRingCharacterBuilder accountId={accountId} campaignId={campaignId} templateId={starter.templateId ?? "local-one-ring-v3"} initialValues={starter.values} busy={portraitBusy} saveMode={mode==="connected" ? "queued" : "local"} onSave={async(values)=>{
+    setSaving(true);
     const payload:Record<string,JsonValue>=mode==="connected" ? {template_id:starter.templateId!,name:String(values.nome),values} : {name:String(values.nome),system_key:"one-ring",template_name:starter.template.name,template_version:3,values,effects:[]};
-    const id=await create("character_sheets",payload);
-    toast.success(mode==="connected" ? "Ficha enviada para confirmação pelo servidor." : "Ficha criada apenas no modo local.");
-    await navigate({to:"/fichas",search:{ficha:id}});
+    if (portrait) payload.portrait_data = portrait;
+    try {
+      const id=await create("character_sheets",payload);
+      toast.success(mode==="connected" ? "Ficha enviada para confirmação pelo servidor." : "Ficha criada apenas no modo local.");
+      await navigate({to:"/fichas",search:{ficha:id}});
+    } finally {
+      setSaving(false);
+    }
   }}/></>;
 }
 
@@ -90,6 +102,8 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [removed, setRemoved] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [portrait, setPortrait] = useState<string | null>(null);
+  const [portraitBusy, setPortraitBusy] = useState(false);
   const [distributionChoices, setDistributionChoices] = useState<Record<string, number>>({});
   const nameField = characterNameField(template);
   const choiceFieldIds = useMemo(() => grantChoiceFieldIds(template), [template]);
@@ -198,6 +212,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
       const payload: Record<string, JsonValue> = mode === "connected"
         ? { template_id: starter.templateId!, name, values: stored as Record<string, JsonValue> }
         : { name, system_key: starter.systemKey, template_name: template.name, template_version: template.version, values: stored as Record<string, JsonValue>, effects: [] };
+      if (portrait) payload.portrait_data = portrait;
       const id = await create("character_sheets", payload);
       toast.success(mode === "connected" ? "Ficha na fila local; a API confirma apÃ³s sincronizaÃ§Ã£o." : "Ficha salva neste aparelho e selecionada na sessÃ£o.");
       void navigate({ to: "/fichas", search: { ficha: id } });
@@ -223,6 +238,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
         ))}
       </ol>
       <Panel title={`${starter.label} Â· ${current.label}`} actions={identityKinds.map((k) => <Tag key={k} tone="gold">{k}</Tag>)}>
+        {(current.key === "identity" || current.key === "review") && <SheetPortrait src={portrait} onChange={setPortrait} onBusyChange={setPortraitBusy} disabled={saving} />}
         {stepHelp(template.system_key, current.key) && <p className="mb-3 text-sm text-ink-muted">{stepHelp(template.system_key, current.key)}</p>}
         {removed.length > 0 && (
           <p className="parchment-inset mb-3 p-3 text-sm text-ink" role="status">Algumas escolhas dependentes foram limpas por incompatibilidade: {removed.join(", ")}. Revise.</p>
@@ -278,7 +294,7 @@ function Wizard({ starter, onCancel }: { starter: WizardStarter; onCancel: () =>
       <div className="flex flex-wrap justify-between gap-2">
         <Btn variant="forest" onClick={step === 0 ? onCancel : () => setStep(step - 1)}>{step === 0 ? "Trocar sistema" : "Voltar"}</Btn>
         {current.key === "review"
-          ? <Btn onClick={() => void save()} disabled={saving}>{saving ? "Salvandoâ€¦" : "Criar personagem"}</Btn>
+          ? <Btn onClick={() => void save()} disabled={saving || portraitBusy}>{saving ? "Salvandoâ€¦" : "Criar personagem"}</Btn>
            : <Btn onClick={() => goTo(step + 1)}>AvanÃ§ar</Btn>}
       </div>
     </div>

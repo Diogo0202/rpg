@@ -1,3 +1,4 @@
+import { portraitDataBytes } from "../../shared/portrait-data.ts";
 import { isFieldActive, reconcileDependentValues } from "./sheet-creation.ts";
 import type { SelectDependency, SheetTemplate } from "./sheet-template.ts";
 
@@ -44,6 +45,7 @@ export type SheetBackup = {
   values: Record<string, string | number | boolean | string[]>;
   effects: BackupEffect[];
   inventory?: BackupInventoryItem[];
+  portrait_data?: string;
 };
 
 export type BackupInventoryItem = {
@@ -248,7 +250,7 @@ function validateInventory(value: unknown): BackupInventoryItem[] {
 
 function validateSheetBackup(input: unknown): SheetBackup {
   if (!isPlainObject(input)) throw new Error("O backup deve ser um objeto JSON.");
-  exactKeys(input, ["format", "format_version", "name", "template", "values", "effects", "inventory"], "Backup");
+  exactKeys(input, ["format", "format_version", "name", "template", "values", "effects", "inventory", "portrait_data"], "Backup");
   if (input.format !== SHEET_BACKUP_FORMAT || input.format_version !== SHEET_BACKUP_VERSION) {
     throw new Error("Formato ou versão do backup não compatível.");
   }
@@ -305,6 +307,10 @@ function validateSheetBackup(input: unknown): SheetBackup {
     const value=effectiveValues[field.id];
     if(value===undefined || (typeof value==="string"&&!value.trim()) || (Array.isArray(value)&&value.length===0) || (field.kind==="checkbox"&&value!==true))throw new Error(`Campo obrigatório ausente: ${field.label}.`);
   }
+  const portrait = input.portrait_data;
+  if (portrait !== undefined && (typeof portrait !== "string" || !portraitDataBytes(portrait))) {
+    throw new Error("O retrato do backup é inválido.");
+  }
   return {
     format: SHEET_BACKUP_FORMAT,
     format_version: SHEET_BACKUP_VERSION,
@@ -312,6 +318,7 @@ function validateSheetBackup(input: unknown): SheetBackup {
     template: { name: boundedString(input.template.name, "Nome do template", 120, 1), version: input.template.version as number, fields },
     values: effectiveValues,
     effects: validateEffects(input.effects),
+    ...(portrait === undefined ? {} : { portrait_data: portrait }),
     ...(input.inventory === undefined ? {} : { inventory: validateInventory(input.inventory) }),
   };
 }
@@ -329,6 +336,7 @@ export function createSheetBackup(input: {
   values: unknown;
   effects: unknown;
   inventory?: unknown;
+  portrait_data?: unknown;
 }): SheetBackup {
   return validateBackup({ ...input, format: SHEET_BACKUP_FORMAT, format_version: SHEET_BACKUP_VERSION });
 }

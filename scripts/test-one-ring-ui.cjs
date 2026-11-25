@@ -7,7 +7,7 @@ async function main(){
  const absolute=p=>JSON.stringify(path.join(root,p).replaceAll('\\','/'));
  fs.writeFileSync(path.join(scratch,'tsx.cjs'),`const ts=require(${JSON.stringify(req.resolve('typescript'))});module.exports=s=>ts.transpileModule(s,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;`);
  fs.writeFileSync(path.join(scratch,'css.cjs'),`const fs=require('fs');module.exports=s=>{const names={};const css=s.replace(/\\.([a-zA-Z_][\\w-]*)/g,(_,n)=>{names[n]='ring_'+n;return'.'+names[n]});fs.writeFileSync(${JSON.stringify(path.join(out,'ring.css'))},css);return'export default '+JSON.stringify(names)};`);
- fs.writeFileSync(path.join(scratch,'entry.tsx'),`import React from'react';import{createRoot}from'react-dom/client';import{OneRingCharacterBuilder as Web}from${absolute('frontend/components/one-ring-character-builder.tsx')};import{OneRingCharacterBuilder as Mobile}from${absolute('mobile/src/components/nexus/OneRingCharacterBuilder.tsx')};import * as sync from${absolute('shared/one-ring/offline.ts')};import * as rules from${absolute('shared/one-ring/creation.ts')};import{OneRingCompanyPanel as Company}from${absolute('frontend/components/one-ring-company-panel.tsx')};window.sync=sync;window.rules=rules;const root=createRoot(document.getElementById('root'));window.renderRing=(props={})=>{const Component=location.search.includes('mobile')?Mobile:Web;root.render(<Component key={props.accountId??'account-a'} accountId="account-a" campaignId="campaign-a" templateId="template-v3" onSave={async(values)=>{window.saved=values;}} {...props}/>)};window.renderCompany=(props={})=>root.render(<Company campaignId="camp" viewerId="master" canManage={true} {...props}/>);window.renderRing();`);
+ fs.writeFileSync(path.join(scratch,'entry.tsx'),`import React,{useState} from'react';import{createRoot}from'react-dom/client';import{PortraitPicker,PortraitView}from${absolute('frontend/components/portrait-picker.tsx')};import{OneRingCharacterBuilder as Web}from${absolute('frontend/components/one-ring-character-builder.tsx')};import{OneRingCharacterBuilder as Mobile}from${absolute('mobile/src/components/nexus/OneRingCharacterBuilder.tsx')};import * as sync from${absolute('shared/one-ring/offline.ts')};import * as rules from${absolute('shared/one-ring/creation.ts')};import{OneRingCompanyPanel as Company}from${absolute('frontend/components/one-ring-company-panel.tsx')};window.sync=sync;window.rules=rules;const root=createRoot(document.getElementById('root'));function WebWithPortrait(props){const [path,setPath]=useState(null);return <Web {...props} onSave={async(values)=>{await props.onSave(values);window.savedPortrait=path;}} renderPortrait={(name)=><PortraitPicker campaignId="11111111-1111-4111-8111-111111111111" uploaderId="22222222-2222-4222-8222-222222222222" value={path} name={name} required={false} onChange={setPath}/>}/>;}window.renderRing=(props={})=>{const Component=location.search.includes('mobile')?Mobile:WebWithPortrait;root.render(<Component key={props.accountId??'account-a'} accountId="account-a" campaignId="campaign-a" templateId="template-v3" onSave={async(values)=>{window.saved=values;}} {...props}/>)};window.renderPortrait=(path,name)=>root.render(<PortraitView path={path} name={name}/>);window.renderCompany=(props={})=>root.render(<Company campaignId="camp" viewerId="master" canManage={true} {...props}/>);window.renderRing();`);
  fs.writeFileSync(path.join(scratch,'client.cjs'),`module.exports.createClient=()=>window.fixtureSupabase;`);
  const compiler=webpack({plugins:[new webpack.DefinePlugin({'process.env.NEXT_PUBLIC_API_URL':JSON.stringify('')}),new webpack.NormalModuleReplacementPlugin(/[/\\]supabase[/\\]client$/,path.join(scratch,'client.cjs'))],mode:'development',devtool:false,entry:path.join(scratch,'entry.tsx'),output:{path:out,filename:'app.js'},resolve:{extensions:['.tsx','.ts','.js'],modules:[path.join(front,'node_modules'),'node_modules']},module:{rules:[{test:/\.tsx?$/,use:path.join(scratch,'tsx.cjs')},{test:/\.module\.css$/,use:path.join(scratch,'css.cjs')}]}});
  await new Promise((resolve,reject)=>compiler.run((err,stats)=>{compiler.close(()=>{});err||stats.hasErrors()?reject(err||new Error(stats.toString({all:false,errors:true}))):resolve()}));
@@ -28,7 +28,33 @@ async function main(){
    await page.reload();await page.getByRole('button',{name:'Restaurar rascunho'}).click();assert.equal(await page.getByLabel('Nome',{exact:true}).inputValue(),'Lindir');
    await page.keyboard.press('Tab');assert.ok(await page.evaluate(()=>document.activeElement!==document.body));
    if(!mobile&&width===390){await page.evaluate(async()=>{await navigator.serviceWorker.register('/one-ring-sw.js',{scope:'/offline/'});await navigator.serviceWorker.ready;});await page.reload();await page.getByRole('button',{name:'Restaurar rascunho'}).click();await context.setOffline(true);await page.reload();await page.getByRole('button',{name:'Restaurar rascunho'}).click();assert.equal(await page.getByLabel('Nome',{exact:true}).inputValue(),'Lindir');await context.setOffline(false);scenarios++;}
-   await page.getByRole('button',{name:'Criar ficha e inventário'}).click();await page.waitForFunction(()=>Boolean(window.saved),null,{timeout:5000}).catch(async e=>{console.error((await page.locator("body").innerText()).slice(-3500));throw e;});assert.equal(await page.evaluate(()=>window.saved.vigor_marcha),27);assert.equal(await page.evaluate(()=>window.saved.experiencia),0);scenarios++;
+   const withPortrait=!mobile&&width===1440;
+   if(withPortrait){
+    await page.evaluate(()=>{
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=4;
+      canvas.getContext('2d').fillRect(0,0,4,4);
+      const image=canvas.toDataURL('image/png');
+      window.fixtureSupabase={storage:{from:()=>({
+        upload:async(path,blob)=>{window.uploaded={path,type:blob.type,size:blob.size};return{error:null};},
+        createSignedUrls:async(paths)=>({data:paths.map(path=>({path,signedUrl:image}))}),
+      })}};
+      canvas.toBlob((blob)=>{
+        const dt=new DataTransfer();dt.items.add(new File([blob],'lindir.png',{type:'image/png'}));
+        const input=document.querySelector('input[type=file]');input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+      },'image/png');
+    });
+    await page.getByRole('img',{name:'Retrato de Lindir'}).waitFor();
+    assert.equal(await page.evaluate(()=>window.uploaded.type),'image/webp');
+    assert.ok(await page.evaluate(()=>window.uploaded.size>0));
+    scenarios++;
+   }
+   await page.getByRole('button',{name:'Criar ficha e inventário'}).click();await page.waitForFunction(()=>Boolean(window.saved),null,{timeout:5000}).catch(async e=>{console.error((await page.locator("body").innerText()).slice(-3500));throw e;});assert.equal(await page.evaluate(()=>window.saved.vigor_marcha),27);assert.equal(await page.evaluate(()=>window.saved.experiencia),0);if(!mobile)assert.equal(await page.evaluate(()=>window.savedPortrait),withPortrait?await page.evaluate(()=>window.uploaded.path):null);scenarios++;
+   if(withPortrait){
+    await page.evaluate(()=>window.renderPortrait(window.savedPortrait,'Lindir'));
+    await page.getByRole('img',{name:'Retrato de Lindir'}).waitFor();
+    assert.equal(await page.locator('input[type=file]').count(),0);
+    scenarios++;
+   }
    await page.evaluate(()=>window.renderRing({accountId:'account-b'}));await page.waitForFunction(()=>document.body.innerText.includes('Rascunho apenas neste aparelho'));assert.equal(await page.getByLabel('Nome',{exact:true}).inputValue(),'');scenarios++;await context.close();
   }
   const serverState={company:{id:"company",campaign_id:"camp",name:"Companhia",patron_id:"none",safe_havens:[],version:1,society_max:3,society_current:3,spent_this_session:0},members:[{sheet_id:"one",owner_id:"master",name:"Um",society_bonus:1},{sheet_id:"two",owner_id:"master",name:"Dois",society_bonus:0}],focuses:[],events:[]};

@@ -167,6 +167,18 @@ try {
   assert.equal((await left.getRecord("character_sheets", sheetId)).data.values.vigor, 3);
   assert.equal((await right.getRecord("character_sheets", sheetId)).data.name, "Maria");
   checked.push("independent field changes merge across two replicas");
+  let previousPortrait = null;
+  for (const nextPortrait of [`${campaign}/${player}/${crypto.randomUUID()}.webp`, `${campaign}/${player}/${crypto.randomUUID()}.webp`, null]) {
+    await left.enqueue({ entityType: "character_sheets", entityId: sheetId, action: "update",
+      changes: [field(["portrait_path"], previousPortrait, nextPortrait)] });
+    assert.equal((await left.sync()).applied, 1);
+    await right.pull();
+    const sheet = await right.getRecord("character_sheets", sheetId);
+    assert.equal(sheet.data.portrait_path, nextPortrait);
+    assert.equal(sheet.data.values.vigor, 3);
+    previousPortrait = nextPortrait;
+  }
+  checked.push("a second device receives portrait addition, replacement and removal");
   await left.enqueue({ entityType: "character_sheets", entityId: sheetId, action: "update", changes: [field(["values", "vigor"], 3, 4)] });
   await right.enqueue({ entityType: "character_sheets", entityId: sheetId, action: "update", changes: [field(["values", "vigor"], 3, 5)] });
   assert.equal((await left.sync()).applied, 1);

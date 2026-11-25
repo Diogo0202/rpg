@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SYSTEM_STARTERS } from "../system-starters.ts";
+import { validateBackup } from "../sheet-backup.ts";
 import { exportSheet } from "./sheets";
 import { importedSheetInput } from "./sheet-import";
 
@@ -14,6 +15,14 @@ describe("campaign backup import", () => {
     expect(result.template_id).toBe(id);
     expect(result.name).toBe("Lia");
   });
+  it("preserves the embedded WebP through validation and both restore modes", () => {
+    const portrait = "data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA";
+    const restored = validateBackup({ ...document, portrait_data: portrait });
+    expect(importedSheetInput(restored, "local", []).portrait_data).toBe(portrait);
+    expect(importedSheetInput(restored, "connected", [template]).portrait_data).toBe(portrait);
+    expect(() => validateBackup({ ...document, portrait_data: "https://example.test/photo.webp" })).toThrow(/retrato/);
+  });
+
   it("rejects incompatible or ambiguous models before writing any document", () => {
     expect(() => importedSheetInput(document, "connected", [])).toThrow(/modelo aprovado/);
     expect(() => importedSheetInput(document, "connected", [template, { ...template, id: "00000000-0000-4000-8000-000000000002" }])).toThrow(/único modelo/);

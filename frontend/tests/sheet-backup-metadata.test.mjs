@@ -47,3 +47,14 @@ test("backup v1 legado mantém seis chaves por campo e continua importável", ()
   assert.deepEqual(parseBackupText(JSON.stringify(legacy)), [legacy]);
   assert.deepEqual(validateBackup(legacy).template.fields, [field]);
 });
+
+test("backup web preserva foto WebP recebida do app", () => {
+  const portrait = "data:image/webp;base64,UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA";
+  const doc = createSheetBackup({
+    name: "Mara", template: { name: "Original", version: 1, fields: [field] },
+    values: { nome: "Mara" }, effects: [],
+  });
+  assert.equal(parseBackupText(JSON.stringify({ ...doc, portrait_data: portrait }))[0].portrait_data, portrait);
+  assert.equal(parseBackupText(JSON.stringify(doc))[0].portrait_data, undefined);
+  assert.throws(() => validateBackup({ ...doc, portrait_data: "data:image/webp;base64,QUFBQQ==" }), /retrato do backup/);
+});

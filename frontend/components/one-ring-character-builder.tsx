@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { evaluateOneRing, reconcileOneRing, ringBase, ringCulture, ringCalling, RING_CATALOG as C, type RingValue, type RingValues } from "../../shared/one-ring/creation.ts";
 import { oneRingReminders } from "../../shared/one-ring/reminders.ts";
 import { loadRingDraft, saveRingDraft, removeRingDraft, type RingDraft } from "../../shared/one-ring/drafts.ts";
@@ -8,6 +8,7 @@ import styles from "./one-ring-character-builder.module.css";
 
 export type OneRingCharacterBuilderProps = {
   accountId: string; campaignId: string; templateId: string; initialValues?: RingValues;
+  renderPortrait?: (name: string) => ReactNode;
   onSave: (values: RingValues) => void | Promise<void>; busy?: boolean; canSave?: boolean; title?: string; saveMode?: "server"|"queued"|"local";
 };
 const list = (value: unknown): string[] => Array.isArray(value) ? value : [];
@@ -16,7 +17,7 @@ const fresh = (initial?: RingValues): RingValues => ({ anel_armadura: "none", an
 
 /** Both clients render this page with the same evaluator and catalog. */
 export function OneRingCharacterBuilder(props:OneRingCharacterBuilderProps){return <CharacterBuilderSession key={JSON.stringify([props.accountId,props.campaignId,props.templateId])} {...props}/>;}
-function CharacterBuilderSession({ accountId, campaignId, templateId, initialValues, onSave, busy = false, canSave = true, title = "Crie seu herói", saveMode = "server" }: OneRingCharacterBuilderProps) {
+function CharacterBuilderSession({ accountId, campaignId, templateId, initialValues, onSave, renderPortrait, busy = false, canSave = true, title = "Crie seu herói", saveMode = "server" }: OneRingCharacterBuilderProps) {
   const prefix = useId();
   const [values, setValues] = useState<RingValues>(() => fresh(initialValues));
   const [draft, setDraft] = useState<RingDraft | null>(null);
@@ -84,7 +85,7 @@ function CharacterBuilderSession({ accountId, campaignId, templateId, initialVal
     {draft ? <aside className={styles.draft}><h3>Rascunho encontrado</h3><p>{new Date(draft.updatedAt).toLocaleString("pt-BR")}. As escolhas incompletas também ficam guardadas.</p><button type="button" onClick={()=>{setValues(fresh(draft.values));setDraft(null);}}>Restaurar rascunho</button><button type="button" onClick={async()=>{try{await removeRingDraft(accountId,campaignId,templateId);setDraft(null);}catch{setStorage("Falha ao descartar o rascunho.");}}}>Descartar rascunho anterior</button></aside> : null}
     <nav className={styles.sections} aria-label="Seções do herói">{[["identity","Identidade"],["culture","Cultura"],["attributes","Atributos"],["calling","Chamado"],["skills","Perícias"],["equipment","Equipamento"],["virtue","Virtude"],["review","Revisão"]].map(([id,name])=><a key={id} href={`#${prefix}-${id}`}>{name}</a>)}</nav>
     <fieldset disabled={lock || !ready || !!draft} className={styles.body}>
-      <section id={`${prefix}-identity`}><h3>Identidade</h3><div className={styles.grid}><label className={styles.field}>Nome<input id={`${prefix}-nome`} value={String(values.nome ?? "")} maxLength={120} aria-invalid={errors("nome").length>0} onChange={(e)=>change("nome",e.target.value)} />{fieldError("nome")}</label><label className={styles.field}>Idade<input id={`${prefix}-idade`} type="number" min={1} max={10000} value={typeof values.idade === "number" ? values.idade : ""} aria-invalid={errors("idade").length>0} onChange={(e)=>change("idade",e.target.value === "" ? "" : Number(e.target.value))} />{fieldError("idade")}</label><label className={styles.field}>Conceito<input maxLength={160} value={String(values.conceito ?? "")} onChange={(e)=>change("conceito",e.target.value)} /></label></div></section>
+      <section id={`${prefix}-identity`}><h3>Identidade</h3><div className={styles.grid}><label className={styles.field}>Nome<input id={`${prefix}-nome`} value={String(values.nome ?? "")} maxLength={120} aria-invalid={errors("nome").length>0} onChange={(e)=>change("nome",e.target.value)} />{fieldError("nome")}</label><label className={styles.field}>Idade<input id={`${prefix}-idade`} type="number" min={1} max={10000} value={typeof values.idade === "number" ? values.idade : ""} aria-invalid={errors("idade").length>0} onChange={(e)=>change("idade",e.target.value === "" ? "" : Number(e.target.value))} />{fieldError("idade")}</label><label className={styles.field}>Conceito<input maxLength={160} value={String(values.conceito ?? "")} onChange={(e)=>change("conceito",e.target.value)} /></label></div>{renderPortrait?.(String(values.nome ?? ""))}</section>
       <section id={`${prefix}-culture`}><h3>Cultura</h3>{select("linhagem","Cultura heroica",C.cultures.map((x)=>({id:x.name,name:x.name})))}{culture ? <><p>Página {culture.page}. Bênção: <strong>{culture.blessing}</strong>. Padrão de vida: {culture.living}. Idiomas: {culture.languages.join(", ")}.</p>{select("anel_favorecida_cultura","Perícia favorecida da cultura",culture.favoured.map((id)=>({id,name:label(id)})))}{picks("tracos_distintivos","Características notáveis",culture.traits.map((id)=>({id,name:id})),2)}</> : <p>Escolha a cultura para abrir suas opções.</p>}</section>
       <section id={`${prefix}-attributes`}><h3>Atributos</h3>{select("anel_atributos","Conjunto cultural",(culture?.attributes ?? []).map((a,i)=>({id:String(i+1),name:`${i+1}: Força ${a[0]}, Coração ${a[1]}, Astúcia ${a[2]}`})))}{culture?.attribute_bonus ? select("anel_bonus_atributo","Reis dos Homens: atributo com +1",C.attributes.map((id)=>({id,name:label(id)}))) : null}<dl className={styles.stats}>{C.attributes.map((id)=><div key={id}><dt>{label(id)}</dt><dd>{String(report.values[id] ?? "?")} <small>NA {report.derived[`tn_${id}`]}</small></dd></div>)}</dl><p className={styles.hint}>O identificador legado corpo representa Força. Resistência usa vigor_marcha; Bloqueio usa aparar.</p></section>
       <section id={`${prefix}-calling`}><h3>Chamado</h3>{select("vocacao","Chamado",C.callings.map((x)=>({id:x.name,name:x.name})))}{calling ? <><p>Página {calling.page}. Traço: {calling.trait}. Caminho da Sombra: {calling.shadow}.</p>{picks("anel_favorecidas_chamado","Perícias favorecidas do Chamado",calling.favoured.map((id)=>({id,name:label(id)})),2)}{calling.enemy_choice ? select("anel_inimigo","Conhecimento sobre Inimigos",C.enemies.map((id)=>({id,name:id}))) : null}</> : null}</section>

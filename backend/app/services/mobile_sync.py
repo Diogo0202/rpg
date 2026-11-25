@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from typing import Any, Literal
 from uuid import UUID
 
@@ -15,6 +16,8 @@ MAX_CHANGES = 200
 MAX_PATH_DEPTH = 12
 MAX_OPERATION_BYTES = 32 * 1024
 MAX_PAGE_SIZE = 200
+_UUID_PATH_PART = r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+_PORTRAIT_PATH = re.compile(rf"(?:{_UUID_PATH_PART}/){{2}}{_UUID_PATH_PART}\.webp")
 FORBIDDEN_KEYS = {"__proto__", "prototype", "constructor"}
 
 # Only database tables with campaign-scoped records accepted by the sync RPC
@@ -23,7 +26,7 @@ ENTITY_FIELDS: dict[str, frozenset[str]] = {
     "campaigns": frozenset({"name", "description"}),
     "character_inventory": frozenset({"sheet_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values"}),
     "system_templates": frozenset({"name", "schema", "page_references"}),
-    "character_sheets": frozenset({"template_id", "name", "values"}),
+    "character_sheets": frozenset({"template_id", "name", "values", "portrait_path"}),
     "world_entities": frozenset({"kind", "name", "body"}),
     "world_relations": frozenset({"from_entity_id", "to_entity_id", "relation_type", "notes"}),
     "maps": frozenset({"name", "document", "grid_kind", "isometric"}),
@@ -149,6 +152,11 @@ class SyncMutation(BaseModel):
                 raise ValueError("campo não permitido para esta entidade")
             if len(change.path) > 1 and root not in json_fields:
                 raise ValueError("caminhos internos só são permitidos em campos JSON")
+            if root == "portrait_path":
+                for state in (change.before, change.after):
+                    if state.exists and state.value is not None:
+                        if not isinstance(state.value, str) or not _PORTRAIT_PATH.fullmatch(state.value):
+                            raise ValueError("caminho de retrato inválido")
             if self.action == "create" and change.before.exists:
                 raise ValueError("create exige before.exists false")
 
@@ -185,7 +193,7 @@ def allowed_record_fields(entity_type: str) -> frozenset[str]:
     return {
         "campaigns": frozenset({"id", "owner_id", "name", "description", "created_at", "updated_at"}),
         "system_templates": frozenset({"id", "campaign_id", "owner_id", "source_id", "name", "version", "status", "schema", "page_references", "created_at", "approved_at"}),
-        "character_sheets": frozenset({"id", "campaign_id", "template_id", "owner_id", "name", "values", "effects", "version", "updated_at"}),
+        "character_sheets": frozenset({"id", "campaign_id", "template_id", "owner_id", "name", "values", "effects", "version", "updated_at", "portrait_path"}),
         "character_inventory": frozenset({"id", "sheet_id", "campaign_id", "name", "category", "quantity", "resource_cost", "damage_bonus", "damage_type", "protection", "notes", "acquired", "equipped", "sort_order", "custom_values", "version", "updated_at"}),
         "world_entities": frozenset({"id", "campaign_id", "kind", "name", "body", "created_by", "version", "created_at", "updated_at"}),
         "world_relations": frozenset({"id", "campaign_id", "from_entity_id", "to_entity_id", "relation_type", "notes", "created_by"}),

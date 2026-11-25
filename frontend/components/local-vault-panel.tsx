@@ -286,7 +286,9 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
       if(error||!data)throw new Error("A restauração foi recusada. Confira o modelo, as permissões e a migration de restauração.");
       const row=(Array.isArray(data)?data[0]:data)as RemoteSheet;
       setSheets(current=>[...current,row]);
-      setNotice("Nova ficha restaurada na campanha, com efeitos e inventário. Selecione-a na barra da sessão para editar.");
+      setNotice(backup.portrait_data
+        ? "Ficha restaurada. Abra a ficha para enviar a foto principal."
+        : "Nova ficha restaurada na campanha, com efeitos e inventário. Selecione-a na barra da sessão para editar.");
     }catch(error){if(liveContext.current.key===requestedKey&&liveContext.current.campaignId===campaignId)setNotice(error instanceof Error?error.message:"Falha ao restaurar a ficha.");}
     finally{if(liveContext.current.key===requestedKey&&liveContext.current.campaignId===campaignId)setBusy(false);}
   }
@@ -364,6 +366,7 @@ export function LocalVaultPanel({ campaignId, viewerId, canEditSheets, canManage
         </fieldset>
         <div className={styles.actions}><button type="button" disabled={busy || !loaded} onClick={() => renameCopy(row)}>Salvar nome</button><button type="button" onClick={() => duplicateCopy(row)} disabled={busy || !loaded || copies.length >= MAX_VAULT_DOCUMENTS}>Duplicar</button>
           <button type="button" disabled={busy} onClick={() => downloadJson(`${row.backup.name.replace(/[^\p{L}\p{N}_-]+/gu, "-")}.json`, row.backup)}>Exportar JSON</button><button type="button" disabled={busy} onClick={() => openPrintable(row.backup)}>Abrir versão de impressão / salvar PDF</button>
+          {row.backup.portrait_data && <small className={styles.muted}>A cópia local mantém a foto. Envie-a pela ficha após restaurar na campanha.</small>}
           <button type="button" disabled={busy||!mayCopy||!compatibleTemplate(row.backup)} onClick={()=>void restoreRemote(row.backup)}>Restaurar cópia na campanha</button>
           <button type="button" className={styles.danger} disabled={busy || !loaded} onClick={() => commit(copies.filter((item) => item.id !== row.id), "Cópia removida apenas do cofre local.")}>Excluir</button></div>
       </li>)}</ul>}

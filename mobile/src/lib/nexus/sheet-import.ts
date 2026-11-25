@@ -23,5 +23,5 @@ export function importedSheetInput(doc: SheetBackup, mode: "local" | "connected"
   if (nameField) input[nameField.id] = doc.name;
   const prepared = prepareSheetValues(schema, input, doc.name);
   if (Object.keys(prepared.errors).length) throw new Error(Object.values(prepared.errors)[0]);
-  return { template_id: selected.id, name: prepared.name, values: prepared.values };
+  return { template_id: selected.id, name: prepared.name, values: prepared.values, ...(doc.portrait_data ? { portrait_data: doc.portrait_data } : {}) };
 }

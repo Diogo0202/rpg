@@ -15,7 +15,7 @@ import { createCampaignSheet } from "../lib/sheet-api";
 import { AiSheetRequest } from "./ai-assistance-panel";
 import { OneRingCharacterBuilder } from "./one-ring-character-builder";
 import { SheetCreationWizard } from "./sheet-creation-wizard";
-import { PortraitPicker } from "./portrait-picker";
+import { PortraitPicker, PortraitView } from "./portrait-picker";
 import { GrimoireShelf } from "./grimoire-shelf";
 import { HomebrewClanEditor } from "./homebrew-clan-editor";
 import { SheetVersionHistory } from "./sheet-version-history";
@@ -67,6 +67,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   const [loadError, setLoadError] = useState("");
   const [calculationError, setCalculationError] = useState("");
   const [portraitPath, setPortraitPath] = useState<string | null>(null);
+  const [portraitUploading, setPortraitUploading] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -202,7 +203,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
   }
 
   async function saveSheet(submittedValues?: Record<string, FieldValue>) {
-    if (busy) return;
+    if (busy || portraitUploading) return;
     if (!canEditSheets) { setFeedback("Seu papel nesta campanha permite apenas leitura das fichas."); return; }
     if (!templateId) { setFeedback("Selecione um modelo salvo antes de gravar a ficha."); return; }
     const name = (typeof submittedValues?.nome === "string" ? submittedValues.nome : sheetName).trim();
@@ -282,6 +283,7 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     editorRevision.current += 1;
     setSheetVersion(stored.version);
     setSheetName(stored.name);
+    if (typeof stored.portrait_path === "string" || stored.portrait_path === null) setPortraitPath(stored.portrait_path);
     const nameField = characterNameField(template);
     setValues(nameField ? { ...stored.values, [nameField.id]: stored.name } : stored.values);
     setCalculated({});
@@ -577,6 +579,9 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
     }
   }
 
+  const selectedSheet = sheets.find((item) => item.id === sheetId);
+  const canEditPortrait = canEditSheets && (!sheetId || canManageTemplates || selectedSheet?.owner_id === viewerId);
+
   return (
     <section className="content" data-system-theme={template.system_key === "demon-the-fallen" ? "demon-the-fallen" : undefined}>
       <nav className="actions" aria-label="Modo das fichas">
@@ -598,16 +603,20 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
       </div>}
       {mode === "guided" && !sheetId ? (template.system_key === "one-ring" && template.rules_profile_version === 3 && templateId ? <>
         <label>Modelo aprovado<select value={templateId} disabled={busy} onChange={(e)=>chooseTemplate(e.target.value)}>{templates.map((item)=><option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
-        <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={values} busy={busy} canSave={canEditSheets} onSave={saveSheet} />
+        <OneRingCharacterBuilder key={`${campaignId}-${templateId}`} accountId={viewerId} campaignId={campaignId} templateId={templateId} initialValues={values} busy={busy || portraitUploading} canSave={canEditSheets} onSave={saveSheet}
+          renderPortrait={canEditSheets ? (name) => (
+            <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={name}
+              disabled={busy} required={false} onUploadState={setPortraitUploading} onChange={setPortraitPath} />
+          ) : undefined} />
       </> : <SheetCreationWizard
         key={templateId || "no-template"}
         campaignId={campaignId}
         templates={templates} templateId={templateId} template={template} values={values}
-        name={sheetName} calculated={calculated} busy={busy} canCreate={canEditSheets} canGrantResources={canManageTemplates}
+        name={sheetName} calculated={calculated} busy={busy || portraitUploading} canCreate={canEditSheets} canGrantResources={canManageTemplates}
         loading={loading} loadError={loadError} feedback={feedback} calculationError={templateId ? calculationError : ""}
         onChooseTemplate={chooseTemplate} onNameChange={changeCharacterName} onValueChange={setValue}
         onSave={() => saveSheet()} onOpenEditor={canManageTemplates ? () => setMode("editor") : undefined}
-        viewerId={viewerId} portraitPath={portraitPath} onPortraitChange={setPortraitPath}
+        viewerId={viewerId} portraitPath={portraitPath} onPortraitChange={setPortraitPath} onPortraitUploadState={setPortraitUploading}
       />) : <fieldset disabled={busy} style={{ border: 0, margin: "18px 0 0", padding: 0, minWidth: 0 }}><div className="sheet-layout">
       <div className="sheet-builder-column">
         <article className="sheet-template-card">
@@ -631,10 +640,12 @@ export function SheetBuilder({ campaignId, viewerId, canManageTemplates, canEdit
           <label className="sheet-name">Nome do personagem
             <input value={sheetName} maxLength={120} onChange={(event) => changeCharacterName(event.target.value)} placeholder="Nome da ficha" />
           </label>
-          {templateId && canEditSheets && <PortraitPicker campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
-            required={!sheetId} disabled={busy} onChange={(path) => { setPortraitPath(path); setFeedback(sheetId ? "Novo retrato enviado. Salve a ficha para aplicá-lo." : ""); }} />}
+          {templateId && (canEditPortrait
+            ? <PortraitPicker key={sheetId || templateId} campaignId={campaignId} uploaderId={viewerId} value={portraitPath} name={sheetName}
+                required={!sheetId} disabled={busy} onUploadState={setPortraitUploading} onChange={setPortraitPath} />
+            : sheetId && <PortraitView path={portraitPath} name={sheetName} />)}
           <div className="actions">
-            <button className="primary" type="button" onClick={() => void saveSheet()} disabled={busy || !templateId || !canEditSheets}>Salvar ficha</button>
+            <button className="primary" type="button" onClick={() => void saveSheet()} disabled={busy || portraitUploading || !templateId || !canEditSheets}>Salvar ficha</button>
             <button className="quiet" type="button" onClick={() => { chooseTemplate(templateId); setMode("guided"); }}>Nova ficha</button>
             {sheetId && canManageTemplates && !confirmDelete ? <button className="quiet" type="button" onClick={() => setConfirmDelete(true)}>Excluir ficha</button> : null}
           </div>

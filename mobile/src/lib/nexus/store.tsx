@@ -33,6 +33,8 @@ import {
 } from "./config";
 import { getSupabaseAuth, getSupabaseConfigProblem, accessTokenProvider } from "./auth";
 import { fromRemoteRecord, remoteEntityType, toRemoteCreate, toRemotePath } from "./remote-adapter";
+import { uploadSheetPortrait } from "./portraits";
+import { portraitDataBytes } from "../../../../shared/portrait-data.ts";
 import { seedDemo } from "./seed";
 import { prefGet, prefSet } from "./prefs";
 import {
@@ -229,6 +231,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
         campaignId: LOCAL_CAMPAIGN_ID,
         deviceId: device,
         entityFields: LOCAL_ENTITY_FIELDS,
+        localOnly: true,
       },
       store,
       new LocalOnlyTransport(),
@@ -378,12 +381,37 @@ export function NexusProvider({ children }: { children: ReactNode }) {
     [records],
   );
 
+  const persistPortrait = useCallback(async (active: SyncEngine, value: JsonValue | undefined): Promise<JsonValue> => {
+    if (value == null) return null;
+    if (typeof value !== "string" || !portraitDataBytes(value)) throw new Error("A foto da ficha é inválida.");
+    if (modeRef.current === "local") return value;
+    if (active.partition.campaignId !== campaignId) throw new Error("A campanha mudou durante o envio da foto.");
+    const account = authAccountRef.current;
+    if (!account || active.partition.accountId !== account) throw new Error("Entre na campanha para enviar a foto.");
+    if (!capabilities?.entity_fields.character_sheets?.includes("portrait_path")) {
+      throw new Error("A campanha não aceita edição de retrato neste aparelho.");
+    }
+    const path = await uploadSheetPortrait(auth, account, campaignId, value);
+    if (engineRef.current !== active || authAccountRef.current !== account || modeRef.current !== "connected") {
+      throw new Error("A campanha mudou durante o envio da foto.");
+    }
+    return path;
+  }, [auth, campaignId, capabilities]);
+
   const create = useCallback<Ctx["create"]>(
     async (type, input, opts) => {
       const active = engineRef.current;
       if (!active) throw new Error("Armazenamento local indisponível.");
       const current = await active.readState();
       let createInput = input;
+      if (type === "character_sheets" && input.portrait_data !== undefined) {
+        const { portrait_data, ...fields } = input;
+        const value = await persistPortrait(active, portrait_data);
+        createInput = {
+          ...fields,
+          [modeRef.current === "connected" ? "portrait_path" : "portrait_data"]: value,
+        };
+      }
       if (
         modeRef.current === "connected" &&
         type === "journal_sessions" &&
@@ -450,7 +478,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
       await load(active);
       return mutation.entity_id;
     },
-    [load],
+    [load, persistPortrait],
   );
 
   const update = useCallback<Ctx["update"]>(
@@ -464,6 +492,22 @@ export function NexusProvider({ children }: { children: ReactNode }) {
       const atomicDeltas: { fieldId: string; delta: number }[] = [];
       const changes: SyncChange[] = [];
       for (const set of sets) {
+        if (type === "character_sheets" && set.path.length === 1 && set.path[0] === "portrait_data") {
+          const owner = current.data.owner_id;
+          if (modeRef.current === "connected" && typeof owner === "string" && owner !== authAccountRef.current
+              && capabilities?.role !== "owner" && capabilities?.role !== "master") {
+            throw new Error("Você não pode editar o retrato desta ficha.");
+          }
+          const connected = modeRef.current === "connected";
+          const path = [connected ? "portrait_path" : "portrait_data"];
+          const value = await persistPortrait(active, set.value);
+          const existing = readPath(current.data, path);
+          // Rows cached before portrait sync shipped omit a database NULL.
+          const before = connected && !existing.exists ? { exists: true as const, value: null } : existing;
+          const after = { exists: true as const, value };
+          if (!fieldValuesEqual(before, after)) changes.push({ path, before, after });
+          continue;
+        }
         if (modeRef.current === "connected" && type === "character_sheets" && set.path.length === 1 && set.path[0] === "values"
             && set.value && typeof set.value === "object" && !Array.isArray(set.value)) {
           const priorValues = logical.data.values && typeof logical.data.values === "object" && !Array.isArray(logical.data.values)
@@ -515,7 +559,7 @@ export function NexusProvider({ children }: { children: ReactNode }) {
       await load(active);
       return true;
     },
-    [load],
+    [load, persistPortrait, capabilities],
   );
 
   const remove = useCallback<Ctx["remove"]>(
